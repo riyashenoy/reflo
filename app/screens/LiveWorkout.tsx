@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Button,
   Linking,
@@ -12,6 +12,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import DashedBorderOverlay from '../components/DashedBorderOverlay';
 import { getWorkoutById } from '../data/workouts';
 import type { AppStackParamList } from '../navigation';
 
@@ -42,6 +43,8 @@ export default function LiveWorkout({ route, navigation }: Props) {
     requestPermission();
   }, [requestPermission]);
 
+  const hasNavigatedToPostWorkout = useRef(false);
+
   useEffect(() => {
     const interval = setInterval(() => {
       setSeconds((prev) => prev + 1);
@@ -49,6 +52,18 @@ export default function LiveWorkout({ route, navigation }: Props) {
 
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (
+      seconds >= 30 &&
+      workoutId &&
+      !hasNavigatedToPostWorkout.current
+    ) {
+      hasNavigatedToPostWorkout.current = true;
+      setSeconds(0);
+      navigation.navigate('PostWorkout', { workoutId });
+    }
+  }, [seconds, workoutId, navigation]);
 
   const stats = exercise
     ? [
@@ -118,6 +133,8 @@ export default function LiveWorkout({ route, navigation }: Props) {
       <View style={styles.cameraSection}>
         {renderCameraContent()}
 
+        <DashedBorderOverlay />
+
         <View
           style={[styles.topBar, { paddingTop: insets.top + 8 }]}
           pointerEvents="box-none"
@@ -138,9 +155,6 @@ export default function LiveWorkout({ route, navigation }: Props) {
           </Pressable>
         </View>
 
-        {permission?.granted && Platform.OS !== 'web' ? (
-          <View style={styles.dashedBorder} pointerEvents="none" />
-        ) : null}
       </View>
 
       <View style={styles.bottomPanel}>
@@ -204,18 +218,6 @@ const styles = StyleSheet.create({
   permissionButtonSpacer: {
     marginTop: 12,
   },
-  dashedBorder: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    bottom: 12,
-    left: 12,
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: '#cc2200',
-    borderStyle: 'dashed',
-    opacity: 0.7,
-  },
   topBar: {
     position: 'absolute',
     top: 0,
@@ -226,6 +228,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 8,
+    zIndex: 3,
   },
   pillButton: {
     backgroundColor: '#00000066',

@@ -91,7 +91,11 @@ function AppNavigator({ initialRouteName }: { initialRouteName: AppEntryRoute })
         component={LiveWorkout}
         options={{ headerShown: false }}
       />
-      <AppStack.Screen name="PostWorkout" component={PostWorkout} />
+      <AppStack.Screen
+        name="PostWorkout"
+        component={PostWorkout}
+        options={{ headerShown: false }}
+      />
     </AppStack.Navigator>
   );
 }
