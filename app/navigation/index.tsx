@@ -48,9 +48,21 @@ function MainTabs() {
   return (
     <Tab.Navigator>
       <Tab.Screen name="Home" component={Home} />
-      <Tab.Screen name="Calendar" component={Calendar} />
-      <Tab.Screen name="Progress" component={Progress} />
-      <Tab.Screen name="Profile" component={Profile} />
+      <Tab.Screen
+        name="Calendar"
+        component={Calendar}
+        options={{ headerShown: false }}
+      />
+      <Tab.Screen
+        name="Progress"
+        component={Progress}
+        options={{ headerShown: false }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={Profile}
+        options={{ headerShown: false }}
+      />
     </Tab.Navigator>
   );
 }
