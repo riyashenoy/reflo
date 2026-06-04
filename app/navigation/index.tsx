@@ -14,6 +14,7 @@ import Home from '../screens/Home';
 import LiveWorkout from '../screens/LiveWorkout';
 import PostWorkout from '../screens/PostWorkout';
 import Profile from '../screens/Profile';
+import ProfileEdit from '../screens/ProfileEdit';
 import ProfileSetup from '../screens/ProfileSetup';
 import Progress from '../screens/Progress';
 import SignIn from '../screens/SignIn';
@@ -31,6 +32,7 @@ export type AppStackParamList = {
   ExercisePreview: { workoutId: string; exerciseIndex: number };
   LiveWorkout: { workoutId?: string };
   PostWorkout: { workoutId?: string };
+  ProfileEdit: { section?: 'about' | 'body' | 'mindful' };
 };
 
 export type MainTabParamList = {
@@ -87,7 +89,11 @@ function AppNavigator({ initialRouteName }: { initialRouteName: AppEntryRoute })
         component={MainTabs}
         options={{ headerShown: false }}
       />
-      <AppStack.Screen name="ProfileSetup" component={ProfileSetup} />
+      <AppStack.Screen
+        name="ProfileSetup"
+        component={ProfileSetup}
+        options={{ headerShown: false }}
+      />
       <AppStack.Screen
         name="ClassDetail"
         component={ClassDetail}
@@ -106,6 +112,11 @@ function AppNavigator({ initialRouteName }: { initialRouteName: AppEntryRoute })
       <AppStack.Screen
         name="PostWorkout"
         component={PostWorkout}
+        options={{ headerShown: false }}
+      />
+      <AppStack.Screen
+        name="ProfileEdit"
+        component={ProfileEdit}
         options={{ headerShown: false }}
       />
     </AppStack.Navigator>

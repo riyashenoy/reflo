@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -8,19 +9,29 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { signOut } from 'firebase/auth';
-import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { auth } from '../lib/firebase';
 import { getAuthErrorMessage } from '../lib/authErrors';
-import type { AuthStackParamList } from '../navigation';
+import {
+  DEFAULT_PREFERENCES,
+  fetchUserProfile,
+  formatHeight,
+  formatMindfulAreas,
+  formatProfileSubtitle,
+  formatWeight,
+  getAgeFromBirthday,
+  getProfileInitial,
+  saveUserProfile,
+  type ProfileEditSection,
+  type UserPreferences,
+  type UserProfile,
+} from '../lib/userProfile';
+import type { AppStackParamList } from '../navigation';
 
-type NavigationProp = NativeStackNavigationProp<AuthStackParamList>;
-
-function showComingSoon() {
-  Alert.alert('Coming soon', 'This feature is not available yet.');
-}
+type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
 
 function SectionLabel({ title }: { title: string }) {
   return <Text style={styles.sectionLabel}>{title}</Text>;
@@ -81,6 +92,9 @@ function PreferenceRow({
 export default function Profile() {
   const navigation = useNavigation<NavigationProp>();
 
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
   const [motionCapture, setMotionCapture] = useState(true);
   const [instructorVoice, setInstructorVoice] = useState(true);
   const [workoutMusic, setWorkoutMusic] = useState(true);
@@ -88,20 +102,92 @@ export default function Profile() {
   const [accountExpanded, setAccountExpanded] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
+  const loadProfile = useCallback(async () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const data = await fetchUserProfile(uid);
+      setProfile(data);
+      const prefs = data?.preferences ?? DEFAULT_PREFERENCES;
+      setMotionCapture(prefs.motionCapture);
+      setInstructorVoice(prefs.instructorVoice);
+      setWorkoutMusic(prefs.workoutMusic);
+      setReminders(prefs.reminders);
+    } catch (err) {
+      Alert.alert('Profile error', getAuthErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+    }, [loadProfile])
+  );
+
+  const displayName =
+    profile?.name?.trim() ||
+    auth.currentUser?.displayName ||
+    'Your profile';
+  const displayEmail = auth.currentUser?.email ?? '—';
+  const avatarInitial = getProfileInitial(
+    profile?.name,
+    auth.currentUser?.email
+  );
+  const profileSubtitle = formatProfileSubtitle(profile);
+  const mindfulSubtitle = formatMindfulAreas(profile?.mindfulAreas);
+
+  const openEdit = (section: ProfileEditSection) => {
+    navigation.navigate('ProfileEdit', { section });
+  };
+
+  const updatePreferences = async (next: UserPreferences) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      return;
+    }
+
+    try {
+      await saveUserProfile(uid, { preferences: next });
+      setProfile((prev) => (prev ? { ...prev, preferences: next } : prev));
+    } catch (err) {
+      Alert.alert('Save failed', getAuthErrorMessage(err));
+      loadProfile();
+    }
+  };
+
+  const handleEmailPress = () => {
+    Alert.alert(
+      'Email',
+      `Your sign-in email is ${displayEmail}. Email changes are managed through your authentication provider.`
+    );
+  };
+
   const handleSignOut = async () => {
     setSigningOut(true);
     try {
       await signOut(auth);
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'SignIn' }],
-      });
     } catch (err) {
       Alert.alert('Sign out failed', getAuthErrorMessage(err));
     } finally {
       setSigningOut(false);
     }
   };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#cc2200" />
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -111,40 +197,47 @@ export default function Profile() {
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarInitial}>R</Text>
+            <Text style={styles.avatarInitial}>{avatarInitial}</Text>
           </View>
           <View style={styles.headerText}>
-            <Text style={styles.name}>Riya Shenoy</Text>
-            <Text style={styles.subtitle}>Some experience · Reformer</Text>
+            <Text style={styles.name}>{displayName}</Text>
+            <Text style={styles.subtitle}>{profileSubtitle}</Text>
           </View>
         </View>
-        <Pressable onPress={showComingSoon}>
+        <Pressable onPress={() => openEdit('about')}>
           <Text style={styles.editLink}>Edit</Text>
         </Pressable>
       </View>
 
-      <Pressable style={styles.mindfulCard} onPress={showComingSoon}>
+      <Pressable
+        style={styles.mindfulCard}
+        onPress={() => openEdit('mindful')}
+      >
         <Text style={styles.warningIcon}>⚠</Text>
         <View style={styles.mindfulText}>
           <Text style={styles.mindfulTitle}>Mindful Areas</Text>
-          <Text style={styles.mindfulSubtitle}>Back, knees</Text>
+          <Text style={styles.mindfulSubtitle}>{mindfulSubtitle}</Text>
         </View>
         <Text style={styles.chevron}>›</Text>
       </Pressable>
 
       <SectionLabel title="BODY" />
       <View style={styles.card}>
-        <BodyRow label="Height" value="168 cm" onPress={showComingSoon} />
+        <BodyRow
+          label="Height"
+          value={formatHeight(profile)}
+          onPress={() => openEdit('body')}
+        />
         <BodyRow
           label="Weight"
-          value="62 kg"
-          onPress={showComingSoon}
+          value={formatWeight(profile)}
+          onPress={() => openEdit('body')}
           showDivider
         />
         <BodyRow
           label="Age"
-          value="28"
-          onPress={showComingSoon}
+          value={getAgeFromBirthday(profile?.birthday)}
+          onPress={() => openEdit('body')}
           showDivider
         />
       </View>
@@ -155,27 +248,59 @@ export default function Profile() {
           title="Motion Capture"
           subtitle="Real-time form corrections"
           value={motionCapture}
-          onValueChange={setMotionCapture}
+          onValueChange={(value) => {
+            setMotionCapture(value);
+            updatePreferences({
+              motionCapture: value,
+              instructorVoice,
+              workoutMusic,
+              reminders,
+            });
+          }}
         />
         <PreferenceRow
           title="Instructor Voice"
           subtitle="AI Audio cues"
           value={instructorVoice}
-          onValueChange={setInstructorVoice}
+          onValueChange={(value) => {
+            setInstructorVoice(value);
+            updatePreferences({
+              motionCapture,
+              instructorVoice: value,
+              workoutMusic,
+              reminders,
+            });
+          }}
           showDivider
         />
         <PreferenceRow
           title="Workout Music"
           subtitle="Plays during class"
           value={workoutMusic}
-          onValueChange={setWorkoutMusic}
+          onValueChange={(value) => {
+            setWorkoutMusic(value);
+            updatePreferences({
+              motionCapture,
+              instructorVoice,
+              workoutMusic: value,
+              reminders,
+            });
+          }}
           showDivider
         />
         <PreferenceRow
           title="Reminders"
           subtitle="Daily workout nudges"
           value={reminders}
-          onValueChange={setReminders}
+          onValueChange={(value) => {
+            setReminders(value);
+            updatePreferences({
+              motionCapture,
+              instructorVoice,
+              workoutMusic,
+              reminders: value,
+            });
+          }}
           showDivider
         />
       </View>
@@ -193,9 +318,9 @@ export default function Profile() {
 
       {accountExpanded ? (
         <View style={styles.card}>
-          <Pressable style={styles.listRow} onPress={showComingSoon}>
+          <Pressable style={styles.listRow} onPress={handleEmailPress}>
             <Text style={styles.rowLabel}>Email</Text>
-            <Text style={styles.rowValue}>riya@example.com</Text>
+            <Text style={styles.rowValue}>{displayEmail}</Text>
             <Text style={styles.chevron}>›</Text>
           </Pressable>
           <View style={styles.rowDivider} />
@@ -217,6 +342,12 @@ export default function Profile() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f2f0eb',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: '#f2f0eb',
   },
   scrollContent: {
