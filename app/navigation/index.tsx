@@ -7,8 +7,8 @@ import { onAuthStateChanged, type User } from 'firebase/auth';
 
 import { AuthFlowContext, type AppEntryRoute } from '../context/AuthFlowContext';
 import Calendar from '../screens/Calendar';
-import CameraSetup from '../screens/CameraSetup';
 import ClassDetail from '../screens/ClassDetail';
+import ExercisePreview from '../screens/ExercisePreview';
 import EmailAuth from '../screens/EmailAuth';
 import Home from '../screens/Home';
 import LiveWorkout from '../screens/LiveWorkout';
@@ -28,7 +28,7 @@ export type AppStackParamList = {
   Main: undefined;
   ProfileSetup: undefined;
   ClassDetail: { workoutId?: string };
-  CameraSetup: { workoutId?: string };
+  ExercisePreview: { workoutId: string; exerciseIndex: number };
   LiveWorkout: { workoutId?: string };
   PostWorkout: { workoutId?: string };
 };
@@ -76,9 +76,21 @@ function AppNavigator({ initialRouteName }: { initialRouteName: AppEntryRoute })
         options={{ headerShown: false }}
       />
       <AppStack.Screen name="ProfileSetup" component={ProfileSetup} />
-      <AppStack.Screen name="ClassDetail" component={ClassDetail} />
-      <AppStack.Screen name="CameraSetup" component={CameraSetup} />
-      <AppStack.Screen name="LiveWorkout" component={LiveWorkout} />
+      <AppStack.Screen
+        name="ClassDetail"
+        component={ClassDetail}
+        options={{ headerShown: false }}
+      />
+      <AppStack.Screen
+        name="ExercisePreview"
+        component={ExercisePreview}
+        options={{ headerShown: false }}
+      />
+      <AppStack.Screen
+        name="LiveWorkout"
+        component={LiveWorkout}
+        options={{ headerShown: false }}
+      />
       <AppStack.Screen name="PostWorkout" component={PostWorkout} />
     </AppStack.Navigator>
   );
