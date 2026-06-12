@@ -12,6 +12,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { getWorkoutById } from '../data/workouts';
 import type { AppStackParamList } from '../navigation';
+import theme from '../theme';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'ExercisePreview'>;
 
@@ -215,7 +216,7 @@ export default function ExercisePreview({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: theme.colors.dark,
   },
   scroll: {
     flex: 1,
@@ -251,7 +252,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backButtonText: {
-    color: '#ffffff',
+    color: theme.colors.white,
     fontSize: 18,
   },
   videoArea: {
@@ -259,7 +260,7 @@ const styles = StyleSheet.create({
   },
   videoPlaceholder: {
     height: 280,
-    backgroundColor: '#333333',
+    backgroundColor: theme.colors.surfaceMuted,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -272,7 +273,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   playButtonIcon: {
-    color: '#ffffff',
+    color: theme.colors.white,
     fontSize: 22,
   },
   dotsRow: {
@@ -288,31 +289,31 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     width: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.white,
   },
   dotInactive: {
     width: 6,
-    backgroundColor: '#ffffff44',
+    backgroundColor: `${theme.colors.white}44`,
   },
   content: {
     paddingHorizontal: 20,
   },
   exerciseCount: {
-    fontSize: 11,
-    letterSpacing: 2,
-    color: '#ffffff66',
-    textTransform: 'uppercase',
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: `${theme.colors.white}66`,
     marginBottom: 8,
   },
   exerciseName: {
-    fontFamily: 'Georgia',
+    ...theme.typography.header,
+    fontFamily: theme.fonts.header,
     fontSize: 28,
-    color: '#ffffff',
+    color: theme.colors.white,
     marginBottom: 8,
   },
   exerciseDescription: {
-    fontSize: 14,
-    color: '#ffffff99',
+    ...theme.typography.body,
+    color: `${theme.colors.white}99`,
     lineHeight: 20,
     marginBottom: 20,
   },
@@ -326,48 +327,51 @@ const styles = StyleSheet.create({
   },
   statColumnDivider: {
     borderLeftWidth: 1,
-    borderLeftColor: '#ffffff22',
+    borderLeftColor: `${theme.colors.white}22`,
   },
   statValue: {
+    ...theme.typography.body,
+    fontFamily: theme.fonts.bodyMedium,
     fontSize: 18,
-    fontWeight: '600',
-    color: '#ffffff',
+    color: theme.colors.white,
     marginBottom: 4,
   },
   statLabel: {
-    fontSize: 11,
-    color: '#ffffff66',
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    fontSize: 9,
+    color: `${theme.colors.white}66`,
   },
   stepCard: {
-    backgroundColor: '#2a2a2a',
-    borderRadius: 8,
+    backgroundColor: theme.colors.surfaceMuted,
+    borderRadius: theme.radius.sm,
     padding: 16,
     marginBottom: 12,
   },
   stepLabel: {
-    fontSize: 12,
-    color: '#ffffff99',
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    fontSize: 10,
+    color: `${theme.colors.white}99`,
     marginBottom: 6,
-    textTransform: 'uppercase',
   },
   stepDescription: {
-    fontSize: 14,
-    color: '#ffffff',
+    ...theme.typography.body,
+    color: theme.colors.white,
     lineHeight: 20,
   },
   beginClassButton: {
-    backgroundColor: '#cc2200',
-    borderRadius: 24,
+    backgroundColor: theme.colors.red,
+    borderRadius: theme.radius.full,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 8,
     marginBottom: 16,
   },
   beginClassButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 1,
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: theme.colors.white,
   },
   navArrows: {
     flexDirection: 'row',
@@ -382,11 +386,12 @@ const styles = StyleSheet.create({
     opacity: 0.35,
   },
   arrowButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
+    ...theme.typography.body,
+    color: theme.colors.white,
   },
   notFound: {
-    color: '#ffffff',
+    ...theme.typography.body,
+    color: theme.colors.white,
     textAlign: 'center',
     marginTop: 100,
   },

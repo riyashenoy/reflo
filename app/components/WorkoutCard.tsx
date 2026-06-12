@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import theme from '../theme';
+
 export default function WorkoutCard() {
   return (
     <View style={styles.container}>
@@ -11,11 +13,12 @@ export default function WorkoutCard() {
 const styles = StyleSheet.create({
   container: {
     padding: 16,
-    borderRadius: 12,
-    backgroundColor: '#F5F5F5',
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.grey200,
   },
   label: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...theme.typography.body,
+    fontFamily: theme.fonts.bodyMedium,
+    color: theme.colors.textPrimary,
   },
 });

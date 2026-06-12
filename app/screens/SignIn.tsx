@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Button,
+  Image,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -18,6 +19,7 @@ import { useAuthFlow } from '../context/AuthFlowContext';
 import { auth, googleProvider } from '../lib/firebase';
 import { getAuthErrorMessage } from '../lib/authErrors';
 import type { AuthStackParamList } from '../navigation';
+import theme from '../theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'SignIn'>;
 
@@ -59,26 +61,37 @@ export default function SignIn({ navigation }: Props) {
   if (checkingSession) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={theme.colors.red} />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>SignIn</Text>
+      <Image
+        source={require('../../assets/images/logo.png')}
+        style={styles.logo}
+      />
+      <Text style={styles.title}>Welcome to Reflo</Text>
+      <Text style={styles.subtitle}>
+        Sign in to start your personalized pilates training
+      </Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {loading ? (
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={theme.colors.red} />
       ) : (
         <View style={styles.buttons}>
-          <Button title="Continue with Google" onPress={handleGoogleSignIn} />
-          <Button
-            title="Continue with Email"
+          <Pressable style={styles.primaryButton} onPress={handleGoogleSignIn}>
+            <Text style={styles.primaryButtonText}>Continue with Google</Text>
+          </Pressable>
+          <Pressable
+            style={styles.secondaryButton}
             onPress={() => navigation.navigate('EmailAuth')}
-          />
+          >
+            <Text style={styles.secondaryButtonText}>Continue with Email</Text>
+          </Pressable>
         </View>
       )}
     </View>
@@ -90,20 +103,61 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background,
+  },
+  logo: {
+    width: 96,
+    height: 48,
+    resizeMode: 'contain',
+    alignSelf: 'center',
+    marginBottom: 32,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '600',
-    marginBottom: 24,
+    ...theme.typography.header,
+    fontFamily: theme.fonts.header,
+    fontSize: 28,
+    color: theme.colors.textPrimary,
     textAlign: 'center',
+    marginBottom: 8,
+  },
+  subtitle: {
+    ...theme.typography.body,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 20,
   },
   error: {
-    color: 'red',
-    marginBottom: 12,
+    ...theme.typography.body,
+    color: theme.colors.red,
+    marginBottom: 16,
     textAlign: 'center',
   },
   buttons: {
-    gap: 8,
+    gap: 12,
+  },
+  primaryButton: {
+    backgroundColor: theme.colors.dark,
+    borderRadius: theme.radius.full,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: theme.colors.white,
+  },
+  secondaryButton: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radius.full,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  secondaryButtonText: {
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: theme.colors.textPrimary,
   },
 });

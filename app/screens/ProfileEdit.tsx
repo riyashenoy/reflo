@@ -23,6 +23,7 @@ import {
   type ProfileEditSection,
 } from '../lib/userProfile';
 import type { AppStackParamList } from '../navigation';
+import theme from '../theme';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'ProfileEdit'>;
 
@@ -228,7 +229,7 @@ export default function ProfileEdit({ route, navigation }: Props) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#cc2200" />
+        <ActivityIndicator size="large" color={theme.colors.red} />
       </View>
     );
   }
@@ -256,7 +257,7 @@ export default function ProfileEdit({ route, navigation }: Props) {
             value={name}
             onChangeText={setName}
             placeholder="Your name"
-            placeholderTextColor="#00000044"
+            placeholderTextColor={theme.colors.textSecondary}
           />
 
           <SectionLabel>EXPERIENCE LEVEL</SectionLabel>
@@ -309,7 +310,7 @@ export default function ProfileEdit({ route, navigation }: Props) {
             onChangeText={setHeight}
             keyboardType="numeric"
             placeholder="168"
-            placeholderTextColor="#00000044"
+            placeholderTextColor={theme.colors.textSecondary}
           />
 
           <SectionLabel>WEIGHT</SectionLabel>
@@ -325,7 +326,7 @@ export default function ProfileEdit({ route, navigation }: Props) {
             onChangeText={setWeight}
             keyboardType="numeric"
             placeholder="62"
-            placeholderTextColor="#00000044"
+            placeholderTextColor={theme.colors.textSecondary}
           />
 
           <SectionLabel>BIRTHDAY</SectionLabel>
@@ -334,7 +335,7 @@ export default function ProfileEdit({ route, navigation }: Props) {
             value={birthday}
             onChangeText={setBirthday}
             placeholder="e.g. 02/29/2004"
-            placeholderTextColor="#00000044"
+            placeholderTextColor={theme.colors.textSecondary}
           />
         </View>
 
@@ -373,7 +374,7 @@ export default function ProfileEdit({ route, navigation }: Props) {
           disabled={saving}
         >
           {saving ? (
-            <ActivityIndicator color="#ffffff" />
+            <ActivityIndicator color={theme.colors.white} />
           ) : (
             <Text style={styles.saveButtonText}>SAVE CHANGES</Text>
           )}
@@ -386,13 +387,13 @@ export default function ProfileEdit({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f0eb',
+    backgroundColor: theme.colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f2f0eb',
+    backgroundColor: theme.colors.background,
   },
   topBar: {
     flexDirection: 'row',
@@ -400,18 +401,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 12,
-    backgroundColor: '#f2f0eb',
+    backgroundColor: theme.colors.background,
   },
   backText: {
     fontSize: 16,
-    color: '#cc2200',
+    color: theme.colors.red,
     fontWeight: '600',
     width: 72,
   },
   topBarTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1a1a1a',
+    color: theme.colors.textPrimary,
   },
   topBarSpacer: {
     width: 72,
@@ -424,32 +425,33 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   sectionHeading: {
-    fontFamily: 'Georgia',
+    ...theme.typography.mediumHeader,
+    fontFamily: theme.fonts.header,
     fontSize: 22,
-    color: '#1a1a1a',
+    color: theme.colors.textPrimary,
     marginBottom: 12,
   },
   fieldLabel: {
-    fontSize: 11,
-    letterSpacing: 1,
-    color: '#00000055',
-    textTransform: 'uppercase',
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: theme.colors.textSecondary,
     marginBottom: 8,
     marginTop: 8,
   },
   input: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    borderWidth: 0.5,
-    borderColor: '#0000001a',
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     padding: 14,
+    ...theme.typography.body,
     fontSize: 15,
-    color: '#1a1a1a',
+    color: theme.colors.textPrimary,
     marginBottom: 12,
   },
   toggleGroup: {
     flexDirection: 'row',
-    backgroundColor: '#e8e6e0',
+    backgroundColor: theme.colors.grey200,
     borderRadius: 24,
     padding: 4,
     marginBottom: 16,
@@ -461,66 +463,66 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   toggleOptionActive: {
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.white,
   },
   toggleOptionText: {
     fontSize: 13,
-    color: '#00000055',
+    color: theme.colors.textSecondary,
   },
   toggleOptionTextActive: {
-    color: '#1a1a1a',
+    color: theme.colors.textPrimary,
     fontWeight: '600',
   },
   equipmentCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.white,
     borderRadius: 12,
     borderWidth: 0.5,
-    borderColor: '#0000001a',
+    borderColor: theme.colors.border,
     padding: 14,
     marginBottom: 10,
   },
   equipmentCardSelected: {
-    backgroundColor: '#cc22000a',
+    backgroundColor: `${theme.colors.red}0a`,
     borderWidth: 1,
-    borderColor: '#cc220044',
+    borderColor: `${theme.colors.red}44`,
   },
   equipmentIcon: {
     width: 36,
     height: 36,
     borderRadius: 8,
-    backgroundColor: '#e8e6e0',
+    backgroundColor: theme.colors.grey200,
     marginRight: 12,
   },
   equipmentLabel: {
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: theme.colors.textPrimary,
   },
   radioOuter: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 1.5,
-    borderColor: '#cccccc',
+    borderColor: theme.colors.grey400,
     justifyContent: 'center',
     alignItems: 'center',
   },
   radioOuterSelected: {
-    borderColor: '#cc2200',
+    borderColor: theme.colors.red,
   },
   radioInner: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#cc2200',
+    backgroundColor: theme.colors.red,
   },
   unitToggle: {
     flexDirection: 'row',
     alignSelf: 'flex-start',
-    backgroundColor: '#e8e6e0',
+    backgroundColor: theme.colors.grey200,
     borderRadius: 8,
     padding: 3,
     marginBottom: 8,
@@ -531,14 +533,14 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   unitOptionActive: {
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.white,
   },
   unitOptionText: {
     fontSize: 13,
-    color: '#00000055',
+    color: theme.colors.textSecondary,
   },
   unitOptionTextActive: {
-    color: '#1a1a1a',
+    color: theme.colors.textPrimary,
     fontWeight: '600',
   },
   chipWrap: {
@@ -550,33 +552,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.white,
     borderWidth: 0.5,
-    borderColor: '#0000001a',
+    borderColor: theme.colors.border,
   },
   chipSelected: {
-    backgroundColor: '#cc22000a',
+    backgroundColor: `${theme.colors.red}0a`,
     borderWidth: 1,
-    borderColor: '#cc2200',
+    borderColor: theme.colors.red,
   },
   chipText: {
     fontSize: 13,
-    color: '#00000055',
+    color: theme.colors.textSecondary,
   },
   chipTextSelected: {
-    color: '#cc2200',
+    color: theme.colors.red,
     fontWeight: '600',
   },
   footer: {
     paddingHorizontal: 20,
     paddingTop: 12,
-    backgroundColor: '#f2f0eb',
+    backgroundColor: theme.colors.background,
     borderTopWidth: 1,
-    borderTopColor: '#0000000f',
+    borderTopColor: theme.colors.border,
   },
   saveButton: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 999,
+    backgroundColor: theme.colors.dark,
+    borderRadius: theme.radius.full,
     paddingVertical: 14,
     alignItems: 'center',
   },
@@ -584,8 +586,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: theme.colors.white,
   },
 });

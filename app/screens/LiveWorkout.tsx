@@ -15,6 +15,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import DashedBorderOverlay from '../components/DashedBorderOverlay';
 import { getWorkoutById } from '../data/workouts';
 import type { AppStackParamList } from '../navigation';
+import theme from '../theme';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'LiveWorkout'>;
 
@@ -190,28 +191,29 @@ export default function LiveWorkout({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0e0e0e',
+    backgroundColor: theme.colors.workoutBg,
   },
   cameraSection: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: theme.colors.dark,
     overflow: 'hidden',
   },
   cameraPlaceholder: {
-    backgroundColor: '#2a2a2a',
+    backgroundColor: theme.colors.surfaceMuted,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   permissionContainer: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: theme.colors.dark,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   permissionText: {
-    color: '#ffffff',
+    ...theme.typography.body,
     fontSize: 16,
+    color: theme.colors.white,
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -232,7 +234,7 @@ const styles = StyleSheet.create({
   },
   pillButton: {
     backgroundColor: '#00000066',
-    borderRadius: 20,
+    borderRadius: theme.radius.xl,
     justifyContent: 'center',
     alignItems: 'center',
     minWidth: 40,
@@ -249,16 +251,18 @@ const styles = StyleSheet.create({
     width: 40,
   },
   pillButtonText: {
-    color: '#ffffff',
+    ...theme.typography.body,
+    color: theme.colors.white,
     fontSize: 16,
   },
   timerText: {
-    color: '#ffffff',
+    ...theme.typography.body,
+    fontFamily: theme.fonts.bodyMedium,
+    color: theme.colors.white,
     fontSize: 16,
-    fontWeight: '600',
   },
   bottomPanel: {
-    backgroundColor: '#0e0e0e',
+    backgroundColor: theme.colors.workoutBg,
     padding: 20,
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -269,16 +273,16 @@ const styles = StyleSheet.create({
     paddingRight: 16,
   },
   exerciseName: {
-    fontFamily: 'Georgia',
+    ...theme.typography.header,
+    fontFamily: theme.fonts.header,
     fontSize: 26,
-    color: '#ffffff',
+    color: theme.colors.white,
     marginBottom: 4,
   },
   currentExerciseLabel: {
-    fontSize: 11,
-    letterSpacing: 2,
-    color: '#ffffff66',
-    textTransform: 'uppercase',
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: `${theme.colors.white}66`,
     marginBottom: 12,
   },
   statsRow: {
@@ -289,29 +293,30 @@ const styles = StyleSheet.create({
   },
   statColumnDivider: {
     borderLeftWidth: 1,
-    borderLeftColor: '#ffffff33',
+    borderLeftColor: `${theme.colors.white}33`,
   },
   statText: {
-    color: '#ffffff',
-    fontSize: 14,
+    ...theme.typography.body,
+    color: theme.colors.white,
   },
   repCounter: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: theme.colors.dark,
     borderWidth: 1,
-    borderColor: '#ffffff22',
+    borderColor: `${theme.colors.white}22`,
     justifyContent: 'center',
     alignItems: 'center',
   },
   repCounterText: {
-    color: '#ffffff',
+    fontFamily: theme.fonts.bodyMedium,
     fontSize: 20,
-    fontWeight: '600',
+    color: theme.colors.white,
   },
   notFound: {
-    color: '#ffffff',
+    ...theme.typography.body,
+    color: theme.colors.white,
     textAlign: 'center',
     marginTop: 100,
   },

@@ -13,6 +13,9 @@ export const theme = {
     textSecondary: '#989797',
     textTertiary: '#D9D9D9',
     border: '#D9D9D9',
+    workoutBg: '#0E0E0E',
+    surfaceMuted: '#333333',
+    mindfulBg: '#FFF8E7',
   },
   fonts: {
     header: 'SHAdGrotesk-Regular',
@@ -40,6 +43,12 @@ export const theme = {
     },
   },
   radius: { sm: 8, md: 12, lg: 16, xl: 20, full: 999 },
+  layout: {
+    tabScreen: {
+      minTop: 20,
+      extraTop: 28,
+    },
+  },
 };
 
 export default theme;

@@ -13,6 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { workouts, type Workout } from '../data/workouts';
+import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
 import type { AppStackParamList } from '../navigation';
 import theme from '../theme';
 
@@ -55,6 +56,7 @@ function WorkoutCard({
 
 export default function Home() {
   const navigation = useNavigation<NavigationProp>();
+  const tabTopPadding = useTabScreenTopPadding();
   const [activeFilter, setActiveFilter] = useState<string>('Full Body');
 
   const filteredWorkouts = useMemo(() => {
@@ -69,7 +71,7 @@ export default function Home() {
     (screenWidth - HORIZONTAL_PADDING * 2 - CARD_GAP) / 2;
 
   const renderHeader = () => (
-    <View style={styles.headerContent}>
+    <View style={[styles.headerContent, { paddingTop: tabTopPadding }]}>
       <Image
         source={require('../../assets/images/logo.png')}
         style={styles.logo}
@@ -167,7 +169,6 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
   },
   headerContent: {
-    paddingTop: 20,
     paddingBottom: 8,
   },
   logo: {

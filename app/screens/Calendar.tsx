@@ -10,6 +10,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { workouts } from '../data/workouts';
+import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
 import type { AppStackParamList } from '../navigation';
 import theme from '../theme';
 
@@ -70,6 +71,7 @@ function StatusIcon({ status }: { status: DayStatus }) {
 
 export default function Calendar() {
   const navigation = useNavigation<NavigationProp>();
+  const tabTopPadding = useTabScreenTopPadding();
 
   const handleGenerateSchedule = () => {
     Alert.alert('Coming soon', 'Schedule generation is not available yet.');
@@ -97,7 +99,10 @@ export default function Calendar() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.scrollContent}
+      contentContainerStyle={[
+        styles.scrollContent,
+        { paddingTop: tabTopPadding },
+      ]}
     >
       <View style={styles.headerRow}>
         <Text style={styles.heading}>Your Weekly Plan.</Text>
@@ -163,8 +168,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingBottom: 120,
   },
   headerRow: {
     flexDirection: 'row',
@@ -202,7 +206,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: '#00000014',
+    backgroundColor: theme.colors.border,
   },
   dayRow: {
     flexDirection: 'row',

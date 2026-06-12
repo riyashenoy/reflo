@@ -1,5 +1,7 @@
 import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 
+import theme from '../theme';
+
 const inset = 12;
 
 const webBorderStyle: ViewStyle =
@@ -7,7 +9,7 @@ const webBorderStyle: ViewStyle =
     ? ({
         borderWidth: 2,
         borderStyle: 'dashed',
-        borderColor: 'rgba(204, 34, 0, 0.7)',
+        borderColor: `${theme.colors.red}b3`,
       } as ViewStyle)
     : {};
 
@@ -24,7 +26,7 @@ const styles = StyleSheet.create({
     left: inset,
     borderRadius: 24,
     borderWidth: 2,
-    borderColor: '#cc2200',
+    borderColor: theme.colors.red,
     opacity: 0.7,
     zIndex: 2,
     ...(Platform.OS === 'ios' || Platform.OS === 'android'

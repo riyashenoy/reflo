@@ -1,9 +1,11 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import theme from '../theme';
+
 export default function CameraSetup() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>CameraSetup</Text>
+      <Text style={styles.title}>Camera Setup</Text>
     </View>
   );
 }
@@ -13,10 +15,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background,
   },
   title: {
+    ...theme.typography.header,
+    fontFamily: theme.fonts.header,
     fontSize: 24,
-    fontWeight: '600',
+    color: theme.colors.textPrimary,
   },
 });

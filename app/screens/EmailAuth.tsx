@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Button,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -17,6 +17,7 @@ import { useAuthFlow } from '../context/AuthFlowContext';
 import { auth } from '../lib/firebase';
 import { getAuthErrorMessage } from '../lib/authErrors';
 import type { AuthStackParamList } from '../navigation';
+import theme from '../theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'EmailAuth'>;
 
@@ -55,11 +56,16 @@ export default function EmailAuth({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>EmailAuth</Text>
+      <Text style={styles.title}>Email Sign In</Text>
+      <Text style={styles.subtitle}>
+        Sign in to your account or create a new one
+      </Text>
 
+      <Text style={styles.fieldLabel}>EMAIL</Text>
       <TextInput
         style={styles.input}
-        placeholder="Email"
+        placeholder="you@example.com"
+        placeholderTextColor={theme.colors.textSecondary}
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
@@ -67,9 +73,12 @@ export default function EmailAuth({ navigation }: Props) {
         autoComplete="email"
         editable={!loading}
       />
+
+      <Text style={styles.fieldLabel}>PASSWORD</Text>
       <TextInput
         style={styles.input}
         placeholder="Password"
+        placeholderTextColor={theme.colors.textSecondary}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -80,12 +89,18 @@ export default function EmailAuth({ navigation }: Props) {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {loading ? (
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={theme.colors.red} />
       ) : (
         <View style={styles.buttons}>
-          <Button title="Sign In" onPress={handleSignIn} />
-          <Button title="Sign Up" onPress={handleSignUp} />
-          <Button title="Back" onPress={() => navigation.goBack()} />
+          <Pressable style={styles.primaryButton} onPress={handleSignIn}>
+            <Text style={styles.primaryButtonText}>Sign In</Text>
+          </Pressable>
+          <Pressable style={styles.secondaryButton} onPress={handleSignUp}>
+            <Text style={styles.secondaryButtonText}>Create Account</Text>
+          </Pressable>
+          <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backButtonText}>Back</Text>
+          </Pressable>
         </View>
       )}
     </View>
@@ -97,27 +112,77 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '600',
-    marginBottom: 24,
-    textAlign: 'center',
+    ...theme.typography.header,
+    fontFamily: theme.fonts.header,
+    fontSize: 28,
+    color: theme.colors.textPrimary,
+    marginBottom: 8,
+  },
+  subtitle: {
+    ...theme.typography.body,
+    color: theme.colors.textSecondary,
+    marginBottom: 28,
+    lineHeight: 20,
+  },
+  fieldLabel: {
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: theme.colors.textSecondary,
+    marginBottom: 8,
   },
   input: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radius.sm,
     borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 12,
-    marginBottom: 12,
-    borderRadius: 4,
+    borderColor: theme.colors.border,
+    padding: 14,
+    marginBottom: 16,
+    ...theme.typography.body,
+    fontSize: 15,
+    color: theme.colors.textPrimary,
   },
   error: {
-    color: 'red',
-    marginBottom: 12,
+    ...theme.typography.body,
+    color: theme.colors.red,
+    marginBottom: 16,
     textAlign: 'center',
   },
   buttons: {
-    gap: 8,
+    gap: 12,
+    marginTop: 8,
+  },
+  primaryButton: {
+    backgroundColor: theme.colors.dark,
+    borderRadius: theme.radius.full,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: theme.colors.white,
+  },
+  secondaryButton: {
+    backgroundColor: theme.colors.red,
+    borderRadius: theme.radius.full,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: theme.colors.white,
+  },
+  backButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  backButtonText: {
+    ...theme.typography.body,
+    fontFamily: theme.fonts.bodyMedium,
+    color: theme.colors.red,
   },
 });

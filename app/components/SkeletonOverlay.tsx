@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import theme from '../theme';
+
 export default function SkeletonOverlay() {
   return (
     <View style={styles.container}>
@@ -15,7 +17,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   label: {
-    fontSize: 16,
-    color: '#fff',
+    ...theme.typography.body,
+    color: theme.colors.white,
   },
 });

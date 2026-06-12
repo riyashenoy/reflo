@@ -15,6 +15,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { auth, db } from '../lib/firebase';
 import { getAuthErrorMessage } from '../lib/authErrors';
 import type { AppStackParamList } from '../navigation';
+import theme from '../theme';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'ProfileSetup'>;
 
@@ -254,7 +255,7 @@ export default function ProfileSetup({ navigation }: Props) {
       <TextInput
         style={styles.input}
         placeholder="e.g. Joseph Pilates"
-        placeholderTextColor="#00000044"
+        placeholderTextColor={theme.colors.textSecondary}
         value={name}
         onChangeText={setName}
       />
@@ -312,7 +313,7 @@ export default function ProfileSetup({ navigation }: Props) {
       <TextInput
         style={styles.input}
         placeholder="168"
-        placeholderTextColor="#00000044"
+        placeholderTextColor={theme.colors.textSecondary}
         value={height}
         onChangeText={setHeight}
         keyboardType="numeric"
@@ -328,7 +329,7 @@ export default function ProfileSetup({ navigation }: Props) {
       <TextInput
         style={styles.input}
         placeholder="62"
-        placeholderTextColor="#00000044"
+        placeholderTextColor={theme.colors.textSecondary}
         value={weight}
         onChangeText={setWeight}
         keyboardType="numeric"
@@ -338,7 +339,7 @@ export default function ProfileSetup({ navigation }: Props) {
       <TextInput
         style={styles.input}
         placeholder="e.g. 02/29/2004"
-        placeholderTextColor="#00000044"
+        placeholderTextColor={theme.colors.textSecondary}
         value={birthday}
         onChangeText={setBirthday}
       />
@@ -476,7 +477,7 @@ export default function ProfileSetup({ navigation }: Props) {
             disabled={saving}
           >
             {saving ? (
-              <ActivityIndicator color="#ffffff" />
+              <ActivityIndicator color={theme.colors.white} />
             ) : (
               <Text style={styles.finishButtonText}>FINISH →</Text>
             )}
@@ -490,17 +491,17 @@ export default function ProfileSetup({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f0eb',
+    backgroundColor: theme.colors.background,
   },
   progressTrack: {
     height: 4,
     flexDirection: 'row',
-    backgroundColor: '#e8e6e0',
+    backgroundColor: theme.colors.grey200,
     marginTop: 8,
   },
   progressFill: {
     height: 4,
-    backgroundColor: '#cc2200',
+    backgroundColor: theme.colors.red,
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -508,29 +509,28 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   stepLabel: {
-    fontSize: 11,
-    letterSpacing: 1.5,
-    color: '#cc2200',
-    textTransform: 'uppercase',
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: theme.colors.red,
     marginBottom: 8,
   },
   heading: {
-    fontFamily: 'Georgia',
+    ...theme.typography.header,
+    fontFamily: theme.fonts.header,
     fontSize: 28,
-    color: '#1a1a1a',
+    color: theme.colors.textPrimary,
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#00000055',
+    ...theme.typography.body,
+    color: theme.colors.textSecondary,
     lineHeight: 20,
     marginBottom: 20,
   },
   fieldLabel: {
-    fontSize: 11,
-    letterSpacing: 1,
-    color: '#00000055',
-    textTransform: 'uppercase',
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: theme.colors.textSecondary,
     marginBottom: 8,
     marginTop: 8,
   },
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderColor: '#00000033',
+    borderColor: theme.colors.grey400,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -561,38 +561,39 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#cc2200',
+    backgroundColor: theme.colors.red,
     justifyContent: 'center',
     alignItems: 'center',
   },
   photoAddText: {
-    color: '#ffffff',
+    color: theme.colors.white,
     fontSize: 16,
     fontWeight: '700',
   },
   photoTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: theme.colors.textPrimary,
     marginBottom: 2,
   },
   photoSubtitle: {
     fontSize: 12,
-    color: '#00000055',
+    color: theme.colors.textSecondary,
   },
   input: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    borderWidth: 0.5,
-    borderColor: '#0000001a',
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     padding: 14,
+    ...theme.typography.body,
     fontSize: 15,
-    color: '#1a1a1a',
+    color: theme.colors.textPrimary,
     marginBottom: 12,
   },
   toggleGroup: {
     flexDirection: 'row',
-    backgroundColor: '#e8e6e0',
+    backgroundColor: theme.colors.grey200,
     borderRadius: 24,
     padding: 4,
     marginBottom: 16,
@@ -604,66 +605,66 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   toggleOptionActive: {
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.white,
   },
   toggleOptionText: {
     fontSize: 13,
-    color: '#00000055',
+    color: theme.colors.textSecondary,
   },
   toggleOptionTextActive: {
-    color: '#1a1a1a',
+    color: theme.colors.textPrimary,
     fontWeight: '600',
   },
   equipmentCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.white,
     borderRadius: 12,
     borderWidth: 0.5,
-    borderColor: '#0000001a',
+    borderColor: theme.colors.border,
     padding: 14,
     marginBottom: 10,
   },
   equipmentCardSelected: {
-    backgroundColor: '#cc22000a',
+    backgroundColor: `${theme.colors.red}0a`,
     borderWidth: 1,
-    borderColor: '#cc220044',
+    borderColor: `${theme.colors.red}44`,
   },
   equipmentIcon: {
     width: 36,
     height: 36,
     borderRadius: 8,
-    backgroundColor: '#e8e6e0',
+    backgroundColor: theme.colors.grey200,
     marginRight: 12,
   },
   equipmentLabel: {
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: theme.colors.textPrimary,
   },
   radioOuter: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 1.5,
-    borderColor: '#cccccc',
+    borderColor: theme.colors.grey400,
     justifyContent: 'center',
     alignItems: 'center',
   },
   radioOuterSelected: {
-    borderColor: '#cc2200',
+    borderColor: theme.colors.red,
   },
   radioInner: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#cc2200',
+    backgroundColor: theme.colors.red,
   },
   unitToggle: {
     flexDirection: 'row',
     alignSelf: 'flex-start',
-    backgroundColor: '#e8e6e0',
+    backgroundColor: theme.colors.grey200,
     borderRadius: 8,
     padding: 3,
     marginBottom: 8,
@@ -674,14 +675,14 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   unitOptionActive: {
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.white,
   },
   unitOptionText: {
     fontSize: 13,
-    color: '#00000055',
+    color: theme.colors.textSecondary,
   },
   unitOptionTextActive: {
-    color: '#1a1a1a',
+    color: theme.colors.textPrimary,
     fontWeight: '600',
   },
   chipWrap: {
@@ -694,21 +695,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.white,
     borderWidth: 0.5,
-    borderColor: '#0000001a',
+    borderColor: theme.colors.border,
   },
   chipSelected: {
-    backgroundColor: '#cc22000a',
+    backgroundColor: `${theme.colors.red}0a`,
     borderWidth: 1,
-    borderColor: '#cc2200',
+    borderColor: theme.colors.red,
   },
   chipText: {
     fontSize: 13,
-    color: '#00000055',
+    color: theme.colors.textSecondary,
   },
   chipTextSelected: {
-    color: '#cc2200',
+    color: theme.colors.red,
     fontWeight: '600',
   },
   goalsGrid: {
@@ -719,38 +720,38 @@ const styles = StyleSheet.create({
   },
   goalCard: {
     width: '48%',
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.white,
     borderRadius: 12,
     borderWidth: 0.5,
-    borderColor: '#0000001a',
+    borderColor: theme.colors.border,
     padding: 12,
     minHeight: 110,
   },
   goalCardSelected: {
     borderWidth: 1,
-    borderColor: '#cc220044',
+    borderColor: `${theme.colors.red}44`,
   },
   goalIcon: {
     width: 28,
     height: 28,
     borderRadius: 6,
-    backgroundColor: '#e8e6e0',
+    backgroundColor: theme.colors.grey200,
     marginBottom: 8,
   },
   goalTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1a1a1a',
+    color: theme.colors.textPrimary,
     marginBottom: 4,
   },
   goalSubtitle: {
     fontSize: 11,
-    color: '#00000055',
+    color: theme.colors.textSecondary,
     lineHeight: 14,
   },
   perWeekLabel: {
     fontSize: 12,
-    color: '#00000055',
+    color: theme.colors.textSecondary,
     marginBottom: 8,
     marginTop: -4,
   },
@@ -760,32 +761,32 @@ const styles = StyleSheet.create({
     bottom: 24,
   },
   nextButton: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 999,
+    backgroundColor: theme.colors.dark,
+    borderRadius: theme.radius.full,
     paddingVertical: 14,
     paddingHorizontal: 24,
   },
   nextButtonDisabled: {
-    backgroundColor: '#00000022',
+    backgroundColor: theme.colors.grey200,
   },
   nextButtonText: {
-    color: '#ffffff',
+    color: theme.colors.white,
     fontSize: 14,
     fontWeight: '600',
   },
   nextButtonTextDisabled: {
-    color: '#00000055',
+    color: theme.colors.textSecondary,
   },
   finishButton: {
-    backgroundColor: '#cc2200',
-    borderRadius: 999,
+    backgroundColor: theme.colors.red,
+    borderRadius: theme.radius.full,
     paddingVertical: 14,
     paddingHorizontal: 28,
     minWidth: 140,
     alignItems: 'center',
   },
   finishButtonText: {
-    color: '#ffffff',
+    color: theme.colors.white,
     fontSize: 14,
     fontWeight: '700',
   },

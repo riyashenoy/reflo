@@ -11,6 +11,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { getWorkoutById } from '../data/workouts';
 import type { AppStackParamList } from '../navigation';
+import theme from '../theme';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'ClassDetail'>;
 
@@ -177,7 +178,7 @@ export default function ClassDetail({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: theme.colors.dark,
   },
   scroll: {
     flex: 1,
@@ -191,7 +192,7 @@ const styles = StyleSheet.create({
   },
   heroPlaceholder: {
     flex: 1,
-    backgroundColor: '#333333',
+    backgroundColor: theme.colors.surfaceMuted,
   },
   iconButton: {
     position: 'absolute',
@@ -203,7 +204,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconButtonText: {
-    color: '#ffffff',
+    color: theme.colors.white,
     fontSize: 18,
   },
   content: {
@@ -211,14 +212,15 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   title: {
-    fontFamily: 'Georgia',
+    ...theme.typography.header,
+    fontFamily: theme.fonts.header,
     fontSize: 28,
-    color: '#ffffff',
+    color: theme.colors.white,
     marginBottom: 8,
   },
   description: {
-    fontSize: 14,
-    color: '#ffffff99',
+    ...theme.typography.body,
+    color: `${theme.colors.white}99`,
     lineHeight: 20,
     marginBottom: 16,
   },
@@ -230,14 +232,15 @@ const styles = StyleSheet.create({
   },
   tagPill: {
     borderWidth: 1,
-    borderColor: '#ffffff44',
-    borderRadius: 20,
+    borderColor: `${theme.colors.white}44`,
+    borderRadius: theme.radius.full,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   tagPillText: {
-    color: '#ffffff',
+    ...theme.typography.body,
     fontSize: 12,
+    color: theme.colors.white,
   },
   statsRow: {
     flexDirection: 'row',
@@ -249,31 +252,33 @@ const styles = StyleSheet.create({
   },
   statColumnDivider: {
     borderLeftWidth: 1,
-    borderLeftColor: '#ffffff22',
+    borderLeftColor: `${theme.colors.white}22`,
   },
   statValue: {
+    ...theme.typography.body,
+    fontFamily: theme.fonts.bodyMedium,
     fontSize: 18,
-    fontWeight: '600',
-    color: '#ffffff',
+    color: theme.colors.white,
     marginBottom: 4,
   },
   statValueAccent: {
-    color: '#cc2200',
+    color: theme.colors.red,
   },
   statLabel: {
-    fontSize: 11,
-    color: '#ffffff66',
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    fontSize: 9,
+    color: `${theme.colors.white}66`,
   },
   sectionDivider: {
     height: 1,
-    backgroundColor: '#ffffff22',
+    backgroundColor: `${theme.colors.white}22`,
     marginBottom: 12,
   },
   sectionLabel: {
-    fontSize: 11,
-    letterSpacing: 2,
-    color: '#ffffff66',
-    textTransform: 'uppercase',
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: `${theme.colors.white}66`,
     marginBottom: 12,
   },
   exerciseRow: {
@@ -283,17 +288,17 @@ const styles = StyleSheet.create({
   },
   exerciseRowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: '#ffffff0a',
+    borderBottomColor: `${theme.colors.white}0a`,
   },
   exerciseNumber: {
     width: 28,
-    fontSize: 14,
-    color: '#ffffff66',
+    ...theme.typography.body,
+    color: `${theme.colors.white}66`,
   },
   exerciseThumbnail: {
     width: 40,
     height: 40,
-    backgroundColor: '#ffffff22',
+    backgroundColor: `${theme.colors.white}22`,
     borderRadius: 4,
     marginRight: 12,
   },
@@ -308,24 +313,28 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   exerciseName: {
+    ...theme.typography.body,
+    fontFamily: theme.fonts.bodyMedium,
     fontSize: 15,
-    color: '#ffffff',
-    fontWeight: '500',
+    color: theme.colors.white,
   },
   trackedBadge: {
     borderWidth: 1,
-    borderColor: '#cc2200',
-    borderRadius: 12,
+    borderColor: theme.colors.red,
+    borderRadius: theme.radius.md,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
   trackedBadgeText: {
-    fontSize: 10,
-    color: '#cc2200',
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    fontSize: 9,
+    color: theme.colors.red,
   },
   exerciseMeta: {
+    ...theme.typography.body,
     fontSize: 12,
-    color: '#ffffff66',
+    color: `${theme.colors.white}66`,
   },
   bottomSpacer: {
     height: 24,
@@ -334,19 +343,19 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 24,
     right: 24,
-    backgroundColor: '#cc2200',
+    backgroundColor: theme.colors.red,
     paddingHorizontal: 28,
     paddingVertical: 14,
-    borderRadius: 28,
+    borderRadius: theme.radius.full,
   },
   beginButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 1,
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: theme.colors.white,
   },
   notFound: {
-    color: '#ffffff',
+    ...theme.typography.body,
+    color: theme.colors.white,
     textAlign: 'center',
     marginTop: 100,
   },

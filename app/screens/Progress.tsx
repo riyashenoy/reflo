@@ -7,6 +7,9 @@ import {
   View,
 } from 'react-native';
 
+import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
+import theme from '../theme';
+
 type Period = 'Week' | 'Month' | 'All time';
 
 const PERIODS: Period[] = ['Week', 'Month', 'All time'];
@@ -43,6 +46,7 @@ function StatCard({
 }
 
 export default function Progress() {
+  const tabTopPadding = useTabScreenTopPadding();
   const [activePeriod, setActivePeriod] = useState<Period>('Week');
 
   const data = useMemo(() => PERIOD_DATA[activePeriod], [activePeriod]);
@@ -50,7 +54,10 @@ export default function Progress() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.scrollContent}
+      contentContainerStyle={[
+        styles.scrollContent,
+        { paddingTop: tabTopPadding },
+      ]}
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.headerRow}>
@@ -119,73 +126,76 @@ export default function Progress() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f0eb',
+    backgroundColor: theme.colors.background,
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingBottom: 120,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 20,
     gap: 12,
   },
   heading: {
-    fontFamily: 'Georgia',
+    ...theme.typography.header,
+    fontFamily: theme.fonts.header,
     fontSize: 28,
-    color: '#1a1a1a',
+    color: theme.colors.textPrimary,
     flex: 1,
   },
   periodToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e8e6e0',
-    borderRadius: 20,
+    backgroundColor: theme.colors.grey200,
+    borderRadius: theme.radius.full,
     padding: 3,
     gap: 2,
   },
   periodOption: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: theme.radius.full,
   },
   periodOptionActive: {
-    backgroundColor: '#ffffff',
-    borderWidth: 0.5,
-    borderColor: '#0000001a',
+    backgroundColor: theme.colors.white,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   periodOptionText: {
+    ...theme.typography.body,
     fontSize: 11,
-    color: '#00000055',
+    color: theme.colors.textSecondary,
   },
   periodOptionTextActive: {
-    color: '#1a1a1a',
-    fontWeight: '600',
+    fontFamily: theme.fonts.bodyMedium,
+    color: theme.colors.textPrimary,
   },
   cards: {
     gap: 12,
   },
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radius.md,
     padding: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   chartCard: {
     height: 220,
   },
   chartPlaceholder: {
     flex: 1,
-    backgroundColor: '#e8e6e0',
-    borderRadius: 8,
+    backgroundColor: theme.colors.grey200,
+    borderRadius: theme.radius.sm,
     justifyContent: 'center',
     alignItems: 'center',
   },
   chartPlaceholderText: {
-    fontSize: 14,
-    color: '#00000055',
+    ...theme.typography.body,
+    color: theme.colors.textSecondary,
   },
   statRow: {
     flexDirection: 'row',
@@ -201,14 +211,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   statValue: {
+    fontFamily: theme.fonts.headerMedium,
     fontSize: 28,
-    fontWeight: '700',
-    color: '#1a1a1a',
+    color: theme.colors.textPrimary,
     marginBottom: 4,
   },
   statLabel: {
+    ...theme.typography.body,
     fontSize: 12,
-    color: '#00000055',
+    color: theme.colors.textSecondary,
   },
   personalBestCard: {
     alignSelf: 'center',

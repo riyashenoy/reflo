@@ -10,6 +10,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { getWorkoutById } from '../data/workouts';
 import type { AppStackParamList } from '../navigation';
+import theme from '../theme';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'PostWorkout'>;
 
@@ -258,7 +259,7 @@ export default function PostWorkout({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f0eb',
+    backgroundColor: theme.colors.background,
   },
   scrollContent: {
     padding: 20,
@@ -281,47 +282,48 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   heading: {
-    fontFamily: 'Georgia',
-    fontSize: 32,
-    color: '#1a1a1a',
+    ...theme.typography.header,
+    fontFamily: theme.fonts.header,
+    color: theme.colors.textPrimary,
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#6b6b6b',
+    ...theme.typography.body,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     marginBottom: 28,
   },
   sectionLabel: {
-    fontSize: 11,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
     marginBottom: 8,
     marginTop: 8,
   },
   sectionLabelGreen: {
-    color: '#1D9E75',
+    color: theme.colors.teal,
   },
   sectionLabelRed: {
-    color: '#cc2200',
+    color: theme.colors.red,
   },
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     padding: 16,
     marginBottom: 12,
   },
   bulletItem: {
-    fontSize: 14,
-    color: '#1a1a1a',
+    ...theme.typography.body,
+    color: theme.colors.textPrimary,
     lineHeight: 22,
     marginBottom: 6,
   },
   progressTrack: {
     height: 4,
     flexDirection: 'row',
-    backgroundColor: '#e8e6e0',
+    backgroundColor: theme.colors.grey200,
     borderRadius: 2,
     marginHorizontal: 20,
     marginTop: 16,
@@ -329,13 +331,14 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: 4,
-    backgroundColor: '#cc2200',
+    backgroundColor: theme.colors.red,
     borderRadius: 2,
   },
   ratingQuestion: {
-    fontFamily: 'Georgia',
+    ...theme.typography.header,
+    fontFamily: theme.fonts.header,
     fontSize: 26,
-    color: '#1a1a1a',
+    color: theme.colors.textPrimary,
     textAlign: 'center',
     marginTop: 32,
     marginBottom: 24,
@@ -347,37 +350,38 @@ const styles = StyleSheet.create({
   optionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 0.5,
-    borderColor: '#0000001a',
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     padding: 16,
     gap: 12,
   },
   optionCardSelected: {
-    borderColor: '#cc220044',
+    borderColor: `${theme.colors.red}44`,
   },
   radioOuter: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 1.5,
-    borderColor: '#cccccc',
+    borderColor: theme.colors.grey400,
     justifyContent: 'center',
     alignItems: 'center',
   },
   radioOuterSelected: {
-    borderColor: '#cc2200',
+    borderColor: theme.colors.red,
   },
   radioInner: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#cc2200',
+    backgroundColor: theme.colors.red,
   },
   optionText: {
+    ...theme.typography.body,
     fontSize: 16,
-    color: '#1a1a1a',
+    color: theme.colors.textPrimary,
   },
   starsRow: {
     flexDirection: 'row',
@@ -388,14 +392,14 @@ const styles = StyleSheet.create({
     fontSize: 40,
   },
   starFilled: {
-    color: '#cc2200',
+    color: theme.colors.red,
   },
   starEmpty: {
-    color: '#e8e6e0',
+    color: theme.colors.grey200,
   },
   pillButton: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 999,
+    backgroundColor: theme.colors.dark,
+    borderRadius: theme.radius.full,
     paddingVertical: 14,
     paddingHorizontal: 24,
     alignSelf: 'flex-start',
@@ -411,13 +415,14 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   pillButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: theme.colors.white,
   },
   notFound: {
+    ...theme.typography.body,
     textAlign: 'center',
     marginTop: 80,
-    color: '#1a1a1a',
+    color: theme.colors.textPrimary,
   },
 });

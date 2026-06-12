@@ -139,7 +139,7 @@ export default function RootNavigation() {
   if (initializing) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={theme.colors.red} />
       </View>
     );
   }
@@ -165,6 +165,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background,
   },
 });

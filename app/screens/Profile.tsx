@@ -29,7 +29,9 @@ import {
   type UserPreferences,
   type UserProfile,
 } from '../lib/userProfile';
+import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
 import type { AppStackParamList } from '../navigation';
+import theme from '../theme';
 
 type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -83,7 +85,16 @@ function PreferenceRow({
           <Text style={styles.rowLabel}>{title}</Text>
           <Text style={styles.rowSubtitle}>{subtitle}</Text>
         </View>
-        <Switch value={value} onValueChange={onValueChange} />
+        <Switch
+          value={value}
+          onValueChange={onValueChange}
+          trackColor={{
+            false: theme.colors.grey200,
+            true: theme.colors.dark,
+          }}
+          thumbColor={theme.colors.white}
+          ios_backgroundColor={theme.colors.grey200}
+        />
       </View>
     </>
   );
@@ -91,6 +102,7 @@ function PreferenceRow({
 
 export default function Profile() {
   const navigation = useNavigation<NavigationProp>();
+  const tabTopPadding = useTabScreenTopPadding();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -184,7 +196,7 @@ export default function Profile() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#cc2200" />
+        <ActivityIndicator size="large" color={theme.colors.red} />
       </View>
     );
   }
@@ -192,19 +204,31 @@ export default function Profile() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.scrollContent}
+      contentContainerStyle={[
+        styles.scrollContent,
+        { paddingTop: tabTopPadding },
+      ]}
     >
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarInitial}>{avatarInitial}</Text>
+          <View style={styles.avatarWrapper}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarInitial}>{avatarInitial}</Text>
+            </View>
+            <Pressable
+              style={styles.avatarEditBadge}
+              onPress={() => openEdit('about')}
+              hitSlop={6}
+            >
+              <Text style={styles.avatarEditIcon}>✎</Text>
+            </Pressable>
           </View>
           <View style={styles.headerText}>
             <Text style={styles.name}>{displayName}</Text>
             <Text style={styles.subtitle}>{profileSubtitle}</Text>
           </View>
         </View>
-        <Pressable onPress={() => openEdit('about')}>
+        <Pressable onPress={() => openEdit('about')} hitSlop={8}>
           <Text style={styles.editLink}>Edit</Text>
         </Pressable>
       </View>
@@ -274,7 +298,7 @@ export default function Profile() {
           showDivider
         />
         <PreferenceRow
-          title="Workout Music"
+          title="Workout music"
           subtitle="Plays during class"
           value={workoutMusic}
           onValueChange={(value) => {
@@ -310,9 +334,9 @@ export default function Profile() {
         style={styles.accountHeader}
         onPress={() => setAccountExpanded((prev) => !prev)}
       >
-        <SectionLabel title="ACCOUNT SETTINGS" />
-        <Text style={styles.chevron}>
-          {accountExpanded ? '⌄' : '›'}
+        <Text style={styles.accountSectionLabel}>ACCOUNT SETTINGS</Text>
+        <Text style={styles.accountChevron}>
+          {accountExpanded ? '⌃' : '⌄'}
         </Text>
       </Pressable>
 
@@ -342,140 +366,167 @@ export default function Profile() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f0eb',
+    backgroundColor: theme.colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f2f0eb',
+    backgroundColor: theme.colors.background,
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingBottom: 120,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#ffffff',
-    borderWidth: 2,
-    borderColor: '#cc2200',
-    justifyContent: 'center',
-    alignItems: 'center',
+  avatarWrapper: {
+    position: 'relative',
     marginRight: 14,
   },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: theme.colors.white,
+    borderWidth: 2,
+    borderColor: theme.colors.red,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarEditBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: theme.colors.dark,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: theme.colors.background,
+  },
+  avatarEditIcon: {
+    color: theme.colors.white,
+    fontSize: 12,
+  },
   avatarInitial: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#cc2200',
+    fontFamily: theme.fonts.headerMedium,
+    fontSize: 36,
+    color: theme.colors.red,
   },
   headerText: {
     flex: 1,
     paddingRight: 8,
   },
   name: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1a1a1a',
+    ...theme.typography.body,
+    fontFamily: theme.fonts.bodyMedium,
+    fontSize: 18,
+    color: theme.colors.textPrimary,
     marginBottom: 4,
   },
   subtitle: {
+    ...theme.typography.body,
     fontSize: 13,
-    color: '#00000055',
+    color: theme.colors.textSecondary,
   },
   editLink: {
+    ...theme.typography.body,
+    fontFamily: theme.fonts.bodyMedium,
     fontSize: 15,
-    color: '#cc2200',
-    fontWeight: '600',
+    color: theme.colors.red,
   },
   mindfulCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF8E7',
-    borderWidth: 0.5,
-    borderColor: '#F0C04055',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 20,
+    backgroundColor: theme.colors.mindfulBg,
+    borderWidth: 1,
+    borderColor: theme.colors.amber,
+    borderRadius: theme.radius.md,
+    padding: 16,
+    marginBottom: 24,
   },
   warningIcon: {
-    fontSize: 20,
+    fontSize: 22,
+    color: theme.colors.amber,
     marginRight: 12,
   },
   mindfulText: {
     flex: 1,
   },
   mindfulTitle: {
+    ...theme.typography.body,
+    fontFamily: theme.fonts.bodyMedium,
     fontSize: 15,
-    fontWeight: '700',
-    color: '#1a1a1a',
+    color: theme.colors.textPrimary,
     marginBottom: 2,
   },
   mindfulSubtitle: {
+    ...theme.typography.body,
     fontSize: 13,
-    color: '#00000055',
+    color: theme.colors.textSecondary,
   },
   sectionLabel: {
-    fontSize: 11,
-    letterSpacing: 1.5,
-    color: '#00000044',
-    textTransform: 'uppercase',
-    marginBottom: 8,
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: theme.colors.textSecondary,
+    marginBottom: 10,
   },
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 0.5,
-    borderColor: '#0000000f',
-    marginBottom: 20,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: 24,
     overflow: 'hidden',
   },
   listRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
   greyIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#e8e6e0',
-    marginRight: 12,
+    width: 36,
+    height: 36,
+    borderRadius: theme.radius.sm,
+    backgroundColor: theme.colors.grey200,
+    marginRight: 14,
   },
   tealIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#1D9E7514',
-    marginRight: 12,
+    width: 36,
+    height: 36,
+    borderRadius: theme.radius.sm,
+    backgroundColor: `${theme.colors.teal}40`,
+    marginRight: 14,
   },
   rowLabel: {
     flex: 1,
+    ...theme.typography.body,
     fontSize: 15,
-    color: '#1a1a1a',
+    color: theme.colors.textPrimary,
   },
   rowValue: {
+    ...theme.typography.body,
     fontSize: 14,
-    color: '#00000055',
-    marginRight: 8,
+    color: theme.colors.textSecondary,
+    marginRight: 6,
   },
   rowSubtitle: {
+    ...theme.typography.body,
     fontSize: 12,
-    color: '#00000055',
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
   preferenceText: {
@@ -483,18 +534,18 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   chevron: {
-    fontSize: 18,
-    color: '#00000044',
+    fontSize: 20,
+    color: theme.colors.textSecondary,
   },
   rowDivider: {
     height: 1,
-    backgroundColor: '#0000000f',
-    marginLeft: 14,
+    backgroundColor: theme.colors.border,
+    marginLeft: 16,
   },
   sectionDivider: {
     height: 1,
-    backgroundColor: '#00000014',
-    marginBottom: 12,
+    backgroundColor: theme.colors.border,
+    marginBottom: 16,
   },
   accountHeader: {
     flexDirection: 'row',
@@ -502,13 +553,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 8,
   },
+  accountSectionLabel: {
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: theme.colors.textSecondary,
+  },
+  accountChevron: {
+    fontSize: 16,
+    color: theme.colors.textSecondary,
+  },
   signOutRow: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 16,
   },
   signOutText: {
+    ...theme.typography.body,
+    fontFamily: theme.fonts.bodyMedium,
     fontSize: 15,
-    color: '#cc2200',
-    fontWeight: '600',
+    color: theme.colors.red,
   },
 });
