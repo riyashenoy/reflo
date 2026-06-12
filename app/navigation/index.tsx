@@ -18,7 +18,9 @@ import ProfileEdit from '../screens/ProfileEdit';
 import ProfileSetup from '../screens/ProfileSetup';
 import Progress from '../screens/Progress';
 import SignIn from '../screens/SignIn';
+import BottomTabBar from '../components/BottomTabBar';
 import { auth } from '../lib/firebase';
+import theme from '../theme';
 
 export type AuthStackParamList = {
   SignIn: undefined;
@@ -48,23 +50,17 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 function MainTabs() {
   return (
-    <Tab.Navigator>
+    <Tab.Navigator
+      tabBar={(props) => <BottomTabBar {...props} />}
+      screenOptions={{
+        headerShown: false,
+        sceneStyle: { backgroundColor: theme.colors.background },
+      }}
+    >
       <Tab.Screen name="Home" component={Home} />
-      <Tab.Screen
-        name="Calendar"
-        component={Calendar}
-        options={{ headerShown: false }}
-      />
-      <Tab.Screen
-        name="Progress"
-        component={Progress}
-        options={{ headerShown: false }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={Profile}
-        options={{ headerShown: false }}
-      />
+      <Tab.Screen name="Calendar" component={Calendar} />
+      <Tab.Screen name="Progress" component={Progress} />
+      <Tab.Screen name="Profile" component={Profile} />
     </Tab.Navigator>
   );
 }

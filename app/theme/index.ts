@@ -1,48 +1,45 @@
-export const colors = {
-  background: '#FFFFFF',
-  surface: '#F5F5F5',
-  text: '#1A1A1A',
-  textSecondary: '#6B6B6B',
-  primary: '#2D6A4F',
-  primaryLight: '#40916C',
-  accent: '#E76F51',
-  border: '#E0E0E0',
-  success: '#2D6A4F',
-  warning: '#F4A261',
-  error: '#E63946',
-};
-
-export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-};
-
-export const typography = {
-  title: {
-    fontSize: 28,
-    fontWeight: '700' as const,
-  },
-  heading: {
-    fontSize: 22,
-    fontWeight: '600' as const,
-  },
-  body: {
-    fontSize: 16,
-    fontWeight: '400' as const,
-  },
-  caption: {
-    fontSize: 14,
-    fontWeight: '400' as const,
-  },
-};
-
 export const theme = {
-  colors,
-  spacing,
-  typography,
+  colors: {
+    red: '#CC1D1D',
+    teal: '#79CBD0',
+    dark: '#242121',
+    white: '#FFFFFF',
+    background: '#F3F3F3',
+    grey200: '#D9D9D9',
+    grey400: '#BABABA',
+    grey600: '#989797',
+    amber: '#E69639',
+    textPrimary: '#242121',
+    textSecondary: '#989797',
+    textTertiary: '#D9D9D9',
+    border: '#D9D9D9',
+  },
+  fonts: {
+    header: 'SHAdGrotesk-Regular',
+    headerMedium: 'SHAdGrotesk-Medium',
+    headerLight: 'SHAdGrotesk-Light',
+    body: 'Inter_400Regular',
+    bodyMedium: 'Inter_500Medium',
+    label: 'LouisGeorgeCafe-Bold',
+  },
+  typography: {
+    header: { fontFamily: 'SHAdGrotesk-Regular', fontSize: 32 },
+    mediumHeader: { fontFamily: 'SHAdGrotesk-Regular', fontSize: 24 },
+    subheading: {
+      fontFamily: 'Inter_400Regular',
+      fontSize: 16,
+      letterSpacing: -0.3,
+      color: '#989797',
+    },
+    body: { fontFamily: 'Inter_400Regular', fontSize: 14 },
+    label: {
+      fontFamily: 'LouisGeorgeCafe-Bold',
+      fontSize: 11,
+      letterSpacing: 0.88,
+      textTransform: 'uppercase' as const,
+    },
+  },
+  radius: { sm: 8, md: 12, lg: 16, xl: 20, full: 999 },
 };
 
 export default theme;

@@ -11,6 +11,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { workouts } from '../data/workouts';
 import type { AppStackParamList } from '../navigation';
+import theme from '../theme';
 
 type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -158,7 +159,7 @@ export default function Calendar() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f0eb',
+    backgroundColor: theme.colors.background,
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -172,9 +173,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   heading: {
-    fontFamily: 'Georgia',
-    fontSize: 28,
-    color: '#1a1a1a',
+    ...theme.typography.header,
+    color: theme.colors.textPrimary,
     flex: 1,
     paddingRight: 12,
   },
@@ -183,21 +183,19 @@ const styles = StyleSheet.create({
   },
   editIcon: {
     fontSize: 22,
-    color: '#cc2200',
+    color: theme.colors.red,
   },
   generateButton: {
     alignSelf: 'flex-start',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: theme.colors.dark,
     borderRadius: 999,
     paddingVertical: 12,
     paddingHorizontal: 18,
     marginBottom: 24,
   },
   generateButtonText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.5,
+    ...theme.typography.label,
+    color: theme.colors.white,
   },
   dayList: {
     marginTop: 4,
@@ -213,7 +211,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   dayRowToday: {
-    backgroundColor: '#cc22000a',
+    backgroundColor: `${theme.colors.red}0a`,
     marginHorizontal: -20,
     paddingHorizontal: 20,
   },
@@ -222,39 +220,38 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   dayLabel: {
-    fontSize: 10,
-    letterSpacing: 1,
-    color: '#00000055',
-    textTransform: 'uppercase',
+    ...theme.typography.label,
+    color: theme.colors.textSecondary,
     marginBottom: 4,
   },
   dayLabelToday: {
-    color: '#cc2200',
+    color: theme.colors.red,
   },
   workoutName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1a1a1a',
+    ...theme.typography.body,
+    fontFamily: theme.fonts.bodyMedium,
+    color: theme.colors.textPrimary,
     textTransform: 'uppercase',
     marginBottom: 4,
   },
   statusLine: {
+    ...theme.typography.body,
     fontSize: 12,
-    color: '#00000055',
+    color: theme.colors.textSecondary,
   },
   statusLineToday: {
-    color: '#cc2200',
+    color: theme.colors.textSecondary,
   },
   statusCircleCompleted: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#1D9E75',
+    backgroundColor: theme.colors.teal,
     justifyContent: 'center',
     alignItems: 'center',
   },
   statusCheckmark: {
-    color: '#ffffff',
+    color: theme.colors.white,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -262,8 +259,6 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#e8e6e0',
-    backgroundColor: 'transparent',
+    backgroundColor: theme.colors.grey200,
   },
 });

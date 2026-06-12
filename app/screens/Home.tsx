@@ -14,6 +14,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { workouts, type Workout } from '../data/workouts';
 import type { AppStackParamList } from '../navigation';
+import theme from '../theme';
 
 const FILTERS = ['Full Body', 'Upper Body', 'Lower Body', 'Core'] as const;
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'Th', 'F', 'Sa'] as const;
@@ -28,17 +29,11 @@ function matchesFilter(workout: Workout, activeFilter: string): boolean {
   return workout.tags.some((tag) => tag.toLowerCase() === filterTag);
 }
 
-function getStreakDayStatus(dayIndex: number, todayIndex: number) {
+function getStreakDayStatus(dayIndex: number) {
   if (dayIndex < COMPLETED_DAY_COUNT) {
     return 'completed';
   }
-  if (dayIndex === todayIndex) {
-    return 'today';
-  }
-  if (dayIndex > todayIndex) {
-    return 'future';
-  }
-  return 'past';
+  return 'incomplete';
 }
 
 function WorkoutCard({
@@ -51,7 +46,7 @@ function WorkoutCard({
   onPress: () => void;
 }) {
   return (
-    <Pressable style={[styles.card, { width }]} onPress={onPress}>
+    <Pressable style={[styles.workoutCard, { width }]} onPress={onPress}>
       <View style={styles.cardImagePlaceholder} />
       <Text style={styles.cardTitle}>{workout.title.toUpperCase()}</Text>
     </Pressable>
@@ -61,7 +56,6 @@ function WorkoutCard({
 export default function Home() {
   const navigation = useNavigation<NavigationProp>();
   const [activeFilter, setActiveFilter] = useState<string>('Full Body');
-  const todayIndex = new Date().getDay();
 
   const filteredWorkouts = useMemo(() => {
     const matched = workouts.filter((workout) =>
@@ -81,60 +75,61 @@ export default function Home() {
         style={styles.logo}
       />
 
-      <Text style={styles.heading}>Keep it Going.</Text>
+      <Text style={styles.heading}>Keep it Going</Text>
 
       <View style={styles.streakRow}>
         {DAY_LABELS.map((label, index) => {
-          const status = getStreakDayStatus(index, todayIndex);
+          const status = getStreakDayStatus(index);
           return (
             <View key={label} style={styles.streakDay}>
+              <Text style={styles.streakLabel}>{label}</Text>
               <View
                 style={[
                   styles.streakCircle,
-                  status === 'completed' && styles.streakCircleCompleted,
-                  status === 'today' && styles.streakCircleToday,
-                  (status === 'future' || status === 'past') &&
-                    styles.streakCircleFuture,
+                  status === 'completed'
+                    ? styles.streakCircleCompleted
+                    : styles.streakCircleIncomplete,
                 ]}
               >
                 {status === 'completed' ? (
                   <Text style={styles.streakCheckmark}>✓</Text>
                 ) : null}
               </View>
-              <Text style={styles.streakLabel}>{label}</Text>
             </View>
           );
         })}
       </View>
 
       <Text style={styles.sectionHeading}>Workout Library</Text>
-      <Text style={styles.sectionSubtitle}>PICK YOUR WORKOUT</Text>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterRow}
-      >
-        {FILTERS.map((filter) => {
-          const isActive = activeFilter === filter;
-          return (
-            <Pressable
-              key={filter}
-              style={[styles.filterPill, isActive && styles.filterPillActive]}
-              onPress={() => setActiveFilter(filter)}
-            >
-              <Text
-                style={[
-                  styles.filterPillText,
-                  isActive && styles.filterPillTextActive,
-                ]}
+      <View style={styles.filterSection}>
+        <Text style={styles.sectionSubtitle}>PICK YOUR WORKOUT</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRow}
+        >
+          {FILTERS.map((filter) => {
+            const isActive = activeFilter === filter;
+            return (
+              <Pressable
+                key={filter}
+                style={[styles.filterPill, isActive && styles.filterPillActive]}
+                onPress={() => setActiveFilter(filter)}
               >
-                {filter}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    isActive && styles.filterPillTextActive,
+                  ]}
+                >
+                  {filter}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
     </View>
   );
 
@@ -165,117 +160,118 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f0eb',
+    backgroundColor: theme.colors.background,
   },
   listContent: {
     paddingHorizontal: HORIZONTAL_PADDING,
-    paddingBottom: 24,
+    paddingBottom: 120,
   },
   headerContent: {
-    paddingTop: 16,
-    paddingBottom: 16,
+    paddingTop: 20,
+    paddingBottom: 8,
   },
   logo: {
-    width: 80,
-    height: 40,
+    width: 72,
+    height: 36,
     resizeMode: 'contain',
+    marginBottom: 20,
   },
   heading: {
-    fontFamily: 'Georgia',
-    fontSize: 32,
-    color: '#1a1a1a',
-    marginTop: 16,
-    marginBottom: 20,
+    ...theme.typography.header,
+    fontFamily: theme.fonts.header,
+    color: theme.colors.textPrimary,
+    marginBottom: 24,
   },
   streakRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 28,
+    marginBottom: 36,
+    paddingHorizontal: 2,
   },
   streakDay: {
     alignItems: 'center',
-  },
-  streakCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  streakCircleCompleted: {
-    backgroundColor: '#cc2200',
-  },
-  streakCircleToday: {
-    backgroundColor: '#ffffff',
-    borderWidth: 2,
-    borderColor: '#cc2200',
-  },
-  streakCircleFuture: {
-    backgroundColor: '#e8e6e0',
-  },
-  streakCheckmark: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
+    minWidth: 28,
   },
   streakLabel: {
-    fontSize: 12,
-    color: '#1a1a1a',
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    fontSize: 9,
+    color: theme.colors.textSecondary,
+    marginBottom: 8,
+  },
+  streakCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  streakCircleCompleted: {
+    backgroundColor: theme.colors.red,
+  },
+  streakCircleIncomplete: {
+    backgroundColor: theme.colors.grey200,
+  },
+  streakCheckmark: {
+    color: theme.colors.white,
+    fontSize: 14,
+    fontWeight: '700',
   },
   sectionHeading: {
-    fontFamily: 'Georgia',
-    fontSize: 22,
-    color: '#1a1a1a',
-    marginBottom: 4,
+    ...theme.typography.mediumHeader,
+    fontFamily: theme.fonts.header,
+    color: theme.colors.textPrimary,
+    marginBottom: 20,
+  },
+  filterSection: {
+    marginBottom: 20,
   },
   sectionSubtitle: {
-    fontSize: 11,
-    letterSpacing: 2,
-    color: '#1a1a1a',
-    textTransform: 'uppercase',
-    marginBottom: 12,
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: theme.colors.textSecondary,
+    marginBottom: 10,
   },
   filterRow: {
     flexDirection: 'row',
-    gap: 8,
-    paddingBottom: 16,
+    gap: 10,
+    paddingRight: 4,
   },
   filterPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#e8e6e0',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: theme.radius.full,
+    backgroundColor: theme.colors.grey200,
   },
   filterPillActive: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: theme.colors.dark,
   },
   filterPillText: {
-    fontSize: 14,
-    color: '#1a1a1a',
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: theme.colors.white,
   },
   filterPillTextActive: {
-    color: '#ffffff',
+    color: theme.colors.white,
   },
   cardRow: {
     gap: CARD_GAP,
     marginBottom: CARD_GAP,
   },
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    overflow: 'hidden',
+  workoutCard: {
+    marginBottom: 4,
   },
   cardImagePlaceholder: {
     width: '100%',
     aspectRatio: 1,
-    backgroundColor: '#e8e6e0',
+    backgroundColor: theme.colors.grey200,
+    borderRadius: theme.radius.sm,
+    marginBottom: 10,
   },
   cardTitle: {
-    fontSize: 11,
-    letterSpacing: 1,
-    color: '#1a1a1a',
-    padding: 10,
-    textTransform: 'uppercase',
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: theme.colors.textPrimary,
+    paddingHorizontal: 2,
   },
 });
