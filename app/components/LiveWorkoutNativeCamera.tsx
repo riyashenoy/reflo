@@ -44,7 +44,7 @@ export default function LiveWorkoutNativeCamera() {
     );
   }
 
-  return <CameraView style={StyleSheet.absoluteFill} facing="back" />;
+  return <CameraView style={StyleSheet.absoluteFill} facing="front" />;
 }
 
 const styles = StyleSheet.create({
