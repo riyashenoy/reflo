@@ -1,5 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
 import {
+  createElement,
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+import {
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -8,8 +16,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import CameraPreview from '../components/CameraPreview';
 import DashedBorderOverlay from '../components/DashedBorderOverlay';
+import LiveWorkoutNativeCamera from '../components/LiveWorkoutNativeCamera';
 import { getWorkoutById } from '../data/workouts';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
@@ -24,37 +32,108 @@ function formatTimer(seconds: number) {
   );
 }
 
-export default function LiveWorkout({ route, navigation }: Props) {
+const WorkoutTimer = memo(function WorkoutTimer({
+  onReachThirty,
+}: {
+  onReachThirty: () => void;
+}) {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSeconds((prev) => {
+        const next = prev + 1;
+        if (next === 30) {
+          onReachThirty();
+        }
+        return next;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [onReachThirty]);
+
+  return <Text style={styles.timerText}>{formatTimer(seconds)}</Text>;
+});
+
+function LiveWorkout({ route, navigation }: Props) {
   const { workoutId } = route.params ?? {};
   const workout = workoutId ? getWorkoutById(workoutId) : undefined;
   const insets = useSafeAreaInsets();
 
-  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
-  const [seconds, setSeconds] = useState(0);
+  const [currentExerciseIndex] = useState(0);
   const [repCount] = useState(0);
 
-  const exercise = workout?.exercises[currentExerciseIndex];
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const workoutIdRef = useRef(workoutId);
   const hasNavigatedToPostWorkout = useRef(false);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setSeconds((prev) => prev + 1);
-    }, 1000);
+  workoutIdRef.current = workoutId;
 
-    return () => clearInterval(interval);
+  const handleTimerReachThirty = useCallback(() => {
+    if (!workoutIdRef.current || hasNavigatedToPostWorkout.current) {
+      return;
+    }
+
+    hasNavigatedToPostWorkout.current = true;
+    navigation.navigate('PostWorkout', {
+      workoutId: workoutIdRef.current,
+    });
+  }, [navigation]);
+
+  const attachStreamToVideo = useCallback((video: HTMLVideoElement) => {
+    if (!video.srcObject && streamRef.current) {
+      video.srcObject = streamRef.current;
+      void video.play();
+    }
   }, []);
 
-  useEffect(() => {
-    if (
-      seconds >= 30 &&
-      workoutId &&
-      !hasNavigatedToPostWorkout.current
-    ) {
-      hasNavigatedToPostWorkout.current = true;
-      setSeconds(0);
-      navigation.navigate('PostWorkout', { workoutId });
+  const startCamera = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      return;
     }
-  }, [seconds, workoutId, navigation]);
+
+    navigator.mediaDevices
+      .getUserMedia({
+        video: { facingMode: 'environment' },
+      })
+      .then((stream) => {
+        streamRef.current = stream;
+        if (videoRef.current && !videoRef.current.srcObject) {
+          videoRef.current.srcObject = stream;
+          void videoRef.current.play();
+        }
+      })
+      .catch((err) => console.log('Camera error:', err));
+  }, []);
+
+  const setVideoNode = useCallback(
+    (node: HTMLVideoElement | null) => {
+      videoRef.current = node;
+
+      if (node) {
+        attachStreamToVideo(node);
+      }
+    },
+    [attachStreamToVideo]
+  );
+
+  useEffect(() => {
+    startCamera();
+
+    return () => {
+      const tracks = streamRef.current?.getTracks() ?? [];
+      tracks.forEach((track) => track.stop());
+      streamRef.current = null;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+    };
+  }, [startCamera]);
+
+  const exercise = workout?.exercises[currentExerciseIndex];
 
   const stats = exercise
     ? [
@@ -68,7 +147,11 @@ export default function LiveWorkout({ route, navigation }: Props) {
     return (
       <View style={styles.container}>
         <Pressable
-          style={[styles.pillButton, styles.backButton, { top: insets.top + scale(12) }]}
+          style={[
+            styles.pillButton,
+            styles.backButton,
+            { top: insets.top + scale(12) },
+          ]}
           onPress={() => navigation.goBack()}
         >
           <Text style={styles.pillButtonText}>←</Text>
@@ -81,7 +164,27 @@ export default function LiveWorkout({ route, navigation }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.cameraSection}>
-        <CameraPreview />
+        {Platform.OS === 'web' ? (
+          createElement('video', {
+            key: 'camera-feed',
+            ref: setVideoNode,
+            style: {
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            },
+            autoPlay: true,
+            playsInline: true,
+            muted: true,
+          })
+        ) : (
+          <LiveWorkoutNativeCamera />
+        )}
 
         <DashedBorderOverlay />
 
@@ -97,14 +200,13 @@ export default function LiveWorkout({ route, navigation }: Props) {
           </Pressable>
 
           <View style={[styles.pillButton, styles.timerPill]}>
-            <Text style={styles.timerText}>{formatTimer(seconds)}</Text>
+            <WorkoutTimer onReachThirty={handleTimerReachThirty} />
           </View>
 
           <Pressable style={[styles.pillButton, styles.volumeButton]}>
             <Text style={styles.pillButtonText}>🔊</Text>
           </Pressable>
         </View>
-
       </View>
 
       <View style={styles.bottomPanel}>
@@ -136,6 +238,8 @@ export default function LiveWorkout({ route, navigation }: Props) {
     </View>
   );
 }
+
+export default memo(LiveWorkout);
 
 const styles = StyleSheet.create({
   container: {

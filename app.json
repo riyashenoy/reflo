@@ -37,7 +37,7 @@
     },
     "web": {
       "bundler": "webpack",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/images/logo.png"
     },
     "plugins": [
       [
