@@ -1,17 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Button,
-  Linking,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import CameraPreview from '../components/CameraPreview';
 import DashedBorderOverlay from '../components/DashedBorderOverlay';
 import { getWorkoutById } from '../data/workouts';
 import type { AppStackParamList } from '../navigation';
@@ -36,14 +33,7 @@ export default function LiveWorkout({ route, navigation }: Props) {
   const [seconds, setSeconds] = useState(0);
   const [repCount] = useState(0);
 
-  const [permission, requestPermission] = useCameraPermissions();
-
   const exercise = workout?.exercises[currentExerciseIndex];
-
-  useEffect(() => {
-    requestPermission();
-  }, [requestPermission]);
-
   const hasNavigatedToPostWorkout = useRef(false);
 
   useEffect(() => {
@@ -74,47 +64,6 @@ export default function LiveWorkout({ route, navigation }: Props) {
       ]
     : [];
 
-  const renderCameraContent = () => {
-    if (Platform.OS === 'web') {
-      return (
-        <View style={[StyleSheet.absoluteFill, styles.cameraPlaceholder]}>
-          <Text style={styles.permissionText}>
-            Camera preview is available on iOS and Android.
-          </Text>
-        </View>
-      );
-    }
-
-    if (!permission) {
-      return (
-        <View style={[StyleSheet.absoluteFill, styles.cameraPlaceholder]}>
-          <Text style={styles.permissionText}>Checking camera permission…</Text>
-        </View>
-      );
-    }
-
-    if (!permission.granted) {
-      return (
-        <View style={[StyleSheet.absoluteFill, styles.permissionContainer]}>
-          <Text style={styles.permissionText}>
-            Camera access is required for live workouts.
-          </Text>
-          <Button
-            title="Open Settings"
-            onPress={() => Linking.openSettings()}
-          />
-          {!permission.canAskAgain ? null : (
-            <View style={styles.permissionButtonSpacer}>
-              <Button title="Grant Permission" onPress={requestPermission} />
-            </View>
-          )}
-        </View>
-      );
-    }
-
-    return <CameraView style={StyleSheet.absoluteFill} facing="back" />;
-  };
-
   if (!workout || !exercise) {
     return (
       <View style={styles.container}>
@@ -132,7 +81,7 @@ export default function LiveWorkout({ route, navigation }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.cameraSection}>
-        {renderCameraContent()}
+        <CameraPreview />
 
         <DashedBorderOverlay />
 
@@ -197,28 +146,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.dark,
     overflow: 'hidden',
-  },
-  cameraPlaceholder: {
-    backgroundColor: theme.colors.surfaceMuted,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  permissionContainer: {
-    backgroundColor: theme.colors.dark,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  permissionText: {
-    ...theme.typography.body,
-    fontSize: 16,
-    color: theme.colors.white,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  permissionButtonSpacer: {
-    marginTop: 12,
   },
   topBar: {
     position: 'absolute',

@@ -11,8 +11,13 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Reflo needs camera access for motion capture during pilates workouts.",
         "NSMicrophoneUsageDescription": "Reflo needs microphone access for voice cues and workout audio.",
-        "UIBackgroundModes": ["audio"]
-      }
+        "UIBackgroundModes": [
+          "audio",
+          "audio"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.riyshen.reflo"
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +29,9 @@
       "permissions": [
         "CAMERA",
         "RECORD_AUDIO",
-        "MODIFY_AUDIO_SETTINGS"
+        "MODIFY_AUDIO_SETTINGS",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ],
       "predictiveBackGestureEnabled": false
     },
@@ -41,6 +48,11 @@
           "recordAudioAndroid": true
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "f4d22866-fb12-492e-8863-3f650f37a594"
+      }
+    }
   }
 }
