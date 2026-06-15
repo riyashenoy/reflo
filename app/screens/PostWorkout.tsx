@@ -10,7 +10,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { getWorkoutById } from '../data/workouts';
 import type { AppStackParamList } from '../navigation';
-import theme from '../theme';
+import theme, { scale } from '../theme';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'PostWorkout'>;
 
@@ -262,43 +262,43 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: scale(20),
+    paddingBottom: scale(40),
   },
   ratingContent: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: scale(20),
+    paddingBottom: scale(40),
     flexGrow: 1,
   },
   overallContent: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: scale(20),
+    paddingBottom: scale(40),
     alignItems: 'center',
   },
   emoji: {
-    fontSize: 48,
+    fontSize: scale(48),
     textAlign: 'center',
-    marginTop: 24,
-    marginBottom: 16,
+    marginTop: scale(24),
+    marginBottom: scale(16),
   },
   heading: {
     ...theme.typography.header,
     fontFamily: theme.fonts.header,
     color: theme.colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: scale(8),
   },
   subtitle: {
     ...theme.typography.body,
     color: theme.colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 28,
+    marginBottom: scale(28),
   },
   sectionLabel: {
     ...theme.typography.label,
     fontFamily: theme.fonts.label,
-    marginBottom: 8,
-    marginTop: 8,
+    marginBottom: scale(8),
+    marginTop: scale(8),
   },
   sectionLabelGreen: {
     color: theme.colors.teal,
@@ -309,62 +309,61 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.colors.white,
     borderRadius: theme.radius.md,
-    borderWidth: 1,
+    borderWidth: scale(1),
     borderColor: theme.colors.border,
-    padding: 16,
-    marginBottom: 12,
+    padding: scale(16),
+    marginBottom: scale(12),
   },
   bulletItem: {
     ...theme.typography.body,
     color: theme.colors.textPrimary,
     lineHeight: 22,
-    marginBottom: 6,
+    marginBottom: scale(6),
   },
   progressTrack: {
-    height: 4,
+    height: scale(4),
     flexDirection: 'row',
     backgroundColor: theme.colors.grey200,
-    borderRadius: 2,
-    marginHorizontal: 20,
-    marginTop: 16,
+    borderRadius: scale(2),
+    marginHorizontal: scale(20),
+    marginTop: scale(16),
     overflow: 'hidden',
   },
   progressFill: {
-    height: 4,
+    height: scale(4),
     backgroundColor: theme.colors.red,
-    borderRadius: 2,
+    borderRadius: scale(2),
   },
   ratingQuestion: {
-    ...theme.typography.header,
+    ...theme.typography.mediumHeader,
     fontFamily: theme.fonts.header,
-    fontSize: 26,
     color: theme.colors.textPrimary,
     textAlign: 'center',
-    marginTop: 32,
-    marginBottom: 24,
+    marginTop: scale(32),
+    marginBottom: scale(24),
   },
   optionsList: {
-    gap: 12,
-    marginBottom: 24,
+    gap: scale(12),
+    marginBottom: scale(24),
   },
   optionCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.white,
     borderRadius: theme.radius.md,
-    borderWidth: 1,
+    borderWidth: scale(1),
     borderColor: theme.colors.border,
-    padding: 16,
-    gap: 12,
+    padding: scale(16),
+    gap: scale(12),
   },
   optionCardSelected: {
     borderColor: `${theme.colors.red}44`,
   },
   radioOuter: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
+    width: scale(22),
+    height: scale(22),
+    borderRadius: scale(11),
+    borderWidth: scale(1.5),
     borderColor: theme.colors.grey400,
     justifyContent: 'center',
     alignItems: 'center',
@@ -373,23 +372,23 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.red,
   },
   radioInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: scale(12),
+    height: scale(12),
+    borderRadius: scale(6),
     backgroundColor: theme.colors.red,
   },
   optionText: {
     ...theme.typography.body,
-    fontSize: 16,
+    fontSize: scale(16),
     color: theme.colors.textPrimary,
   },
   starsRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 32,
+    gap: scale(8),
+    marginBottom: scale(32),
   },
   star: {
-    fontSize: 40,
+    fontSize: scale(40),
   },
   starFilled: {
     color: theme.colors.red,
@@ -400,13 +399,13 @@ const styles = StyleSheet.create({
   pillButton: {
     backgroundColor: theme.colors.dark,
     borderRadius: theme.radius.full,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
+    paddingVertical: scale(14),
+    paddingHorizontal: scale(24),
     alignSelf: 'flex-start',
   },
   pillButtonRight: {
     alignSelf: 'flex-end',
-    marginTop: 16,
+    marginTop: scale(16),
   },
   pillButtonCenter: {
     alignSelf: 'center',
@@ -422,7 +421,7 @@ const styles = StyleSheet.create({
   notFound: {
     ...theme.typography.body,
     textAlign: 'center',
-    marginTop: 80,
+    marginTop: scale(80),
     color: theme.colors.textPrimary,
   },
 });

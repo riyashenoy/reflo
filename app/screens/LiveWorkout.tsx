@@ -12,7 +12,7 @@ import CameraPreview from '../components/CameraPreview';
 import DashedBorderOverlay from '../components/DashedBorderOverlay';
 import { getWorkoutById } from '../data/workouts';
 import type { AppStackParamList } from '../navigation';
-import theme from '../theme';
+import theme, { scale } from '../theme';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'LiveWorkout'>;
 
@@ -68,7 +68,7 @@ export default function LiveWorkout({ route, navigation }: Props) {
     return (
       <View style={styles.container}>
         <Pressable
-          style={[styles.pillButton, styles.backButton, { top: insets.top + 12 }]}
+          style={[styles.pillButton, styles.backButton, { top: insets.top + scale(12) }]}
           onPress={() => navigation.goBack()}
         >
           <Text style={styles.pillButtonText}>←</Text>
@@ -86,7 +86,7 @@ export default function LiveWorkout({ route, navigation }: Props) {
         <DashedBorderOverlay />
 
         <View
-          style={[styles.topBar, { paddingTop: insets.top + 8 }]}
+          style={[styles.topBar, { paddingTop: insets.top + scale(8) }]}
           pointerEvents="box-none"
         >
           <Pressable
@@ -155,8 +155,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingHorizontal: scale(16),
+    paddingBottom: scale(8),
     zIndex: 3,
   },
   pillButton: {
@@ -164,62 +164,61 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.xl,
     justifyContent: 'center',
     alignItems: 'center',
-    minWidth: 40,
-    height: 40,
-    paddingHorizontal: 12,
+    minWidth: scale(40),
+    height: scale(40),
+    paddingHorizontal: scale(12),
   },
   backButton: {
-    width: 40,
+    width: scale(40),
   },
   timerPill: {
-    minWidth: 72,
+    minWidth: scale(72),
   },
   volumeButton: {
-    width: 40,
+    width: scale(40),
   },
   pillButtonText: {
     ...theme.typography.body,
     color: theme.colors.white,
-    fontSize: 16,
+    fontSize: scale(16),
   },
   timerText: {
     ...theme.typography.body,
     fontFamily: theme.fonts.bodyMedium,
     color: theme.colors.white,
-    fontSize: 16,
+    fontSize: scale(16),
   },
   bottomPanel: {
     backgroundColor: theme.colors.workoutBg,
-    padding: 20,
+    padding: scale(20),
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
   },
   bottomPanelMain: {
     flex: 1,
-    paddingRight: 16,
+    paddingRight: scale(16),
   },
   exerciseName: {
-    ...theme.typography.header,
+    ...theme.typography.mediumHeader,
     fontFamily: theme.fonts.header,
-    fontSize: 26,
     color: theme.colors.white,
-    marginBottom: 4,
+    marginBottom: scale(4),
   },
   currentExerciseLabel: {
     ...theme.typography.label,
     fontFamily: theme.fonts.label,
     color: `${theme.colors.white}66`,
-    marginBottom: 12,
+    marginBottom: scale(12),
   },
   statsRow: {
     flexDirection: 'row',
   },
   statColumn: {
-    paddingHorizontal: 8,
+    paddingHorizontal: scale(8),
   },
   statColumnDivider: {
-    borderLeftWidth: 1,
+    borderLeftWidth: scale(1),
     borderLeftColor: `${theme.colors.white}33`,
   },
   statText: {
@@ -227,24 +226,24 @@ const styles = StyleSheet.create({
     color: theme.colors.white,
   },
   repCounter: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: scale(52),
+    height: scale(52),
+    borderRadius: scale(26),
     backgroundColor: theme.colors.dark,
-    borderWidth: 1,
+    borderWidth: scale(1),
     borderColor: `${theme.colors.white}22`,
     justifyContent: 'center',
     alignItems: 'center',
   },
   repCounterText: {
     fontFamily: theme.fonts.bodyMedium,
-    fontSize: 20,
+    fontSize: scale(20),
     color: theme.colors.white,
   },
   notFound: {
     ...theme.typography.body,
     color: theme.colors.white,
     textAlign: 'center',
-    marginTop: 100,
+    marginTop: scale(100),
   },
 });

@@ -19,7 +19,7 @@ import { useAuthFlow } from '../context/AuthFlowContext';
 import { auth, googleProvider } from '../lib/firebase';
 import { getAuthErrorMessage } from '../lib/authErrors';
 import type { AuthStackParamList } from '../navigation';
-import theme from '../theme';
+import theme, { scale } from '../theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'SignIn'>;
 
@@ -102,44 +102,43 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    padding: 24,
+    padding: scale(24),
     backgroundColor: theme.colors.background,
   },
   logo: {
-    width: 96,
-    height: 48,
+    width: scale(96),
+    height: scale(48),
     resizeMode: 'contain',
     alignSelf: 'center',
-    marginBottom: 32,
+    marginBottom: scale(32),
   },
   title: {
     ...theme.typography.header,
     fontFamily: theme.fonts.header,
-    fontSize: 28,
     color: theme.colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: scale(8),
   },
   subtitle: {
     ...theme.typography.body,
     color: theme.colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: scale(32),
     lineHeight: 20,
   },
   error: {
     ...theme.typography.body,
     color: theme.colors.red,
-    marginBottom: 16,
+    marginBottom: scale(16),
     textAlign: 'center',
   },
   buttons: {
-    gap: 12,
+    gap: scale(12),
   },
   primaryButton: {
     backgroundColor: theme.colors.dark,
     borderRadius: theme.radius.full,
-    paddingVertical: 16,
+    paddingVertical: scale(16),
     alignItems: 'center',
   },
   primaryButtonText: {
@@ -150,9 +149,9 @@ const styles = StyleSheet.create({
   secondaryButton: {
     backgroundColor: theme.colors.white,
     borderRadius: theme.radius.full,
-    paddingVertical: 16,
+    paddingVertical: scale(16),
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: scale(1),
     borderColor: theme.colors.border,
   },
   secondaryButtonText: {

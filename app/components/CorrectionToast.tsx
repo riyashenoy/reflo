@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import theme from '../theme';
+import theme, { scale } from '../theme';
 
 export default function CorrectionToast() {
   return (
@@ -12,7 +12,7 @@ export default function CorrectionToast() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 12,
+    padding: scale(12),
     borderRadius: theme.radius.sm,
     backgroundColor: theme.colors.dark,
   },

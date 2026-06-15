@@ -1,3 +1,17 @@
+import { Dimensions, Platform } from 'react-native';
+
+const BASE_WIDTH = 390;
+
+const screenWidth =
+  Platform.OS === 'web'
+    ? Math.min(Dimensions.get('window').width, 390)
+    : Dimensions.get('window').width;
+
+export const scale = (size: number) =>
+  Platform.OS === 'web' ? size * (screenWidth / BASE_WIDTH) : size;
+
+export const contentWidth = screenWidth;
+
 export const theme = {
   colors: {
     red: '#CC1D1D',
@@ -26,27 +40,33 @@ export const theme = {
     label: 'LouisGeorgeCafe-Bold',
   },
   typography: {
-    header: { fontFamily: 'SHAdGrotesk-Regular', fontSize: 32 },
-    mediumHeader: { fontFamily: 'SHAdGrotesk-Regular', fontSize: 24 },
+    header: { fontFamily: 'SHAdGrotesk-Regular', fontSize: scale(24) },
+    mediumHeader: { fontFamily: 'SHAdGrotesk-Regular', fontSize: scale(18) },
     subheading: {
       fontFamily: 'Inter_400Regular',
-      fontSize: 16,
-      letterSpacing: -0.3,
+      fontSize: scale(16),
+      letterSpacing: scale(-0.3),
       color: '#989797',
     },
-    body: { fontFamily: 'Inter_400Regular', fontSize: 14 },
+    body: { fontFamily: 'Inter_400Regular', fontSize: scale(13) },
     label: {
       fontFamily: 'LouisGeorgeCafe-Bold',
-      fontSize: 11,
-      letterSpacing: 0.88,
+      fontSize: scale(10),
+      letterSpacing: scale(0.88),
       textTransform: 'uppercase' as const,
     },
   },
-  radius: { sm: 8, md: 12, lg: 16, xl: 20, full: 999 },
+  radius: {
+    sm: scale(8),
+    md: scale(12),
+    lg: scale(16),
+    xl: scale(20),
+    full: 999,
+  },
   layout: {
     tabScreen: {
-      minTop: 20,
-      extraTop: 28,
+      minTop: scale(20),
+      extraTop: scale(28),
     },
   },
 };

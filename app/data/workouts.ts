@@ -21,6 +21,46 @@ export interface Workout {
 
 export const workouts: Workout[] = [
   {
+    id: 'sculpt-and-stretch',
+    title: 'Sculpt and stretch',
+    description:
+      'Lengthen and tone with a balanced pilates flow focused on flexibility and control.',
+    duration: 20,
+    intensity: 'medium',
+    tags: ['full body', 'flexibility', 'pilates'],
+    aiTracked: true,
+    exercises: [
+      {
+        name: 'Spine Stretch Forward',
+        sets: 2,
+        reps: 8,
+        cue: 'Round through the spine and reach forward from the hips.',
+        tracked: true,
+      },
+      {
+        name: 'Saw',
+        sets: 2,
+        reps: 8,
+        cue: 'Rotate from the waist and reach pinky toward opposite pinky toe.',
+        tracked: true,
+      },
+      {
+        name: 'Mermaid',
+        sets: 2,
+        reps: 6,
+        cue: 'Side bend with one hip anchored and ribs lifting away from the waist.',
+        tracked: true,
+      },
+      {
+        name: 'Swan Prep',
+        sets: 2,
+        reps: 8,
+        cue: 'Extend through the upper back without compressing the lower back.',
+        tracked: true,
+      },
+    ],
+  },
+  {
     id: 'full-body-burn',
     title: 'Full body burn',
     description:

@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import {
-  Dimensions,
   FlatList,
   Image,
   Pressable,
@@ -15,19 +14,42 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { workouts, type Workout } from '../data/workouts';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
 import type { AppStackParamList } from '../navigation';
-import theme from '../theme';
+import theme, { contentWidth, scale } from '../theme';
 
 const FILTERS = ['Full Body', 'Upper Body', 'Lower Body', 'Core'] as const;
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'Th', 'F', 'Sa'] as const;
 const COMPLETED_DAY_COUNT = 3;
-const HORIZONTAL_PADDING = 20;
-const CARD_GAP = 12;
+const HORIZONTAL_PADDING = scale(20);
+const CARD_GAP = scale(12);
+const GRID_MIN_ITEMS = 4;
 
 type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
+
+type GridWorkout = Workout & { gridKey: string };
 
 function matchesFilter(workout: Workout, activeFilter: string): boolean {
   const filterTag = activeFilter.toLowerCase();
   return workout.tags.some((tag) => tag.toLowerCase() === filterTag);
+}
+
+function buildGridWorkouts(items: Workout[], minItems = GRID_MIN_ITEMS): GridWorkout[] {
+  const base = items.length > 0 ? items : workouts;
+  const result: GridWorkout[] = base.map((workout, index) => ({
+    ...workout,
+    gridKey: `${workout.id}-${index}`,
+  }));
+
+  let cycleIndex = 0;
+  while (result.length < minItems) {
+    const workout = base[cycleIndex % base.length];
+    result.push({
+      ...workout,
+      gridKey: `${workout.id}-repeat-${result.length}`,
+    });
+    cycleIndex += 1;
+  }
+
+  return result;
 }
 
 function getStreakDayStatus(dayIndex: number) {
@@ -63,12 +85,11 @@ export default function Home() {
     const matched = workouts.filter((workout) =>
       matchesFilter(workout, activeFilter)
     );
-    return matched.length > 0 ? matched : workouts;
+    return buildGridWorkouts(matched.length > 0 ? matched : workouts);
   }, [activeFilter]);
 
-  const screenWidth = Dimensions.get('window').width;
   const cardWidth =
-    (screenWidth - HORIZONTAL_PADDING * 2 - CARD_GAP) / 2;
+    (contentWidth - HORIZONTAL_PADDING * 2 - CARD_GAP) / 2;
 
   const renderHeader = () => (
     <View style={[styles.headerContent, { paddingTop: tabTopPadding }]}>
@@ -139,7 +160,7 @@ export default function Home() {
     <View style={styles.container}>
       <FlatList
         data={filteredWorkouts}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.gridKey}
         numColumns={2}
         ListHeaderComponent={renderHeader}
         columnWrapperStyle={styles.cardRow}
@@ -166,44 +187,44 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: HORIZONTAL_PADDING,
-    paddingBottom: 120,
+    paddingBottom: scale(120),
   },
   headerContent: {
-    paddingBottom: 8,
+    paddingBottom: scale(8),
   },
   logo: {
-    width: 72,
-    height: 36,
+    width: scale(72),
+    height: scale(36),
     resizeMode: 'contain',
-    marginBottom: 20,
+    marginBottom: scale(20),
   },
   heading: {
     ...theme.typography.header,
     fontFamily: theme.fonts.header,
     color: theme.colors.textPrimary,
-    marginBottom: 24,
+    marginBottom: scale(24),
   },
   streakRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 36,
-    paddingHorizontal: 2,
+    marginBottom: scale(36),
+    paddingHorizontal: scale(2),
   },
   streakDay: {
     alignItems: 'center',
-    minWidth: 28,
+    minWidth: scale(28),
   },
   streakLabel: {
     ...theme.typography.label,
     fontFamily: theme.fonts.label,
-    fontSize: 9,
+    fontSize: scale(9),
     color: theme.colors.textSecondary,
-    marginBottom: 8,
+    marginBottom: scale(8),
   },
   streakCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: scale(28),
+    height: scale(28),
+    borderRadius: scale(14),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -215,32 +236,32 @@ const styles = StyleSheet.create({
   },
   streakCheckmark: {
     color: theme.colors.white,
-    fontSize: 14,
+    fontSize: scale(14),
     fontWeight: '700',
   },
   sectionHeading: {
     ...theme.typography.mediumHeader,
     fontFamily: theme.fonts.header,
     color: theme.colors.textPrimary,
-    marginBottom: 20,
+    marginBottom: scale(20),
   },
   filterSection: {
-    marginBottom: 20,
+    marginBottom: scale(20),
   },
   sectionSubtitle: {
     ...theme.typography.label,
     fontFamily: theme.fonts.label,
     color: theme.colors.textSecondary,
-    marginBottom: 10,
+    marginBottom: scale(10),
   },
   filterRow: {
     flexDirection: 'row',
-    gap: 10,
-    paddingRight: 4,
+    gap: scale(10),
+    paddingRight: scale(4),
   },
   filterPill: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingHorizontal: scale(18),
+    paddingVertical: scale(10),
     borderRadius: theme.radius.full,
     backgroundColor: theme.colors.grey200,
   },
@@ -256,23 +277,25 @@ const styles = StyleSheet.create({
     color: theme.colors.white,
   },
   cardRow: {
-    gap: CARD_GAP,
+    justifyContent: 'space-between',
     marginBottom: CARD_GAP,
   },
   workoutCard: {
-    marginBottom: 4,
+    marginBottom: scale(4),
+    flexGrow: 0,
+    flexShrink: 0,
   },
   cardImagePlaceholder: {
     width: '100%',
     aspectRatio: 1,
     backgroundColor: theme.colors.grey200,
     borderRadius: theme.radius.sm,
-    marginBottom: 10,
+    marginBottom: scale(10),
   },
   cardTitle: {
     ...theme.typography.label,
     fontFamily: theme.fonts.label,
     color: theme.colors.textPrimary,
-    paddingHorizontal: 2,
+    paddingHorizontal: scale(2),
   },
 });

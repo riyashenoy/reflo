@@ -17,7 +17,7 @@ import { useAuthFlow } from '../context/AuthFlowContext';
 import { auth } from '../lib/firebase';
 import { getAuthErrorMessage } from '../lib/authErrors';
 import type { AuthStackParamList } from '../navigation';
-import theme from '../theme';
+import theme, { scale } from '../theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'EmailAuth'>;
 
@@ -111,53 +111,52 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    padding: 24,
+    padding: scale(24),
     backgroundColor: theme.colors.background,
   },
   title: {
     ...theme.typography.header,
     fontFamily: theme.fonts.header,
-    fontSize: 28,
     color: theme.colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: scale(8),
   },
   subtitle: {
     ...theme.typography.body,
     color: theme.colors.textSecondary,
-    marginBottom: 28,
+    marginBottom: scale(28),
     lineHeight: 20,
   },
   fieldLabel: {
     ...theme.typography.label,
     fontFamily: theme.fonts.label,
     color: theme.colors.textSecondary,
-    marginBottom: 8,
+    marginBottom: scale(8),
   },
   input: {
     backgroundColor: theme.colors.white,
     borderRadius: theme.radius.sm,
-    borderWidth: 1,
+    borderWidth: scale(1),
     borderColor: theme.colors.border,
-    padding: 14,
-    marginBottom: 16,
+    padding: scale(14),
+    marginBottom: scale(16),
     ...theme.typography.body,
-    fontSize: 15,
+    fontSize: scale(15),
     color: theme.colors.textPrimary,
   },
   error: {
     ...theme.typography.body,
     color: theme.colors.red,
-    marginBottom: 16,
+    marginBottom: scale(16),
     textAlign: 'center',
   },
   buttons: {
-    gap: 12,
-    marginTop: 8,
+    gap: scale(12),
+    marginTop: scale(8),
   },
   primaryButton: {
     backgroundColor: theme.colors.dark,
     borderRadius: theme.radius.full,
-    paddingVertical: 16,
+    paddingVertical: scale(16),
     alignItems: 'center',
   },
   primaryButtonText: {
@@ -168,7 +167,7 @@ const styles = StyleSheet.create({
   secondaryButton: {
     backgroundColor: theme.colors.red,
     borderRadius: theme.radius.full,
-    paddingVertical: 16,
+    paddingVertical: scale(16),
     alignItems: 'center',
   },
   secondaryButtonText: {
@@ -177,7 +176,7 @@ const styles = StyleSheet.create({
     color: theme.colors.white,
   },
   backButton: {
-    paddingVertical: 12,
+    paddingVertical: scale(12),
     alignItems: 'center',
   },
   backButtonText: {

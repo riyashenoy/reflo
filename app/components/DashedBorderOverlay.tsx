@@ -1,13 +1,13 @@
 import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 
-import theme from '../theme';
+import theme, { scale } from '../theme';
 
-const inset = 12;
+const inset = scale(12);
 
 const webBorderStyle: ViewStyle =
   Platform.OS === 'web'
     ? ({
-        borderWidth: 2,
+        borderWidth: scale(2),
         borderStyle: 'dashed',
         borderColor: `${theme.colors.red}b3`,
       } as ViewStyle)
@@ -24,8 +24,8 @@ const styles = StyleSheet.create({
     right: inset,
     bottom: inset,
     left: inset,
-    borderRadius: 24,
-    borderWidth: 2,
+    borderRadius: scale(24),
+    borderWidth: scale(2),
     borderColor: theme.colors.red,
     opacity: 0.7,
     zIndex: 2,

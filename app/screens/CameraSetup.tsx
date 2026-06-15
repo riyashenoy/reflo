@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import theme from '../theme';
+import theme, { scale } from '../theme';
 
 export default function CameraSetup() {
   return (
@@ -20,7 +20,6 @@ const styles = StyleSheet.create({
   title: {
     ...theme.typography.header,
     fontFamily: theme.fonts.header,
-    fontSize: 24,
     color: theme.colors.textPrimary,
   },
 });

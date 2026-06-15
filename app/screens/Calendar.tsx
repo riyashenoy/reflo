@@ -12,7 +12,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { workouts } from '../data/workouts';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
 import type { AppStackParamList } from '../navigation';
-import theme from '../theme';
+import theme, { scale } from '../theme';
 
 type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -167,66 +167,66 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 120,
+    paddingHorizontal: scale(20),
+    paddingBottom: scale(120),
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: scale(16),
   },
   heading: {
     ...theme.typography.header,
     color: theme.colors.textPrimary,
     flex: 1,
-    paddingRight: 12,
+    paddingRight: scale(12),
   },
   editButton: {
-    paddingTop: 4,
+    paddingTop: scale(4),
   },
   editIcon: {
-    fontSize: 22,
+    fontSize: scale(22),
     color: theme.colors.red,
   },
   generateButton: {
     alignSelf: 'flex-start',
     backgroundColor: theme.colors.dark,
-    borderRadius: 999,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    marginBottom: 24,
+    borderRadius: theme.radius.full,
+    paddingVertical: scale(12),
+    paddingHorizontal: scale(18),
+    marginBottom: scale(24),
   },
   generateButtonText: {
     ...theme.typography.label,
     color: theme.colors.white,
   },
   dayList: {
-    marginTop: 4,
+    marginTop: scale(4),
   },
   divider: {
-    height: 1,
+    height: scale(1),
     backgroundColor: theme.colors.border,
   },
   dayRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
+    paddingVertical: scale(16),
   },
   dayRowToday: {
     backgroundColor: `${theme.colors.red}0a`,
-    marginHorizontal: -20,
-    paddingHorizontal: 20,
+    marginHorizontal: scale(-20),
+    paddingHorizontal: scale(20),
   },
   dayRowContent: {
     flex: 1,
-    paddingRight: 12,
+    paddingRight: scale(12),
   },
   dayLabel: {
     ...theme.typography.label,
     color: theme.colors.textSecondary,
-    marginBottom: 4,
+    marginBottom: scale(4),
   },
   dayLabelToday: {
     color: theme.colors.red,
@@ -236,33 +236,33 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.bodyMedium,
     color: theme.colors.textPrimary,
     textTransform: 'uppercase',
-    marginBottom: 4,
+    marginBottom: scale(4),
   },
   statusLine: {
     ...theme.typography.body,
-    fontSize: 12,
+    fontSize: scale(12),
     color: theme.colors.textSecondary,
   },
   statusLineToday: {
     color: theme.colors.textSecondary,
   },
   statusCircleCompleted: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: scale(28),
+    height: scale(28),
+    borderRadius: scale(14),
     backgroundColor: theme.colors.teal,
     justifyContent: 'center',
     alignItems: 'center',
   },
   statusCheckmark: {
     color: theme.colors.white,
-    fontSize: 14,
+    fontSize: scale(14),
     fontWeight: '700',
   },
   statusCircleEmpty: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: scale(28),
+    height: scale(28),
+    borderRadius: scale(14),
     backgroundColor: theme.colors.grey200,
   },
 });

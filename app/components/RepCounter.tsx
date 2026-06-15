@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import theme, { scale } from '../theme';
+
 export default function RepCounter() {
   return (
     <View style={styles.container}>
@@ -14,7 +16,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   label: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...theme.typography.body,
+    fontFamily: theme.fonts.bodyMedium,
+    fontSize: scale(16),
   },
 });

@@ -12,7 +12,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { getWorkoutById } from '../data/workouts';
 import type { AppStackParamList } from '../navigation';
-import theme from '../theme';
+import theme, { scale } from '../theme';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'ExercisePreview'>;
 
@@ -89,7 +89,7 @@ export default function ExercisePreview({ route, navigation }: Props) {
     return (
       <View style={styles.container}>
         <Pressable
-          style={[styles.backButton, { top: insets.top + 12 }]}
+          style={[styles.backButton, { top: insets.top + scale(12) }]}
           onPress={() => navigation.goBack()}
         >
           <Text style={styles.backButtonText}>←</Text>
@@ -108,7 +108,7 @@ export default function ExercisePreview({ route, navigation }: Props) {
   return (
     <View style={styles.container} {...panResponder.panHandlers}>
       <Pressable
-        style={[styles.backButton, { top: insets.top + 12 }]}
+        style={[styles.backButton, { top: insets.top + scale(12) }]}
         onPress={() => navigation.goBack()}
       >
         <Text style={styles.backButtonText}>←</Text>
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: scale(40),
   },
   tapZoneLeft: {
     position: 'absolute',
@@ -242,118 +242,117 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    left: 20,
+    left: scale(20),
     zIndex: 10,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(20),
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   backButtonText: {
     color: theme.colors.white,
-    fontSize: 18,
+    fontSize: scale(18),
   },
   videoArea: {
-    paddingTop: 56,
+    paddingTop: scale(56),
   },
   videoPlaceholder: {
-    height: 280,
+    height: scale(280),
     backgroundColor: theme.colors.surfaceMuted,
     justifyContent: 'center',
     alignItems: 'center',
   },
   playButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: scale(56),
+    height: scale(56),
+    borderRadius: scale(28),
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   playButtonIcon: {
     color: theme.colors.white,
-    fontSize: 22,
+    fontSize: scale(22),
   },
   dotsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 16,
+    gap: scale(8),
+    paddingVertical: scale(16),
   },
   dot: {
-    height: 6,
-    borderRadius: 3,
+    height: scale(6),
+    borderRadius: scale(3),
   },
   dotActive: {
-    width: 20,
+    width: scale(20),
     backgroundColor: theme.colors.white,
   },
   dotInactive: {
-    width: 6,
+    width: scale(6),
     backgroundColor: `${theme.colors.white}44`,
   },
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: scale(20),
   },
   exerciseCount: {
     ...theme.typography.label,
     fontFamily: theme.fonts.label,
     color: `${theme.colors.white}66`,
-    marginBottom: 8,
+    marginBottom: scale(8),
   },
   exerciseName: {
     ...theme.typography.header,
     fontFamily: theme.fonts.header,
-    fontSize: 28,
     color: theme.colors.white,
-    marginBottom: 8,
+    marginBottom: scale(8),
   },
   exerciseDescription: {
     ...theme.typography.body,
     color: `${theme.colors.white}99`,
     lineHeight: 20,
-    marginBottom: 20,
+    marginBottom: scale(20),
   },
   statsRow: {
     flexDirection: 'row',
-    marginBottom: 20,
+    marginBottom: scale(20),
   },
   statColumn: {
     flex: 1,
-    paddingHorizontal: 6,
+    paddingHorizontal: scale(6),
   },
   statColumnDivider: {
-    borderLeftWidth: 1,
+    borderLeftWidth: scale(1),
     borderLeftColor: `${theme.colors.white}22`,
   },
   statValue: {
     ...theme.typography.body,
     fontFamily: theme.fonts.bodyMedium,
-    fontSize: 18,
+    fontSize: scale(18),
     color: theme.colors.white,
-    marginBottom: 4,
+    marginBottom: scale(4),
   },
   statLabel: {
     ...theme.typography.label,
     fontFamily: theme.fonts.label,
-    fontSize: 9,
+    fontSize: scale(9),
     color: `${theme.colors.white}66`,
   },
   stepCard: {
     backgroundColor: theme.colors.surfaceMuted,
     borderRadius: theme.radius.sm,
-    padding: 16,
-    marginBottom: 12,
+    padding: scale(16),
+    marginBottom: scale(12),
   },
   stepLabel: {
     ...theme.typography.label,
     fontFamily: theme.fonts.label,
-    fontSize: 10,
+    fontSize: scale(10),
     color: `${theme.colors.white}99`,
-    marginBottom: 6,
+    marginBottom: scale(6),
   },
   stepDescription: {
     ...theme.typography.body,
@@ -363,10 +362,10 @@ const styles = StyleSheet.create({
   beginClassButton: {
     backgroundColor: theme.colors.red,
     borderRadius: theme.radius.full,
-    paddingVertical: 14,
+    paddingVertical: scale(14),
     alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 16,
+    marginTop: scale(8),
+    marginBottom: scale(16),
   },
   beginClassButtonText: {
     ...theme.typography.label,
@@ -376,11 +375,11 @@ const styles = StyleSheet.create({
   navArrows: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: scale(8),
   },
   arrowButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: scale(8),
+    paddingHorizontal: scale(12),
   },
   arrowButtonDisabled: {
     opacity: 0.35,
@@ -393,6 +392,6 @@ const styles = StyleSheet.create({
     ...theme.typography.body,
     color: theme.colors.white,
     textAlign: 'center',
-    marginTop: 100,
+    marginTop: scale(100),
   },
 });

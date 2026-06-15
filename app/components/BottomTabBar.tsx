@@ -4,7 +4,7 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import theme from '../theme';
+import theme, { scale } from '../theme';
 
 const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   Home: 'home',
@@ -22,13 +22,13 @@ function TabButton({
   iconName: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
 }) {
-  const scale = useRef(new Animated.Value(1)).current;
+  const iconScale = useRef(new Animated.Value(1)).current;
   const indicatorScale = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
   const indicatorOpacity = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.spring(scale, {
+      Animated.spring(iconScale, {
         toValue: isFocused ? 1.05 : 1,
         friction: 7,
         tension: 140,
@@ -46,10 +46,10 @@ function TabButton({
         useNativeDriver: true,
       }),
     ]).start();
-  }, [isFocused, indicatorOpacity, indicatorScale, scale]);
+  }, [isFocused, indicatorOpacity, indicatorScale, iconScale]);
 
   const handlePressIn = () => {
-    Animated.spring(scale, {
+    Animated.spring(iconScale, {
       toValue: 0.9,
       friction: 6,
       tension: 200,
@@ -58,7 +58,7 @@ function TabButton({
   };
 
   const handlePressOut = () => {
-    Animated.spring(scale, {
+    Animated.spring(iconScale, {
       toValue: isFocused ? 1.05 : 1,
       friction: 7,
       tension: 140,
@@ -76,7 +76,7 @@ function TabButton({
       accessibilityState={{ selected: isFocused }}
     >
       <Animated.View
-        style={[styles.iconCircle, { transform: [{ scale }] }]}
+        style={[styles.iconCircle, { transform: [{ scale: iconScale }] }]}
       >
         <Ionicons name={iconName} size={22} color={theme.colors.white} />
       </Animated.View>
@@ -101,7 +101,7 @@ export default function BottomTabBar({
 
   return (
     <View
-      style={[styles.container, { paddingBottom: Math.max(insets.bottom, 16) }]}
+      style={[styles.container, { paddingBottom: Math.max(insets.bottom, scale(16)) }]}
       pointerEvents="box-none"
     >
       <View style={styles.tabRow}>
@@ -148,26 +148,26 @@ const styles = StyleSheet.create({
   tabRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 20,
-    paddingHorizontal: 24,
-    paddingTop: 8,
+    gap: scale(20),
+    paddingHorizontal: scale(24),
+    paddingTop: scale(8),
   },
   tab: {
     alignItems: 'center',
   },
   iconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: scale(56),
+    height: scale(56),
+    borderRadius: scale(28),
     backgroundColor: theme.colors.dark,
     justifyContent: 'center',
     alignItems: 'center',
   },
   activeIndicator: {
-    width: 24,
-    height: 3,
-    borderRadius: 2,
+    width: scale(24),
+    height: scale(3),
+    borderRadius: scale(2),
     backgroundColor: theme.colors.red,
-    marginTop: 8,
+    marginTop: scale(8),
   },
 });

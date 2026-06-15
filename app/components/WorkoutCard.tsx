@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import theme from '../theme';
+import theme, { scale } from '../theme';
 
 export default function WorkoutCard() {
   return (
@@ -12,7 +12,7 @@ export default function WorkoutCard() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
+    padding: scale(16),
     borderRadius: theme.radius.md,
     backgroundColor: theme.colors.grey200,
   },

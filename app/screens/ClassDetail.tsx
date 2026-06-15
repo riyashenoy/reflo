@@ -11,11 +11,11 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { getWorkoutById } from '../data/workouts';
 import type { AppStackParamList } from '../navigation';
-import theme from '../theme';
+import theme, { scale } from '../theme';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'ClassDetail'>;
 
-const HORIZONTAL_PADDING = 20;
+const HORIZONTAL_PADDING = scale(20);
 const HERO_HEIGHT_RATIO = 0.4;
 
 function formatIntensity(intensity: string) {
@@ -36,7 +36,7 @@ export default function ClassDetail({ route, navigation }: Props) {
     return (
       <View style={styles.container}>
         <Pressable
-          style={[styles.iconButton, { top: insets.top + 12, left: 20 }]}
+          style={[styles.iconButton, { top: insets.top + scale(12), left: scale(20) }]}
           onPress={() => navigation.goBack()}
         >
           <Text style={styles.iconButtonText}>←</Text>
@@ -75,13 +75,13 @@ export default function ClassDetail({ route, navigation }: Props) {
         <View style={[styles.hero, { height: heroHeight }]}>
           <View style={styles.heroPlaceholder} />
           <Pressable
-            style={[styles.iconButton, { top: insets.top + 12, left: 20 }]}
+            style={[styles.iconButton, { top: insets.top + scale(12), left: scale(20) }]}
             onPress={() => navigation.goBack()}
           >
             <Text style={styles.iconButtonText}>←</Text>
           </Pressable>
           <Pressable
-            style={[styles.iconButton, { top: insets.top + 12, right: 20 }]}
+            style={[styles.iconButton, { top: insets.top + scale(12), right: scale(20) }]}
           >
             <Text style={styles.iconButtonText}>☆</Text>
           </Pressable>
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100,
+    paddingBottom: scale(100),
   },
   hero: {
     width: '100%',
@@ -196,70 +196,69 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(20),
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   iconButtonText: {
     color: theme.colors.white,
-    fontSize: 18,
+    fontSize: scale(18),
   },
   content: {
     paddingHorizontal: HORIZONTAL_PADDING,
-    paddingTop: 20,
+    paddingTop: scale(20),
   },
   title: {
     ...theme.typography.header,
     fontFamily: theme.fonts.header,
-    fontSize: 28,
     color: theme.colors.white,
-    marginBottom: 8,
+    marginBottom: scale(8),
   },
   description: {
     ...theme.typography.body,
     color: `${theme.colors.white}99`,
     lineHeight: 20,
-    marginBottom: 16,
+    marginBottom: scale(16),
   },
   tagRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 20,
+    gap: scale(8),
+    marginBottom: scale(20),
   },
   tagPill: {
-    borderWidth: 1,
+    borderWidth: scale(1),
     borderColor: `${theme.colors.white}44`,
     borderRadius: theme.radius.full,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: scale(12),
+    paddingVertical: scale(6),
   },
   tagPillText: {
     ...theme.typography.body,
-    fontSize: 12,
+    fontSize: scale(12),
     color: theme.colors.white,
   },
   statsRow: {
     flexDirection: 'row',
-    marginBottom: 20,
+    marginBottom: scale(20),
   },
   statColumn: {
     flex: 1,
-    paddingHorizontal: 6,
+    paddingHorizontal: scale(6),
   },
   statColumnDivider: {
-    borderLeftWidth: 1,
+    borderLeftWidth: scale(1),
     borderLeftColor: `${theme.colors.white}22`,
   },
   statValue: {
     ...theme.typography.body,
     fontFamily: theme.fonts.bodyMedium,
-    fontSize: 18,
+    fontSize: scale(18),
     color: theme.colors.white,
-    marginBottom: 4,
+    marginBottom: scale(4),
   },
   statValueAccent: {
     color: theme.colors.red,
@@ -267,40 +266,40 @@ const styles = StyleSheet.create({
   statLabel: {
     ...theme.typography.label,
     fontFamily: theme.fonts.label,
-    fontSize: 9,
+    fontSize: scale(9),
     color: `${theme.colors.white}66`,
   },
   sectionDivider: {
-    height: 1,
+    height: scale(1),
     backgroundColor: `${theme.colors.white}22`,
-    marginBottom: 12,
+    marginBottom: scale(12),
   },
   sectionLabel: {
     ...theme.typography.label,
     fontFamily: theme.fonts.label,
     color: `${theme.colors.white}66`,
-    marginBottom: 12,
+    marginBottom: scale(12),
   },
   exerciseRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: scale(14),
   },
   exerciseRowBorder: {
-    borderBottomWidth: 1,
+    borderBottomWidth: scale(1),
     borderBottomColor: `${theme.colors.white}0a`,
   },
   exerciseNumber: {
-    width: 28,
+    width: scale(28),
     ...theme.typography.body,
     color: `${theme.colors.white}66`,
   },
   exerciseThumbnail: {
-    width: 40,
-    height: 40,
+    width: scale(40),
+    height: scale(40),
     backgroundColor: `${theme.colors.white}22`,
-    borderRadius: 4,
-    marginRight: 12,
+    borderRadius: scale(4),
+    marginRight: scale(12),
   },
   exerciseInfo: {
     flex: 1,
@@ -309,43 +308,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 4,
+    gap: scale(8),
+    marginBottom: scale(4),
   },
   exerciseName: {
     ...theme.typography.body,
     fontFamily: theme.fonts.bodyMedium,
-    fontSize: 15,
+    fontSize: scale(15),
     color: theme.colors.white,
   },
   trackedBadge: {
-    borderWidth: 1,
+    borderWidth: scale(1),
     borderColor: theme.colors.red,
     borderRadius: theme.radius.md,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: scale(8),
+    paddingVertical: scale(2),
   },
   trackedBadgeText: {
     ...theme.typography.label,
     fontFamily: theme.fonts.label,
-    fontSize: 9,
+    fontSize: scale(9),
     color: theme.colors.red,
   },
   exerciseMeta: {
     ...theme.typography.body,
-    fontSize: 12,
+    fontSize: scale(12),
     color: `${theme.colors.white}66`,
   },
   bottomSpacer: {
-    height: 24,
+    height: scale(24),
   },
   beginButton: {
     position: 'absolute',
-    bottom: 24,
-    right: 24,
+    bottom: scale(24),
+    right: scale(24),
     backgroundColor: theme.colors.red,
-    paddingHorizontal: 28,
-    paddingVertical: 14,
+    paddingHorizontal: scale(28),
+    paddingVertical: scale(14),
     borderRadius: theme.radius.full,
   },
   beginButtonText: {
@@ -357,6 +356,6 @@ const styles = StyleSheet.create({
     ...theme.typography.body,
     color: theme.colors.white,
     textAlign: 'center',
-    marginTop: 100,
+    marginTop: scale(100),
   },
 });

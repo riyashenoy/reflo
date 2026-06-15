@@ -8,7 +8,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import theme from '../theme';
+import theme, { scale } from '../theme';
 
 type Props = {
   style?: StyleProp<ViewStyle>;
@@ -104,13 +104,13 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceMuted,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: scale(24),
   },
   permissionContainer: {
     backgroundColor: theme.colors.dark,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: scale(24),
   },
   videoContainer: {
     overflow: 'hidden',
@@ -118,9 +118,9 @@ const styles = StyleSheet.create({
   },
   text: {
     ...theme.typography.body,
-    fontSize: 16,
+    fontSize: scale(16),
     color: theme.colors.white,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: scale(16),
   },
 });

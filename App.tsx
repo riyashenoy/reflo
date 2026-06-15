@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
 import { useFonts } from 'expo-font';
 import {
   Inter_400Regular,
@@ -46,10 +47,38 @@ export default function App() {
     return null;
   }
 
-  return (
+  const appContent = (
     <SafeAreaProvider>
       <RootNavigation />
       <StatusBar style="auto" />
     </SafeAreaProvider>
   );
+
+  if (Platform.OS === 'web') {
+    return (
+      <View style={styles.webContainer}>
+        <View style={styles.phoneFrame}>{appContent}</View>
+      </View>
+    );
+  }
+
+  return appContent;
 }
+
+const styles = StyleSheet.create({
+  webContainer: {
+    flex: 1,
+    backgroundColor: '#242121',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '100vh' as any,
+  },
+  phoneFrame: {
+    width: 390,
+    height: '100vh' as any,
+    maxHeight: 844,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#F3F3F3',
+  },
+});
