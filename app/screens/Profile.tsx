@@ -23,12 +23,12 @@ import {
   formatProfileSubtitle,
   formatWeight,
   getAgeFromBirthday,
-  getProfileInitial,
   saveUserProfile,
   type ProfileEditSection,
   type UserPreferences,
   type UserProfile,
 } from '../lib/userProfile';
+import { ProfilePhotoPicker } from '../components/ProfilePhotoPicker';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
@@ -149,10 +149,6 @@ export default function Profile() {
     auth.currentUser?.displayName ||
     'Your profile';
   const displayEmail = auth.currentUser?.email ?? '—';
-  const avatarInitial = getProfileInitial(
-    profile?.name,
-    auth.currentUser?.email
-  );
   const profileSubtitle = formatProfileSubtitle(profile);
   const mindfulSubtitle = formatMindfulAreas(profile?.mindfulAreas);
 
@@ -211,18 +207,15 @@ export default function Profile() {
     >
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          <View style={styles.avatarWrapper}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarInitial}>{avatarInitial}</Text>
-            </View>
-            <Pressable
-              style={styles.avatarEditBadge}
-              onPress={() => openEdit('about')}
-              hitSlop={6}
-            >
-              <Text style={styles.avatarEditIcon}>✎</Text>
-            </Pressable>
-          </View>
+          <ProfilePhotoPicker
+            variant="profile"
+            photoURL={profile?.photoURL ?? auth.currentUser?.photoURL}
+            name={profile?.name}
+            email={auth.currentUser?.email}
+            onPhotoUpdated={(photoURL) =>
+              setProfile((prev) => (prev ? { ...prev, photoURL } : { photoURL }))
+            }
+          />
           <View style={styles.headerText}>
             <Text style={styles.name}>{displayName}</Text>
             <Text style={styles.subtitle}>{profileSubtitle}</Text>
@@ -388,42 +381,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-  },
-  avatarWrapper: {
-    position: 'relative',
-    marginRight: scale(14),
-  },
-  avatar: {
-    width: scale(80),
-    height: scale(80),
-    borderRadius: scale(40),
-    backgroundColor: theme.colors.white,
-    borderWidth: scale(2),
-    borderColor: theme.colors.red,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarEditBadge: {
-    position: 'absolute',
-    right: scale(-2),
-    bottom: scale(-2),
-    width: scale(26),
-    height: scale(26),
-    borderRadius: scale(13),
-    backgroundColor: theme.colors.dark,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: scale(2),
-    borderColor: theme.colors.background,
-  },
-  avatarEditIcon: {
-    color: theme.colors.white,
-    fontSize: scale(12),
-  },
-  avatarInitial: {
-    fontFamily: theme.fonts.headerMedium,
-    fontSize: scale(36),
-    color: theme.colors.red,
   },
   headerText: {
     flex: 1,

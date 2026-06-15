@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  FlatList,
+  Animated,
+  Easing,
   Image,
   Pressable,
   ScrollView,
@@ -22,6 +23,21 @@ const COMPLETED_DAY_COUNT = 3;
 const HORIZONTAL_PADDING = scale(20);
 const CARD_GAP = scale(12);
 const GRID_MIN_ITEMS = 4;
+const CROSSFADE_MS = 300;
+const HORIZONTAL_SLIDE = scale(28);
+
+function getFilterIndex(filter: string): number {
+  return FILTERS.indexOf(filter as (typeof FILTERS)[number]);
+}
+
+function getFilterDirection(from: string, to: string): 1 | -1 {
+  const fromIndex = getFilterIndex(from);
+  const toIndex = getFilterIndex(to);
+  if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) {
+    return 1;
+  }
+  return toIndex > fromIndex ? 1 : -1;
+}
 
 type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -32,11 +48,15 @@ function matchesFilter(workout: Workout, activeFilter: string): boolean {
   return workout.tags.some((tag) => tag.toLowerCase() === filterTag);
 }
 
-function buildGridWorkouts(items: Workout[], minItems = GRID_MIN_ITEMS): GridWorkout[] {
+function buildGridWorkouts(
+  items: Workout[],
+  filter: string,
+  minItems = GRID_MIN_ITEMS
+): GridWorkout[] {
   const base = items.length > 0 ? items : workouts;
   const result: GridWorkout[] = base.map((workout, index) => ({
     ...workout,
-    gridKey: `${workout.id}-${index}`,
+    gridKey: `${filter}-${workout.id}-${index}`,
   }));
 
   let cycleIndex = 0;
@@ -44,7 +64,7 @@ function buildGridWorkouts(items: Workout[], minItems = GRID_MIN_ITEMS): GridWor
     const workout = base[cycleIndex % base.length];
     result.push({
       ...workout,
-      gridKey: `${workout.id}-repeat-${result.length}`,
+      gridKey: `${filter}-${workout.id}-repeat-${result.length}`,
     });
     cycleIndex += 1;
   }
@@ -57,6 +77,113 @@ function getStreakDayStatus(dayIndex: number) {
     return 'completed';
   }
   return 'incomplete';
+}
+
+function WorkoutGrid({
+  filter,
+  cardWidth,
+  onWorkoutPress,
+}: {
+  filter: string;
+  cardWidth: number;
+  onWorkoutPress: (workoutId: string) => void;
+}) {
+  const rows = useMemo(() => {
+    const matched = workouts.filter((workout) =>
+      matchesFilter(workout, filter)
+    );
+    const filteredWorkouts = buildGridWorkouts(
+      matched.length > 0 ? matched : workouts,
+      filter
+    );
+    const result: GridWorkout[][] = [];
+    for (let index = 0; index < filteredWorkouts.length; index += 2) {
+      result.push(filteredWorkouts.slice(index, index + 2));
+    }
+    return result;
+  }, [filter]);
+
+  return (
+    <>
+      {rows.map((row, rowIndex) => (
+        <View key={`${filter}-row-${rowIndex}`} style={styles.cardRow}>
+          {row.map((item) => (
+            <WorkoutCard
+              key={item.gridKey}
+              workout={item}
+              width={cardWidth}
+              onPress={() => onWorkoutPress(item.id)}
+            />
+          ))}
+          {row.length === 1 ? <View style={{ width: cardWidth }} /> : null}
+        </View>
+      ))}
+    </>
+  );
+}
+
+function FilterPill({
+  label,
+  isActive,
+  onPress,
+}: {
+  label: string;
+  isActive: boolean;
+  onPress: () => void;
+}) {
+  const activeProgress = useRef(
+    new Animated.Value(isActive ? 1 : 0)
+  ).current;
+  const pressScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.timing(activeProgress, {
+      toValue: isActive ? 1 : 0,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [activeProgress, isActive]);
+
+  const backgroundColor = activeProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.colors.grey200, theme.colors.dark],
+  });
+
+  const handlePressIn = () => {
+    Animated.spring(pressScale, {
+      toValue: 0.96,
+      friction: 7,
+      tension: 200,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(pressScale, {
+      toValue: 1,
+      friction: 7,
+      tension: 160,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+    >
+      <Animated.View
+        style={[
+          styles.filterPill,
+          { backgroundColor, transform: [{ scale: pressScale }] },
+        ]}
+      >
+        <Text style={styles.filterPillText}>{label}</Text>
+      </Animated.View>
+    </Pressable>
+  );
 }
 
 function WorkoutCard({
@@ -79,103 +206,180 @@ function WorkoutCard({
 export default function Home() {
   const navigation = useNavigation<NavigationProp>();
   const tabTopPadding = useTabScreenTopPadding();
-  const [activeFilter, setActiveFilter] = useState<string>('Full Body');
-
-  const filteredWorkouts = useMemo(() => {
-    const matched = workouts.filter((workout) =>
-      matchesFilter(workout, activeFilter)
-    );
-    return buildGridWorkouts(matched.length > 0 ? matched : workouts);
-  }, [activeFilter]);
+  const [selectedFilter, setSelectedFilter] = useState<string>('Full Body');
+  const [displayFilter, setDisplayFilter] = useState<string>('Full Body');
+  const [outgoingFilter, setOutgoingFilter] = useState<string | null>(null);
+  const [incomingFilter, setIncomingFilter] = useState<string | null>(null);
+  const [transitionDirection, setTransitionDirection] = useState<1 | -1>(1);
+  const transitionProgress = useRef(new Animated.Value(1)).current;
+  const isAnimatingFilter = useRef(false);
 
   const cardWidth =
     (contentWidth - HORIZONTAL_PADDING * 2 - CARD_GAP) / 2;
 
-  const renderHeader = () => (
-    <View style={[styles.headerContent, { paddingTop: tabTopPadding }]}>
-      <Image
-        source={require('../../assets/images/logo.png')}
-        style={styles.logo}
-      />
+  const handleWorkoutPress = useCallback(
+    (workoutId: string) => {
+      navigation.navigate('ClassDetail', { workoutId });
+    },
+    [navigation]
+  );
 
-      <Text style={styles.heading}>Keep it Going</Text>
+  const outgoingOpacity = transitionProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0],
+  });
+  const incomingOpacity = transitionProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+  const outgoingTranslateX = transitionProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -transitionDirection * HORIZONTAL_SLIDE],
+  });
+  const incomingTranslateX = transitionProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [transitionDirection * HORIZONTAL_SLIDE, 0],
+  });
 
-      <View style={styles.streakRow}>
-        {DAY_LABELS.map((label, index) => {
-          const status = getStreakDayStatus(index);
-          return (
-            <View key={label} style={styles.streakDay}>
-              <Text style={styles.streakLabel}>{label}</Text>
-              <View
-                style={[
-                  styles.streakCircle,
-                  status === 'completed'
-                    ? styles.streakCircleCompleted
-                    : styles.streakCircleIncomplete,
-                ]}
-              >
-                {status === 'completed' ? (
-                  <Text style={styles.streakCheckmark}>✓</Text>
-                ) : null}
-              </View>
-            </View>
-          );
-        })}
-      </View>
+  const handleFilterPress = useCallback(
+    (filter: string) => {
+      if (filter === selectedFilter || isAnimatingFilter.current) {
+        return;
+      }
 
-      <Text style={styles.sectionHeading}>Workout Library</Text>
+      const direction = getFilterDirection(displayFilter, filter);
 
-      <View style={styles.filterSection}>
-        <Text style={styles.sectionSubtitle}>PICK YOUR WORKOUT</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterRow}
-        >
-          {FILTERS.map((filter) => {
-            const isActive = activeFilter === filter;
+      setSelectedFilter(filter);
+      setTransitionDirection(direction);
+      setOutgoingFilter(displayFilter);
+      setIncomingFilter(filter);
+      isAnimatingFilter.current = true;
+      transitionProgress.setValue(0);
+
+      Animated.timing(transitionProgress, {
+        toValue: 1,
+        duration: CROSSFADE_MS,
+        easing: Easing.inOut(Easing.cubic),
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) {
+          setDisplayFilter(filter);
+        }
+        setOutgoingFilter(null);
+        setIncomingFilter(null);
+        isAnimatingFilter.current = false;
+      });
+    },
+    [displayFilter, selectedFilter, transitionProgress]
+  );
+
+  const listHeader = useMemo(
+    () => (
+      <View style={[styles.headerContent, { paddingTop: tabTopPadding }]}>
+        <Image
+          source={require('../../assets/images/logo.png')}
+          style={styles.logo}
+        />
+
+        <Text style={styles.heading}>Keep it Going</Text>
+
+        <View style={styles.streakRow}>
+          {DAY_LABELS.map((label, index) => {
+            const status = getStreakDayStatus(index);
             return (
-              <Pressable
-                key={filter}
-                style={[styles.filterPill, isActive && styles.filterPillActive]}
-                onPress={() => setActiveFilter(filter)}
-              >
-                <Text
+              <View key={label} style={styles.streakDay}>
+                <Text style={styles.streakLabel}>{label}</Text>
+                <View
                   style={[
-                    styles.filterPillText,
-                    isActive && styles.filterPillTextActive,
+                    styles.streakCircle,
+                    status === 'completed'
+                      ? styles.streakCircleCompleted
+                      : styles.streakCircleIncomplete,
                   ]}
                 >
-                  {filter}
-                </Text>
-              </Pressable>
+                  {status === 'completed' ? (
+                    <Text style={styles.streakCheckmark}>✓</Text>
+                  ) : null}
+                </View>
+              </View>
             );
           })}
-        </ScrollView>
+        </View>
+
+        <Text style={styles.sectionHeading}>Workout Library</Text>
+
+        <View style={styles.filterSection}>
+          <Text style={styles.sectionSubtitle}>PICK YOUR WORKOUT</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterRow}
+          >
+            {FILTERS.map((filter) => (
+              <FilterPill
+                key={filter}
+                label={filter}
+                isActive={selectedFilter === filter}
+                onPress={() => handleFilterPress(filter)}
+              />
+            ))}
+          </ScrollView>
+        </View>
       </View>
-    </View>
+    ),
+    [handleFilterPress, selectedFilter, tabTopPadding]
   );
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={filteredWorkouts}
-        keyExtractor={(item) => item.gridKey}
-        numColumns={2}
-        ListHeaderComponent={renderHeader}
-        columnWrapperStyle={styles.cardRow}
+      <ScrollView
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <WorkoutCard
-            workout={item}
-            width={cardWidth}
-            onPress={() =>
-              navigation.navigate('ClassDetail', { workoutId: item.id })
-            }
-          />
-        )}
-      />
+      >
+        {listHeader}
+
+        <View style={styles.gridContainer}>
+          {outgoingFilter && incomingFilter ? (
+            <>
+              <Animated.View
+                pointerEvents="none"
+                style={{
+                  opacity: outgoingOpacity,
+                  transform: [{ translateX: outgoingTranslateX }],
+                }}
+              >
+                <WorkoutGrid
+                  filter={outgoingFilter}
+                  cardWidth={cardWidth}
+                  onWorkoutPress={handleWorkoutPress}
+                />
+              </Animated.View>
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.gridLayer,
+                  {
+                    opacity: incomingOpacity,
+                    transform: [{ translateX: incomingTranslateX }],
+                  },
+                ]}
+              >
+                <WorkoutGrid
+                  filter={incomingFilter}
+                  cardWidth={cardWidth}
+                  onWorkoutPress={handleWorkoutPress}
+                />
+              </Animated.View>
+            </>
+          ) : (
+            <WorkoutGrid
+              filter={displayFilter}
+              cardWidth={cardWidth}
+              onWorkoutPress={handleWorkoutPress}
+            />
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -191,6 +395,13 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     paddingBottom: scale(8),
+  },
+  gridContainer: {
+    minHeight: scale(200),
+    overflow: 'hidden',
+  },
+  gridLayer: {
+    ...StyleSheet.absoluteFill,
   },
   logo: {
     width: scale(72),
@@ -263,20 +474,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: scale(18),
     paddingVertical: scale(10),
     borderRadius: theme.radius.full,
-    backgroundColor: theme.colors.grey200,
-  },
-  filterPillActive: {
-    backgroundColor: theme.colors.dark,
   },
   filterPillText: {
     ...theme.typography.label,
     fontFamily: theme.fonts.label,
     color: theme.colors.white,
   },
-  filterPillTextActive: {
-    color: theme.colors.white,
-  },
   cardRow: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: CARD_GAP,
   },

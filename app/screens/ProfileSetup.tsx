@@ -10,10 +10,13 @@ import {
   View,
 } from 'react-native';
 import { doc, setDoc } from 'firebase/firestore';
+import { updateProfile } from 'firebase/auth';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { ProfilePhotoPicker } from '../components/ProfilePhotoPicker';
 import { auth, db } from '../lib/firebase';
 import { getAuthErrorMessage } from '../lib/authErrors';
+import { uploadProfilePhoto } from '../lib/profilePhoto';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
 
@@ -174,6 +177,7 @@ export default function ProfileSetup({ navigation }: Props) {
   const [saving, setSaving] = useState(false);
 
   const [name, setName] = useState('');
+  const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
   const [experienceLevel, setExperienceLevel] =
     useState<ExperienceLevel>('Intermediate');
   const [equipment, setEquipment] = useState<Equipment>('Reformer');
@@ -202,8 +206,17 @@ export default function ProfileSetup({ navigation }: Props) {
 
     setSaving(true);
     try {
+      let photoURL: string | undefined;
+      if (localPhotoUri) {
+        photoURL = await uploadProfilePhoto(uid, localPhotoUri);
+        if (auth.currentUser) {
+          await updateProfile(auth.currentUser, { photoURL });
+        }
+      }
+
       await setDoc(doc(db, 'users', uid), {
         name: name.trim(),
+        photoURL,
         experienceLevel,
         equipment,
         height,
@@ -238,18 +251,13 @@ export default function ProfileSetup({ navigation }: Props) {
       </Text>
 
       <SectionLabel>PROFILE PHOTO</SectionLabel>
-      <View style={styles.photoRow}>
-        <View style={styles.photoCircle}>
-          <Text style={styles.photoIcon}>👤</Text>
-          <View style={styles.photoAddBadge}>
-            <Text style={styles.photoAddText}>+</Text>
-          </View>
-        </View>
-        <View>
-          <Text style={styles.photoTitle}>Add a photo</Text>
-          <Text style={styles.photoSubtitle}>Optional, shows on your profile.</Text>
-        </View>
-      </View>
+      <ProfilePhotoPicker
+        localUri={localPhotoUri}
+        deferUpload
+        name={name}
+        email={auth.currentUser?.email}
+        onLocalUriChange={setLocalPhotoUri}
+      />
 
       <SectionLabel>YOUR NAME *</SectionLabel>
       <TextInput
@@ -532,52 +540,6 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginBottom: scale(8),
     marginTop: scale(8),
-  },
-  photoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: scale(16),
-  },
-  photoCircle: {
-    width: scale(72),
-    height: scale(72),
-    borderRadius: scale(36),
-    borderWidth: scale(2),
-    borderStyle: 'dashed',
-    borderColor: theme.colors.grey400,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: scale(14),
-    position: 'relative',
-  },
-  photoIcon: {
-    fontSize: scale(28),
-  },
-  photoAddBadge: {
-    position: 'absolute',
-    right: scale(-2),
-    bottom: scale(-2),
-    width: scale(24),
-    height: scale(24),
-    borderRadius: scale(12),
-    backgroundColor: theme.colors.red,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  photoAddText: {
-    color: theme.colors.white,
-    fontSize: scale(16),
-    fontWeight: '700',
-  },
-  photoTitle: {
-    fontSize: scale(15),
-    fontWeight: '600',
-    color: theme.colors.textPrimary,
-    marginBottom: scale(2),
-  },
-  photoSubtitle: {
-    fontSize: scale(12),
-    color: theme.colors.textSecondary,
   },
   input: {
     backgroundColor: theme.colors.white,

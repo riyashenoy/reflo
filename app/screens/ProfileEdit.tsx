@@ -22,6 +22,7 @@ import {
   saveUserProfile,
   type ProfileEditSection,
 } from '../lib/userProfile';
+import { ProfilePhotoPicker } from '../components/ProfilePhotoPicker';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
 
@@ -128,6 +129,7 @@ export default function ProfileEdit({ route, navigation }: Props) {
   const [saving, setSaving] = useState(false);
 
   const [name, setName] = useState('');
+  const [photoURL, setPhotoURL] = useState<string | null>(null);
   const [experienceLevel, setExperienceLevel] =
     useState<ExperienceLevel>('Intermediate');
   const [equipment, setEquipment] = useState<Equipment>('Reformer');
@@ -150,6 +152,7 @@ export default function ProfileEdit({ route, navigation }: Props) {
         const profile = await fetchUserProfile(uid);
         if (profile) {
           setName(profile.name ?? '');
+          setPhotoURL(profile.photoURL ?? auth.currentUser?.photoURL ?? null);
           if (
             EXPERIENCE_LEVEL_OPTIONS.includes(
               profile.experienceLevel as ExperienceLevel
@@ -251,6 +254,19 @@ export default function ProfileEdit({ route, navigation }: Props) {
       >
         <View onLayout={registerSection('about')}>
           <Text style={styles.sectionHeading}>About you</Text>
+
+          <SectionLabel>PROFILE PHOTO</SectionLabel>
+          <View style={styles.photoPickerRow}>
+            <ProfilePhotoPicker
+              variant="profile"
+              photoURL={photoURL}
+              name={name}
+              email={auth.currentUser?.email}
+              onPhotoUpdated={setPhotoURL}
+            />
+            <Text style={styles.photoHint}>Tap to change your profile photo.</Text>
+          </View>
+
           <SectionLabel>YOUR NAME *</SectionLabel>
           <TextInput
             style={styles.input}
@@ -437,6 +453,18 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginBottom: scale(8),
     marginTop: scale(8),
+  },
+  photoPickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: scale(8),
+  },
+  photoHint: {
+    flex: 1,
+    ...theme.typography.body,
+    fontSize: scale(13),
+    color: theme.colors.textSecondary,
+    paddingRight: scale(8),
   },
   input: {
     backgroundColor: theme.colors.white,

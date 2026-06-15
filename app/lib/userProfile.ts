@@ -11,6 +11,7 @@ export interface UserPreferences {
 
 export interface UserProfile {
   name?: string;
+  photoURL?: string;
   experienceLevel?: string;
   equipment?: string;
   height?: string;
