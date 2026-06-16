@@ -17,12 +17,86 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import DashedBorderOverlay from '../components/DashedBorderOverlay';
+import CorrectionToast from '../components/CorrectionToast';
 import LiveWorkoutNativeCamera from '../components/LiveWorkoutNativeCamera';
 import { getWorkoutById } from '../data/workouts';
+import {
+  usePoseDetection,
+  type DetectedPose,
+  type PoseExercise,
+} from '../hooks/usePoseDetection';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'LiveWorkout'>;
+
+const SKELETON_DOT_COLOR = '#CC1D1D';
+const SKELETON_LINE_COLOR = 'rgba(255, 255, 255, 0.45)';
+const SKELETON_DRAW_THRESHOLD = 0.3;
+
+// MoveNet 17-keypoint indices (same topology as BlazePose body limbs).
+const SKELETON_CONNECTIONS: [number, number][] = [
+  [5, 7],
+  [7, 9],
+  [6, 8],
+  [8, 10],
+  [5, 6],
+  [5, 11],
+  [6, 12],
+  [11, 12],
+  [11, 13],
+  [13, 15],
+  [12, 14],
+  [14, 16],
+];
+
+function drawSkeleton(
+  poses: DetectedPose[],
+  canvas: HTMLCanvasElement,
+  video: HTMLVideoElement
+) {
+  const ctx = canvas.getContext('2d');
+  if (!ctx || video.videoWidth === 0 || video.videoHeight === 0) {
+    return;
+  }
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (!poses.length) {
+    return;
+  }
+
+  const keypoints = poses[0].keypoints;
+
+  ctx.strokeStyle = SKELETON_LINE_COLOR;
+  ctx.lineWidth = 2;
+  SKELETON_CONNECTIONS.forEach(([i, j]) => {
+    const a = keypoints[i];
+    const b = keypoints[j];
+    if (
+      a &&
+      b &&
+      (a.score ?? 0) > SKELETON_DRAW_THRESHOLD &&
+      (b.score ?? 0) > SKELETON_DRAW_THRESHOLD
+    ) {
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+  });
+
+  keypoints.forEach((kp) => {
+    if ((kp.score ?? 0) > SKELETON_DRAW_THRESHOLD) {
+      ctx.beginPath();
+      ctx.arc(kp.x, kp.y, 6, 0, 2 * Math.PI);
+      ctx.fillStyle = SKELETON_DOT_COLOR;
+      ctx.fill();
+    }
+  });
+}
 
 function formatTimer(seconds: number) {
   return (
@@ -63,8 +137,13 @@ function LiveWorkout({ route, navigation }: Props) {
 
   const [currentExerciseIndex] = useState(0);
   const [repCount] = useState(0);
+  const [currentExercise] = useState<PoseExercise>('long_stretch');
+  const [correctionMessage, setCorrectionMessage] = useState<string | null>(
+    null
+  );
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const workoutIdRef = useRef(workoutId);
   const hasNavigatedToPostWorkout = useRef(false);
@@ -119,6 +198,10 @@ function LiveWorkout({ route, navigation }: Props) {
     [attachStreamToVideo]
   );
 
+  const setCanvasNode = useCallback((node: HTMLCanvasElement | null) => {
+    canvasRef.current = node;
+  }, []);
+
   useEffect(() => {
     startCamera();
 
@@ -132,6 +215,30 @@ function LiveWorkout({ route, navigation }: Props) {
       }
     };
   }, [startCamera]);
+
+  const handleCorrection = useCallback((message: string) => {
+    setCorrectionMessage(message);
+  }, []);
+
+  const handleCorrectionDismiss = useCallback(() => {
+    setCorrectionMessage(null);
+  }, []);
+
+  const { poses } = usePoseDetection(
+    videoRef,
+    Platform.OS === 'web' ? currentExercise : 'none',
+    handleCorrection
+  );
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') {
+      return;
+    }
+
+    if (canvasRef.current && videoRef.current) {
+      drawSkeleton(poses, canvasRef.current, videoRef.current);
+    }
+  }, [poses]);
 
   const exercise = workout?.exercises[currentExerciseIndex];
 
@@ -165,28 +272,48 @@ function LiveWorkout({ route, navigation }: Props) {
     <View style={styles.container}>
       <View style={styles.cameraSection}>
         {Platform.OS === 'web' ? (
-          createElement('video', {
-            key: 'camera-feed',
-            ref: setVideoNode,
-            style: {
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-            },
-            autoPlay: true,
-            playsInline: true,
-            muted: true,
-          })
+          <>
+            {createElement('video', {
+              key: 'camera-feed',
+              ref: setVideoNode,
+              style: {
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+              },
+              autoPlay: true,
+              playsInline: true,
+              muted: true,
+            })}
+            {createElement('canvas', {
+              key: 'skeleton-overlay',
+              ref: setCanvasNode,
+              style: {
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none',
+                zIndex: 2,
+              },
+            })}
+          </>
         ) : (
           <LiveWorkoutNativeCamera />
         )}
 
         <DashedBorderOverlay />
+
+        <CorrectionToast
+          message={correctionMessage}
+          onDismiss={handleCorrectionDismiss}
+        />
 
         <View
           style={[styles.topBar, { paddingTop: insets.top + scale(8) }]}

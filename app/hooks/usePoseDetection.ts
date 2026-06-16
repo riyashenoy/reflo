@@ -1,11 +1,27 @@
-import { useState } from 'react';
+import type { RefObject } from 'react';
 
-export function usePoseDetection() {
-  const [isDetecting, setIsDetecting] = useState(false);
+export type PoseExercise =
+  | 'hundred'
+  | 'long_stretch'
+  | 'footwork_toes'
+  | 'none';
 
-  return {
-    isDetecting,
-    startDetection: () => setIsDetecting(true),
-    stopDetection: () => setIsDetecting(false),
-  };
+export type DetectedKeypoint = {
+  x: number;
+  y: number;
+  score?: number;
+  name?: string;
+};
+
+export type DetectedPose = {
+  keypoints: DetectedKeypoint[];
+  score?: number;
+};
+
+export function usePoseDetection(
+  _videoRef: RefObject<HTMLVideoElement | null>,
+  _currentExercise: PoseExercise,
+  _onCorrection: (message: string) => void
+) {
+  return { isDetecting: false, poses: [] as DetectedPose[] };
 }

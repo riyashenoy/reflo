@@ -1,9 +1,27 @@
+const path = require('path');
 const createExpoWebpackConfigAsync = require('@expo/webpack-config');
 const webpack = require('webpack');
 require('dotenv').config();
 
 module.exports = async function(env, argv) {
   const config = await createExpoWebpackConfigAsync(env, argv);
+
+  config.resolve = {
+    ...config.resolve,
+    alias: {
+      ...(config.resolve?.alias ?? {}),
+      '@tensorflow/tfjs-backend-webgpu': path.resolve(
+        __dirname,
+        'app/lib/tfjs-webgpu-stub.js'
+      ),
+    },
+    fallback: {
+      ...(config.resolve?.fallback ?? {}),
+      fs: false,
+      path: false,
+      crypto: false,
+    },
+  };
   
   config.plugins.push(
     new webpack.DefinePlugin({
