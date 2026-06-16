@@ -4,9 +4,10 @@
     "slug": "reflo",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/images/logo_whitebg.png",
     "userInterfaceStyle": "light",
     "ios": {
+      "icon": "./assets/images/logo_whitebg.png",
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Reflo needs camera access for motion capture during pilates workouts.",
@@ -20,11 +21,10 @@
       "bundleIdentifier": "com.riyshen.reflo"
     },
     "android": {
+      "icon": "./assets/images/logo_whitebg.png",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/images/logo_whitebg.png"
       },
       "permissions": [
         "CAMERA",
@@ -37,7 +37,12 @@
     },
     "web": {
       "bundler": "webpack",
-      "favicon": "./assets/images/logo.png"
+      "favicon": "./assets/images/logo.png",
+      "shortName": "Reflo",
+      "themeColor": "#FFFFFF",
+      "backgroundColor": "#FFFFFF",
+      "display": "standalone",
+      "preferRelatedApplications": false
     },
     "plugins": [
       [
