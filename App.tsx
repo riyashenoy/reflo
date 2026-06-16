@@ -9,11 +9,31 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { useIsMobileWeb } from './app/hooks/useIsMobileWeb';
 import RootNavigation from './app/navigation';
+import theme from './app/theme';
 
 SplashScreen.preventAutoHideAsync();
 
+function useMobileWebViewport() {
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') {
+      return;
+    }
+
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (meta) {
+      meta.setAttribute(
+        'content',
+        'width=device-width, initial-scale=1, viewport-fit=cover'
+      );
+    }
+  }, []);
+}
+
 export default function App() {
+  const isMobileWeb = useIsMobileWeb();
+  useMobileWebViewport();
   const [fontsLoaded, fontError] = useFonts({
     'SHAdGrotesk-Regular': require('./assets/fonts/adgroteskregular.ttf'),
     'SHAdGrotesk-Light': require('./assets/fonts/adgrotesklight.ttf'),
@@ -55,6 +75,14 @@ export default function App() {
   );
 
   if (Platform.OS === 'web') {
+    if (isMobileWeb) {
+      return (
+        <View style={styles.mobileWebRoot}>
+          {appContent}
+        </View>
+      );
+    }
+
     return (
       <View style={styles.webContainer}>
         <View style={styles.phoneFrame}>{appContent}</View>
@@ -66,19 +94,28 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  mobileWebRoot: {
+    flex: 1,
+    width: '100%',
+    height: '100dvh' as any,
+    minHeight: '100dvh' as any,
+    maxHeight: '100dvh' as any,
+    backgroundColor: theme.colors.background,
+    overflow: 'hidden',
+  },
   webContainer: {
     flex: 1,
     backgroundColor: '#242121',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: '100vh' as any,
+    minHeight: '100dvh' as any,
   },
   phoneFrame: {
     width: 390,
-    height: '100vh' as any,
+    height: '100dvh' as any,
     maxHeight: 844,
     overflow: 'hidden',
     position: 'relative',
-    backgroundColor: '#F3F3F3',
+    backgroundColor: theme.colors.background,
   },
 });

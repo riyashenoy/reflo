@@ -13,9 +13,10 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { workouts, type Workout } from '../data/workouts';
+import { useLayoutWidth } from '../hooks/useLayoutWidth';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
 import type { AppStackParamList } from '../navigation';
-import theme, { contentWidth, scale } from '../theme';
+import theme, { scale } from '../theme';
 
 const FILTERS = ['Full Body', 'Upper Body', 'Lower Body', 'Core'] as const;
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'Th', 'F', 'Sa'] as const;
@@ -206,6 +207,7 @@ function WorkoutCard({
 export default function Home() {
   const navigation = useNavigation<NavigationProp>();
   const tabTopPadding = useTabScreenTopPadding();
+  const layoutWidth = useLayoutWidth();
   const [selectedFilter, setSelectedFilter] = useState<string>('Full Body');
   const [displayFilter, setDisplayFilter] = useState<string>('Full Body');
   const [outgoingFilter, setOutgoingFilter] = useState<string | null>(null);
@@ -215,7 +217,7 @@ export default function Home() {
   const isAnimatingFilter = useRef(false);
 
   const cardWidth =
-    (contentWidth - HORIZONTAL_PADDING * 2 - CARD_GAP) / 2;
+    (layoutWidth - HORIZONTAL_PADDING * 2 - CARD_GAP) / 2;
 
   const handleWorkoutPress = useCallback(
     (workoutId: string) => {

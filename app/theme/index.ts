@@ -1,16 +1,10 @@
-import { Dimensions, Platform } from 'react-native';
+import { getLayoutScale, getLayoutWidth } from '../lib/layout';
 
-const BASE_WIDTH = 390;
+export const scale = (size: number) => size * getLayoutScale();
 
-const screenWidth =
-  Platform.OS === 'web'
-    ? Math.min(Dimensions.get('window').width, 390)
-    : Dimensions.get('window').width;
+export const contentWidth = getLayoutWidth();
 
-export const scale = (size: number) =>
-  Platform.OS === 'web' ? size * (screenWidth / BASE_WIDTH) : size;
-
-export const contentWidth = screenWidth;
+export { getLayoutWidth, getLayoutScale };
 
 export const theme = {
   colors: {

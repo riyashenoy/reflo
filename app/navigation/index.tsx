@@ -146,21 +146,26 @@ export default function RootNavigation() {
 
   return (
     <AuthFlowContext.Provider value={{ setAppEntryRoute }}>
-      <NavigationContainer>
-        {user ? (
-          <AppNavigator
-            key={`${user.uid}-${appEntryRoute}`}
-            initialRouteName={appEntryRoute}
-          />
-        ) : (
-          <AuthNavigator />
-        )}
-      </NavigationContainer>
+      <View style={styles.root}>
+        <NavigationContainer>
+          {user ? (
+            <AppNavigator
+              key={`${user.uid}-${appEntryRoute}`}
+              initialRouteName={appEntryRoute}
+            />
+          ) : (
+            <AuthNavigator />
+          )}
+        </NavigationContainer>
+      </View>
     </AuthFlowContext.Provider>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   loading: {
     flex: 1,
     justifyContent: 'center',

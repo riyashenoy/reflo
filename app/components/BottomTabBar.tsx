@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useBottomTabPadding } from '../hooks/useBottomTabPadding';
 import theme, { scale } from '../theme';
 
 const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -97,11 +97,11 @@ export default function BottomTabBar({
   state,
   navigation,
 }: BottomTabBarProps) {
-  const insets = useSafeAreaInsets();
+  const bottomPadding = useBottomTabPadding();
 
   return (
     <View
-      style={[styles.container, { paddingBottom: Math.max(insets.bottom, scale(16)) }]}
+      style={[styles.container, { paddingBottom: bottomPadding }]}
       pointerEvents="box-none"
     >
       <View style={styles.tabRow}>
