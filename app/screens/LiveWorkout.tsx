@@ -175,7 +175,7 @@ function LiveWorkout({ route, navigation }: Props) {
 
     navigator.mediaDevices
       .getUserMedia({
-        video: { facingMode: 'environment' },
+        video: { facingMode: 'user' },
       })
       .then((stream) => {
         streamRef.current = stream;

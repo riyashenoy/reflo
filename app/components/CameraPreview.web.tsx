@@ -36,7 +36,7 @@ export default function CameraPreview({ style }: Props) {
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' } },
+        video: { facingMode: { ideal: 'user' } },
         audio: false,
       });
 

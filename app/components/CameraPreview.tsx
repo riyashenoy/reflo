@@ -51,7 +51,7 @@ export default function CameraPreview({ style }: Props) {
   }
 
   return (
-    <CameraView style={[StyleSheet.absoluteFill, style]} facing="back" />
+    <CameraView style={[StyleSheet.absoluteFill, style]} facing="front" />
   );
 }
 
