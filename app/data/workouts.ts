@@ -14,6 +14,8 @@ export interface Workout {
   title: string;
   description: string;
   duration: number;
+  /** Exact base-track length in seconds when it differs from duration × 60. */
+  audioDurationSeconds?: number;
   intensity: Intensity;
   tags: string[];
   aiTracked: boolean;
@@ -27,6 +29,7 @@ export const workouts: Workout[] = [
     description:
       'Lengthen and tone with a balanced pilates reformer flow focused on flexibility and control.',
     duration: 5,
+    audioDurationSeconds: 5 * 60 + 7.22,
     intensity: 'medium',
     tags: ['Full Body', 'Flexibility', 'Pilates'],
     aiTracked: true,

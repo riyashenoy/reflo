@@ -88,11 +88,18 @@ const CLIP_MAP: Record<string, number> = {
 const BORDER_INSET = scale(12);
 
 function formatTimer(seconds: number) {
+  const total = Math.max(0, Math.floor(seconds));
   return (
-    Math.floor(seconds / 60) +
+    Math.floor(total / 60) +
     ':' +
-    (seconds % 60).toString().padStart(2, '0')
+    (total % 60).toString().padStart(2, '0')
   );
+}
+
+function getTrackDurationSeconds(
+  workout: NonNullable<ReturnType<typeof getWorkoutById>>
+) {
+  return workout.audioDurationSeconds ?? workout.duration * 60;
 }
 
 function getClipForError(errorKey: string): string {
@@ -320,17 +327,24 @@ function LiveWorkout({ route, navigation }: Props) {
   }, [loadAndPlayBaseTrack]);
 
   const skipToEnd = useCallback(async () => {
+    if (!workout) {
+      return;
+    }
+
+    const trackDuration = getTrackDurationSeconds(workout);
+    const skipSeconds = Math.floor(trackDuration - 15.22);
+
     if (!workoutStarted) {
       setShowOnboarding(false);
       setWorkoutStarted(true);
       await loadAndPlayBaseTrack();
     }
 
-    await baseTrackRef.current?.setPositionAsync(292000);
-    timerSecondsRef.current = 292;
-    setTimerSeconds(292);
+    await baseTrackRef.current?.setPositionAsync(skipSeconds * 1000);
+    timerSecondsRef.current = skipSeconds;
+    setTimerSeconds(skipSeconds);
     setCurrentExercise('footwork_toes');
-  }, [workoutStarted, loadAndPlayBaseTrack]);
+  }, [workout, workoutStarted, loadAndPlayBaseTrack]);
 
   useEffect(() => {
     return () => {
@@ -460,6 +474,12 @@ function LiveWorkout({ route, navigation }: Props) {
     );
   }
 
+  const trackDurationSeconds = getTrackDurationSeconds(workout);
+  const remainingSeconds = Math.max(
+    0,
+    Math.floor(trackDurationSeconds - timerSeconds)
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.cameraSection}>
@@ -526,7 +546,7 @@ function LiveWorkout({ route, navigation }: Props) {
           </Pressable>
 
           <View style={[styles.pillButton, styles.timerPill]}>
-            <WorkoutTimer seconds={timerSeconds} />
+            <WorkoutTimer seconds={remainingSeconds} />
           </View>
 
           <View style={styles.topBarSpacer} />
