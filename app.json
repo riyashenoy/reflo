@@ -52,12 +52,6 @@
           "microphonePermission": "Reflo needs microphone access for voice cues and workout audio.",
           "recordAudioAndroid": true
         }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "Reflo needs photo library access so you can set your profile picture."
-        }
       ]
     ],
     "extra": {

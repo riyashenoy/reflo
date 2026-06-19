@@ -28,7 +28,7 @@ import {
   type UserPreferences,
   type UserProfile,
 } from '../lib/userProfile';
-import { ProfilePhotoPicker } from '../components/ProfilePhotoPicker';
+import { ProfileAvatar } from '../components/ProfileAvatar';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
@@ -207,14 +207,9 @@ export default function Profile() {
     >
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          <ProfilePhotoPicker
-            variant="profile"
-            photoURL={profile?.photoURL ?? auth.currentUser?.photoURL}
+          <ProfileAvatar
             name={profile?.name}
             email={auth.currentUser?.email}
-            onPhotoUpdated={(photoURL) =>
-              setProfile((prev) => (prev ? { ...prev, photoURL } : { photoURL }))
-            }
           />
           <View style={styles.headerText}>
             <Text style={styles.name}>{displayName}</Text>

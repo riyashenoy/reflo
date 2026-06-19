@@ -10,13 +10,10 @@ import {
   View,
 } from 'react-native';
 import { doc, setDoc } from 'firebase/firestore';
-import { updateProfile } from 'firebase/auth';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { ProfilePhotoPicker } from '../components/ProfilePhotoPicker';
 import { auth, db } from '../lib/firebase';
 import { getAuthErrorMessage } from '../lib/authErrors';
-import { uploadProfilePhoto } from '../lib/profilePhoto';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
 
@@ -177,7 +174,6 @@ export default function ProfileSetup({ navigation }: Props) {
   const [saving, setSaving] = useState(false);
 
   const [name, setName] = useState('');
-  const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
   const [experienceLevel, setExperienceLevel] =
     useState<ExperienceLevel>('Intermediate');
   const [equipment, setEquipment] = useState<Equipment>('Reformer');
@@ -206,17 +202,8 @@ export default function ProfileSetup({ navigation }: Props) {
 
     setSaving(true);
     try {
-      let photoURL: string | undefined;
-      if (localPhotoUri) {
-        photoURL = await uploadProfilePhoto(uid, localPhotoUri);
-        if (auth.currentUser) {
-          await updateProfile(auth.currentUser, { photoURL });
-        }
-      }
-
       await setDoc(doc(db, 'users', uid), {
         name: name.trim(),
-        photoURL,
         experienceLevel,
         equipment,
         height,
@@ -249,15 +236,6 @@ export default function ProfileSetup({ navigation }: Props) {
       <Text style={styles.subtitle}>
         This helps reflo personalize your classes and resistance recommendations.
       </Text>
-
-      <SectionLabel>PROFILE PHOTO</SectionLabel>
-      <ProfilePhotoPicker
-        localUri={localPhotoUri}
-        deferUpload
-        name={name}
-        email={auth.currentUser?.email}
-        onLocalUriChange={setLocalPhotoUri}
-      />
 
       <SectionLabel>YOUR NAME *</SectionLabel>
       <TextInput

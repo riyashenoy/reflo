@@ -20,6 +20,14 @@ export function getAuthErrorMessage(error: unknown): string {
         return 'Too many attempts. Please try again later.';
       case 'auth/network-request-failed':
         return 'Network error. Check your connection and try again.';
+      case 'storage/unauthorized':
+        return 'You do not have permission to upload photos. Check Firebase Storage rules.';
+      case 'storage/unauthenticated':
+        return 'Sign in again before uploading a profile photo.';
+      case 'storage/canceled':
+        return 'Upload was canceled. Please try again.';
+      case 'storage/unknown':
+        return 'Photo upload failed. Check your Firebase Storage setup.';
       default:
         return error.message || 'Something went wrong. Please try again.';
     }

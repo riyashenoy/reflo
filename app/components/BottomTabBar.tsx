@@ -4,7 +4,9 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
 import { useBottomTabPadding } from '../hooks/useBottomTabPadding';
+import { getTabBarFadeHeight } from '../lib/tabBarMetrics';
 import theme, { scale } from '../theme';
+import TabBarFade from './TabBarFade';
 
 const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   Home: 'home',
@@ -98,12 +100,14 @@ export default function BottomTabBar({
   navigation,
 }: BottomTabBarProps) {
   const bottomPadding = useBottomTabPadding();
+  const fadeHeight = getTabBarFadeHeight(bottomPadding);
 
   return (
     <View
       style={[styles.container, { paddingBottom: bottomPadding }]}
       pointerEvents="box-none"
     >
+      <TabBarFade height={fadeHeight} />
       <View style={styles.tabRow}>
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
@@ -144,6 +148,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
     backgroundColor: 'transparent',
+    zIndex: 10,
   },
   tabRow: {
     flexDirection: 'row',
@@ -151,6 +156,7 @@ const styles = StyleSheet.create({
     gap: scale(20),
     paddingHorizontal: scale(24),
     paddingTop: scale(8),
+    zIndex: 1,
   },
   tab: {
     alignItems: 'center',
