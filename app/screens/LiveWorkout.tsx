@@ -22,6 +22,11 @@ import DashedBorderOverlay from '../components/DashedBorderOverlay';
 import LiveWorkoutNativeCamera from '../components/LiveWorkoutNativeCamera';
 import { getWorkoutById } from '../data/workouts';
 import {
+  configureWorkoutAudioMode,
+  preloadClipSounds,
+  unloadClipSounds,
+} from '../lib/workoutAudio';
+import {
   usePoseDetection,
   type FormAssessmentData,
   type PoseExercise,
@@ -189,6 +194,7 @@ function LiveWorkout({ route, navigation }: Props) {
   const timerSecondsRef = useRef(0);
   const currentExerciseRef = useRef<PoseExercise>('none');
   const baseTrackRef = useRef<Audio.Sound | null>(null);
+  const clipSoundsRef = useRef<Record<string, Audio.Sound>>({});
   const clipPlaying = useRef(false);
   const hasNavigatedToPostWorkout = useRef(false);
   const formData = useRef<FormAssessmentData>({
@@ -229,35 +235,61 @@ function LiveWorkout({ route, navigation }: Props) {
       }
 
       clipPlaying.current = true;
-      await baseTrackRef.current?.setVolumeAsync(0.25);
+      let clipSound: Audio.Sound | null = null;
 
-      const clipSource = CLIP_MAP[clipNumber];
-      if (!clipSource) {
-        clipPlaying.current = false;
-        await baseTrackRef.current?.setVolumeAsync(1.0);
-        return;
-      }
+      try {
+        await configureWorkoutAudioMode();
+        await baseTrackRef.current?.setVolumeAsync(0.25);
 
-      const { sound } = await Audio.Sound.createAsync(clipSource);
-      sessionLog.current.push({
-        exercise: meta.exercise,
-        clipPlayed: clipNumber,
-        timestamp: timerSecondsRef.current,
-        type: meta.type,
-      });
+        clipSound = clipSoundsRef.current[clipNumber];
+        if (!clipSound) {
+          const clipSource = CLIP_MAP[clipNumber];
+          if (!clipSource) {
+            return;
+          }
 
-      await sound.playAsync();
-      sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
-        if (!status.isLoaded || !status.didJustFinish) {
-          return;
+          const { sound } = await Audio.Sound.createAsync(clipSource, {
+            shouldPlay: false,
+            volume: 1.0,
+          });
+          clipSoundsRef.current[clipNumber] = sound;
+          clipSound = sound;
         }
 
-        void (async () => {
-          await baseTrackRef.current?.setVolumeAsync(1.0);
-          clipPlaying.current = false;
-          await sound.unloadAsync();
-        })();
-      });
+        sessionLog.current.push({
+          exercise: meta.exercise,
+          clipPlayed: clipNumber,
+          timestamp: timerSecondsRef.current,
+          type: meta.type,
+        });
+
+        await clipSound.setPositionAsync(0);
+        await new Promise<void>((resolve) => {
+          const resetPlayback = () => {
+            void (async () => {
+              await baseTrackRef.current?.setVolumeAsync(1.0);
+              clipPlaying.current = false;
+            })();
+            resolve();
+          };
+
+          const timeout = setTimeout(resetPlayback, 12000);
+
+          clipSound!.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
+            if (!status.isLoaded || !status.didJustFinish) {
+              return;
+            }
+
+            clearTimeout(timeout);
+            resetPlayback();
+          });
+
+          void clipSound!.playAsync();
+        });
+      } catch {
+        clipPlaying.current = false;
+        await baseTrackRef.current?.setVolumeAsync(1.0);
+      }
     },
     []
   );
@@ -302,16 +334,15 @@ function LiveWorkout({ route, navigation }: Props) {
   );
 
   const loadAndPlayBaseTrack = useCallback(async () => {
-    await Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: false,
-    });
+    await configureWorkoutAudioMode();
 
     const { sound } = await Audio.Sound.createAsync(
       require('../../assets/audio/basetrack.mp3'),
       { shouldPlay: true, volume: 1.0 }
     );
     baseTrackRef.current = sound;
+
+    clipSoundsRef.current = await preloadClipSounds(CLIP_MAP);
 
     sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
       if (status.isLoaded && status.didJustFinish) {
@@ -349,8 +380,22 @@ function LiveWorkout({ route, navigation }: Props) {
   useEffect(() => {
     return () => {
       void baseTrackRef.current?.unloadAsync();
+      void unloadClipSounds(clipSoundsRef.current);
+      clipSoundsRef.current = {};
     };
   }, []);
+
+  useEffect(() => {
+    if (!workoutStarted || Platform.OS === 'web') {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      void configureWorkoutAudioMode();
+    }, 600);
+
+    return () => clearTimeout(timeout);
+  }, [workoutStarted]);
 
   useEffect(() => {
     if (!workoutStarted) {
