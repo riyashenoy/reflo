@@ -20,6 +20,7 @@ import Progress from '../screens/Progress';
 import SignIn from '../screens/SignIn';
 import BottomTabBar from '../components/BottomTabBar';
 import { auth } from '../lib/firebase';
+import type { SessionLogEntry } from '../hooks/usePoseDetection';
 import theme from '../theme';
 
 export type AuthStackParamList = {
@@ -33,7 +34,7 @@ export type AppStackParamList = {
   ClassDetail: { workoutId?: string };
   ExercisePreview: { workoutId: string; exerciseIndex: number };
   LiveWorkout: { workoutId?: string };
-  PostWorkout: { workoutId?: string };
+  PostWorkout: { workoutId?: string; sessionLog?: SessionLogEntry[] };
   ProfileEdit: { section?: 'about' | 'body' | 'mindful' };
 };
 

@@ -10,6 +10,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { getWorkoutById } from '../data/workouts';
 import type { AppStackParamList } from '../navigation';
+import type { SessionLogEntry } from '../hooks/usePoseDetection';
 import theme, { scale } from '../theme';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'PostWorkout'>;
@@ -33,6 +34,50 @@ const WORK_ON = [
   'Keep shoulders relaxed during plank variations',
   'Extend fully at the top of each repetition',
 ];
+
+const CLIP_LABELS: Record<string, string> = {
+  '01': 'Stay focused and keep your rhythm',
+  '02': 'Keep breathing steadily through each rep',
+  '03': 'Great form — keep that up',
+  '04': 'Strong control throughout the set',
+  '05': 'Watch for hips rising — squeeze the glutes',
+  '06': 'Keep hips lifted — avoid sagging',
+  '07': 'Lift your head — chin away from chest',
+  '08': 'Keep arms hovering — don\'t let them sink',
+  '09': 'Push knees out over your second toe',
+  '10': 'Keep heels lifted in this position',
+  '11': 'Slow down — control the movement',
+  '12': 'Maintain a straight line through hips',
+  '13': 'Reduce momentum — move with control',
+};
+
+function buildReportItems(sessionLog: SessionLogEntry[] | undefined) {
+  if (!sessionLog?.length) {
+    return {
+      wentWell: WENT_WELL,
+      workOn: WORK_ON,
+    };
+  }
+
+  const wentWell = sessionLog
+    .filter((entry) => entry.type === 'positive')
+    .map(
+      (entry) =>
+        `${entry.exercise}: ${CLIP_LABELS[entry.clipPlayed] ?? 'Good form noted'}`
+    );
+
+  const workOn = sessionLog
+    .filter((entry) => entry.type === 'correction')
+    .map(
+      (entry) =>
+        `${entry.exercise}: ${CLIP_LABELS[entry.clipPlayed] ?? 'Form correction noted'}`
+    );
+
+  return {
+    wentWell: wentWell.length ? wentWell : WENT_WELL,
+    workOn: workOn.length ? workOn : WORK_ON,
+  };
+}
 
 const DAY_NAMES = [
   'Sunday',
@@ -68,8 +113,9 @@ function BulletCard({ items }: { items: string[] }) {
 }
 
 export default function PostWorkout({ route, navigation }: Props) {
-  const { workoutId } = route.params ?? {};
+  const { workoutId, sessionLog } = route.params ?? {};
   const workout = workoutId ? getWorkoutById(workoutId) : undefined;
+  const reportItems = buildReportItems(sessionLog);
 
   const [stage, setStage] = useState<Stage>('report');
   const [ratingIndex, setRatingIndex] = useState(0);
@@ -131,12 +177,12 @@ export default function PostWorkout({ route, navigation }: Props) {
         <Text style={[styles.sectionLabel, styles.sectionLabelGreen]}>
           WHAT WENT WELL
         </Text>
-        <BulletCard items={WENT_WELL} />
+        <BulletCard items={reportItems.wentWell} />
 
         <Text style={[styles.sectionLabel, styles.sectionLabelRed]}>
           WORK ON THIS
         </Text>
-        <BulletCard items={WORK_ON} />
+        <BulletCard items={reportItems.workOn} />
 
         <Pressable
           style={[styles.pillButton, styles.pillButtonRight]}

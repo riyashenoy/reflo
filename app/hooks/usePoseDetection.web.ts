@@ -3,7 +3,11 @@ import '@tensorflow/tfjs-backend-webgl';
 import * as tf from '@tensorflow/tfjs';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 
-import type { DetectedPose, PoseExercise } from './usePoseDetection';
+import type {
+  DetectedPose,
+  FormAssessmentData,
+  PoseExercise,
+} from './usePoseDetection';
 
 type Landmark = { x: number; y: number; score: number };
 
@@ -55,21 +59,74 @@ function extractLandmarks(
   return landmarks;
 }
 
+function detectError(
+  landmarks: Landmark[],
+  exercise: PoseExercise,
+  ankleBaselineY: number | null
+): { errorKey: string | null; ankleBaselineY: number | null } {
+  if (exercise === 'none') {
+    return { errorKey: null, ankleBaselineY };
+  }
+
+  const [nose, shoulder, wrist, hip, knee, ankle] = landmarks;
+
+  if (exercise === 'hundred') {
+    if (nose.y > shoulder.y - 15) {
+      return { errorKey: 'head_drop', ankleBaselineY };
+    }
+    if (wrist.y > hip.y + 25) {
+      return { errorKey: 'arms_sinking', ankleBaselineY };
+    }
+    return { errorKey: null, ankleBaselineY };
+  }
+
+  if (exercise === 'long_stretch') {
+    const hipAngle = getAngle(shoulder, hip, knee);
+
+    if (hipAngle > 195) {
+      return { errorKey: 'hip_pike', ankleBaselineY };
+    }
+    if (hipAngle < 160) {
+      return { errorKey: 'hip_sag', ankleBaselineY };
+    }
+    if (nose.y > shoulder.y + 30) {
+      return { errorKey: 'head_drop', ankleBaselineY };
+    }
+    return { errorKey: null, ankleBaselineY };
+  }
+
+  if (exercise === 'footwork_toes') {
+    let baseline = ankleBaselineY;
+    if (baseline === null) {
+      return { errorKey: null, ankleBaselineY: ankle.y };
+    }
+
+    if (ankle.y > baseline + 20) {
+      return { errorKey: 'heels_drop', ankleBaselineY: baseline };
+    }
+    if (Math.abs(knee.x - ankle.x) > 30) {
+      return { errorKey: 'knee_cave', ankleBaselineY: baseline };
+    }
+    return { errorKey: null, ankleBaselineY: baseline };
+  }
+
+  return { errorKey: null, ankleBaselineY };
+}
+
 export function usePoseDetection(
   videoRef: RefObject<HTMLVideoElement | null>,
   currentExercise: PoseExercise,
-  onCorrection: (message: string) => void
+  formDataRef: RefObject<FormAssessmentData>
 ) {
   const [isDetecting, setIsDetecting] = useState(false);
   const [poses, setPoses] = useState<DetectedPose[]>([]);
   const landmarkHistory = useRef<Landmark[][]>([]);
-  const cooldowns = useRef<Record<string, number>>({});
   const ankleBaselineY = useRef<number | null>(null);
-  const onCorrectionRef = useRef(onCorrection);
   const currentExerciseRef = useRef(currentExercise);
+  const formDataRefStable = useRef(formDataRef);
 
-  onCorrectionRef.current = onCorrection;
   currentExerciseRef.current = currentExercise;
+  formDataRefStable.current = formDataRef;
 
   useEffect(() => {
     ankleBaselineY.current = null;
@@ -104,80 +161,26 @@ export function usePoseDetection(
     }));
   }
 
-  function canFire(key: string): boolean {
-    const now = Date.now();
-    if (cooldowns.current[key] && now - cooldowns.current[key] < 4000) {
-      return false;
-    }
-    cooldowns.current[key] = now;
-    return true;
-  }
-
-  function runDetection(landmarks: Landmark[]) {
+  function recordFrameAssessment(landmarks: Landmark[]) {
     const exercise = currentExerciseRef.current;
-    if (exercise === 'none') {
+    const formData = formDataRefStable.current.current;
+    if (!formData || exercise === 'none') {
       return;
     }
 
-    const [nose, shoulder, wrist, hip, knee, ankle] = landmarks;
+    const { errorKey, ankleBaselineY: nextBaseline } = detectError(
+      landmarks,
+      exercise,
+      ankleBaselineY.current
+    );
+    ankleBaselineY.current = nextBaseline;
 
-    if (exercise === 'hundred') {
-      if (nose.y > shoulder.y - 15 && canFire('head_drop')) {
-        onCorrectionRef.current(
-          'Head is dropping, curl higher, chin away from your chest'
-        );
-      }
-      if (wrist.y > hip.y + 25 && canFire('arms_sinking')) {
-        onCorrectionRef.current(
-          'Your arms are sinking, lift them up, hovering not resting'
-        );
-      }
-      return;
-    }
-
-    if (exercise === 'long_stretch') {
-      const hipAngle = getAngle(shoulder, hip, knee);
-
-      if (hipAngle > 195 && canFire('hip_pike')) {
-        onCorrectionRef.current(
-          'Your hips are rising, drop them down, squeeze the glutes'
-        );
-      }
-      if (hipAngle < 160 && canFire('hip_sag')) {
-        onCorrectionRef.current(
-          'Hips dropping, squeeze and lift back up'
-        );
-      }
-      if (nose.y > shoulder.y + 30 && canFire('head_drop')) {
-        onCorrectionRef.current(
-          'Head is dropping, curl higher, chin away from your chest'
-        );
-      }
-      return;
-    }
-
-    if (exercise === 'footwork_toes') {
-      if (ankleBaselineY.current === null) {
-        ankleBaselineY.current = ankle.y;
-        return;
-      }
-
-      if (
-        ankle.y > ankleBaselineY.current + 20 &&
-        canFire('heels_drop')
-      ) {
-        onCorrectionRef.current(
-          'Your heels are starting to drop, keep them lifted, that is the whole point of this position'
-        );
-      }
-      if (
-        Math.abs(knee.x - ankle.x) > 30 &&
-        canFire('knee_cave')
-      ) {
-        onCorrectionRef.current(
-          'Your knees are caving inward, push them back out over your second toe'
-        );
-      }
+    formData.frameCount += 1;
+    if (errorKey) {
+      formData.errorCount[errorKey] =
+        (formData.errorCount[errorKey] ?? 0) + 1;
+    } else {
+      formData.goodFrames += 1;
     }
   }
 
@@ -228,7 +231,7 @@ export function usePoseDetection(
                 const raw = extractLandmarks(detectedPoses[0].keypoints);
                 if (raw) {
                   const smoothed = getSmoothed(raw);
-                  runDetection(smoothed);
+                  recordFrameAssessment(smoothed);
                 }
               }
             } catch (error) {
@@ -258,7 +261,7 @@ export function usePoseDetection(
       disposed = true;
       cancelAnimationFrame(animationId);
       landmarkHistory.current = [];
-      cooldowns.current = {};
+      ankleBaselineY.current = null;
       detector?.dispose();
       setIsDetecting(false);
       setPoses([]);

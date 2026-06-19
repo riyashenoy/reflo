@@ -18,10 +18,23 @@ export type DetectedPose = {
   score?: number;
 };
 
+export type FormAssessmentData = {
+  errorCount: Record<string, number>;
+  frameCount: number;
+  goodFrames: number;
+};
+
+export type SessionLogEntry = {
+  exercise: string;
+  clipPlayed: string;
+  timestamp: number;
+  type: 'correction' | 'positive' | 'motivation';
+};
+
 export function usePoseDetection(
   _videoRef: RefObject<HTMLVideoElement | null>,
   _currentExercise: PoseExercise,
-  _onCorrection: (message: string) => void
+  _formDataRef: RefObject<FormAssessmentData>
 ) {
   return { isDetecting: false, poses: [] as DetectedPose[] };
 }

@@ -13,28 +13,82 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Audio, type AVPlaybackStatus } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import DashedBorderOverlay from '../components/DashedBorderOverlay';
-import CorrectionToast from '../components/CorrectionToast';
 import LiveWorkoutNativeCamera from '../components/LiveWorkoutNativeCamera';
 import { getWorkoutById } from '../data/workouts';
 import {
   usePoseDetection,
   type DetectedPose,
+  type FormAssessmentData,
   type PoseExercise,
+  type SessionLogEntry,
 } from '../hooks/usePoseDetection';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'LiveWorkout'>;
 
+type ExerciseWindows = {
+  exercise: PoseExercise;
+  windows: Array<{ start: number; end: number }>;
+};
+
+const CORRECTION_WINDOWS: ExerciseWindows[] = [
+  {
+    exercise: 'hundred',
+    windows: [
+      { start: 40, end: 55 },
+      { start: 71, end: 88 },
+    ],
+  },
+  {
+    exercise: 'long_stretch',
+    windows: [
+      { start: 149, end: 156 },
+      { start: 161, end: 173 },
+      { start: 176, end: 184 },
+    ],
+  },
+  {
+    exercise: 'footwork_toes',
+    windows: [
+      { start: 247, end: 266 },
+      { start: 268, end: 280 },
+    ],
+  },
+];
+
+const EXERCISE_LABELS: Record<PoseExercise, string> = {
+  hundred: 'The Hundred',
+  long_stretch: 'Long Stretch',
+  footwork_toes: 'Footwork (Toes)',
+  none: 'Get Ready',
+};
+
+const CLIP_MAP: Record<string, number> = {
+  '01': require('../../assets/audio/01.mp3'),
+  '02': require('../../assets/audio/02.mp3'),
+  '03': require('../../assets/audio/03.mp3'),
+  '04': require('../../assets/audio/04.mp3'),
+  '05': require('../../assets/audio/05.mp3'),
+  '06': require('../../assets/audio/06.mp3'),
+  '07': require('../../assets/audio/07.mp3'),
+  '08': require('../../assets/audio/08.mp3'),
+  '09': require('../../assets/audio/09.mp3'),
+  '10': require('../../assets/audio/10.mp3'),
+  '11': require('../../assets/audio/11.mp3'),
+  '12': require('../../assets/audio/12.mp3'),
+  '13': require('../../assets/audio/13.mp3'),
+};
+
 const SKELETON_DOT_COLOR = '#CC1D1D';
 const SKELETON_LINE_COLOR = 'rgba(255, 255, 255, 0.45)';
 const SKELETON_DRAW_THRESHOLD = 0.3;
 
-// MoveNet 17-keypoint indices (same topology as BlazePose body limbs).
 const SKELETON_CONNECTIONS: [number, number][] = [
   [5, 7],
   [7, 9],
@@ -49,6 +103,29 @@ const SKELETON_CONNECTIONS: [number, number][] = [
   [12, 14],
   [14, 16],
 ];
+
+function formatTimer(seconds: number) {
+  return (
+    Math.floor(seconds / 60) +
+    ':' +
+    (seconds % 60).toString().padStart(2, '0')
+  );
+}
+
+function getClipForError(errorKey: string): string {
+  const map: Record<string, string> = {
+    hip_pike: '05',
+    hip_sag: '06',
+    head_drop: '07',
+    arms_sinking: '08',
+    knee_cave: '09',
+    heels_drop: '10',
+    rushing: '11',
+    hip_break: '12',
+    momentum: '13',
+  };
+  return map[errorKey] ?? '01';
+}
 
 function drawSkeleton(
   poses: DetectedPose[],
@@ -98,35 +175,11 @@ function drawSkeleton(
   });
 }
 
-function formatTimer(seconds: number) {
-  return (
-    Math.floor(seconds / 60) +
-    ':' +
-    (seconds % 60).toString().padStart(2, '0')
-  );
-}
-
 const WorkoutTimer = memo(function WorkoutTimer({
-  onReachThirty,
+  seconds,
 }: {
-  onReachThirty: () => void;
+  seconds: number;
 }) {
-  const [seconds, setSeconds] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setSeconds((prev) => {
-        const next = prev + 1;
-        if (next === 30) {
-          onReachThirty();
-        }
-        return next;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [onReachThirty]);
-
   return <Text style={styles.timerText}>{formatTimer(seconds)}</Text>;
 });
 
@@ -135,30 +188,186 @@ function LiveWorkout({ route, navigation }: Props) {
   const workout = workoutId ? getWorkoutById(workoutId) : undefined;
   const insets = useSafeAreaInsets();
 
-  const [currentExerciseIndex] = useState(0);
   const [repCount] = useState(0);
-  const [currentExercise] = useState<PoseExercise>('long_stretch');
-  const [correctionMessage, setCorrectionMessage] = useState<string | null>(
-    null
-  );
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [currentExercise, setCurrentExercise] = useState<PoseExercise>('none');
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const workoutIdRef = useRef(workoutId);
+  const timerSecondsRef = useRef(0);
+  const currentExerciseRef = useRef<PoseExercise>('none');
+  const baseTrackRef = useRef<Audio.Sound | null>(null);
+  const clipPlaying = useRef(false);
   const hasNavigatedToPostWorkout = useRef(false);
+  const formData = useRef<FormAssessmentData>({
+    errorCount: {},
+    frameCount: 0,
+    goodFrames: 0,
+  });
+  const sessionLog = useRef<SessionLogEntry[]>([]);
 
-  workoutIdRef.current = workoutId;
+  currentExerciseRef.current = currentExercise;
 
-  const handleTimerReachThirty = useCallback(() => {
-    if (!workoutIdRef.current || hasNavigatedToPostWorkout.current) {
+  useEffect(() => {
+    formData.current = { errorCount: {}, frameCount: 0, goodFrames: 0 };
+  }, [currentExercise]);
+
+  const navigateToPostWorkout = useCallback(() => {
+    if (!workoutId || hasNavigatedToPostWorkout.current) {
       return;
     }
 
     hasNavigatedToPostWorkout.current = true;
     navigation.navigate('PostWorkout', {
-      workoutId: workoutIdRef.current,
+      workoutId,
+      sessionLog: sessionLog.current,
     });
+  }, [navigation, workoutId]);
+
+  const queueClip = useCallback(
+    async (
+      clipNumber: string,
+      meta: {
+        exercise: string;
+        type: SessionLogEntry['type'];
+      }
+    ) => {
+      if (clipPlaying.current) {
+        return;
+      }
+
+      clipPlaying.current = true;
+      await baseTrackRef.current?.setVolumeAsync(0.25);
+
+      const clipSource = CLIP_MAP[clipNumber];
+      if (!clipSource) {
+        clipPlaying.current = false;
+        await baseTrackRef.current?.setVolumeAsync(1.0);
+        return;
+      }
+
+      const { sound } = await Audio.Sound.createAsync(clipSource);
+      sessionLog.current.push({
+        exercise: meta.exercise,
+        clipPlayed: clipNumber,
+        timestamp: timerSecondsRef.current,
+        type: meta.type,
+      });
+
+      await sound.playAsync();
+      sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
+        if (!status.isLoaded || !status.didJustFinish) {
+          return;
+        }
+
+        void (async () => {
+          await baseTrackRef.current?.setVolumeAsync(1.0);
+          clipPlaying.current = false;
+          await sound.unloadAsync();
+        })();
+      });
+    },
+    []
+  );
+
+  const onWindowOpen = useCallback(
+    (exercise: string) => {
+      const data = formData.current;
+      const totalFrames = data.frameCount;
+
+      if (totalFrames === 0) {
+        void queueClip('01', { exercise, type: 'motivation' });
+        formData.current = { errorCount: {}, frameCount: 0, goodFrames: 0 };
+        return;
+      }
+
+      const goodRatio = data.goodFrames / totalFrames;
+      const topError = Object.entries(data.errorCount).sort(
+        ([, a], [, b]) => b - a
+      )[0];
+      const errorRatio = topError ? topError[1] / totalFrames : 0;
+
+      if (errorRatio > 0.3) {
+        void queueClip(getClipForError(topError![0]), {
+          exercise,
+          type: 'correction',
+        });
+      } else if (goodRatio > 0.7) {
+        void queueClip(Math.random() > 0.5 ? '03' : '04', {
+          exercise,
+          type: 'positive',
+        });
+      } else {
+        void queueClip(Math.random() > 0.5 ? '01' : '02', {
+          exercise,
+          type: 'motivation',
+        });
+      }
+
+      formData.current = { errorCount: {}, frameCount: 0, goodFrames: 0 };
+    },
+    [queueClip]
+  );
+
+  useEffect(() => {
+    async function loadAndPlayBaseTrack() {
+      await Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+      });
+
+      const { sound } = await Audio.Sound.createAsync(
+        require('../../assets/audio/basetrack.mp3'),
+        { shouldPlay: true, volume: 1.0 }
+      );
+      baseTrackRef.current = sound;
+
+      sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
+        if (status.isLoaded && status.didJustFinish) {
+          navigateToPostWorkout();
+        }
+      });
+    }
+
+    void loadAndPlayBaseTrack();
+
+    return () => {
+      void baseTrackRef.current?.unloadAsync();
+    };
+  }, [navigateToPostWorkout]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const t = timerSecondsRef.current + 1;
+      timerSecondsRef.current = t;
+      setTimerSeconds(t);
+
+      if (t === 5) {
+        setCurrentExercise('hundred');
+      }
+      if (t === 130) {
+        setCurrentExercise('long_stretch');
+      }
+      if (t === 220) {
+        setCurrentExercise('footwork_toes');
+      }
+
+      CORRECTION_WINDOWS.forEach(({ exercise, windows }) => {
+        windows.forEach((window) => {
+          if (t === window.start && currentExerciseRef.current === exercise) {
+            onWindowOpen(exercise);
+          }
+        });
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [onWindowOpen]);
+
+  const handleBack = useCallback(() => {
+    void baseTrackRef.current?.unloadAsync();
+    navigation.goBack();
   }, [navigation]);
 
   const attachStreamToVideo = useCallback((video: HTMLVideoElement) => {
@@ -216,18 +425,10 @@ function LiveWorkout({ route, navigation }: Props) {
     };
   }, [startCamera]);
 
-  const handleCorrection = useCallback((message: string) => {
-    setCorrectionMessage(message);
-  }, []);
-
-  const handleCorrectionDismiss = useCallback(() => {
-    setCorrectionMessage(null);
-  }, []);
-
   const { poses } = usePoseDetection(
     videoRef,
     Platform.OS === 'web' ? currentExercise : 'none',
-    handleCorrection
+    formData
   );
 
   useEffect(() => {
@@ -240,17 +441,7 @@ function LiveWorkout({ route, navigation }: Props) {
     }
   }, [poses]);
 
-  const exercise = workout?.exercises[currentExerciseIndex];
-
-  const stats = exercise
-    ? [
-        { label: 'Reps', value: String(exercise.reps) },
-        { label: 'Sets', value: String(exercise.sets) },
-        { label: 'Spring', value: 'Light' },
-      ]
-    : [];
-
-  if (!workout || !exercise) {
+  if (!workout) {
     return (
       <View style={styles.container}>
         <Pressable
@@ -259,7 +450,7 @@ function LiveWorkout({ route, navigation }: Props) {
             styles.backButton,
             { top: insets.top + scale(12) },
           ]}
-          onPress={() => navigation.goBack()}
+          onPress={handleBack}
         >
           <Text style={styles.pillButtonText}>←</Text>
         </Pressable>
@@ -310,24 +501,19 @@ function LiveWorkout({ route, navigation }: Props) {
 
         <DashedBorderOverlay />
 
-        <CorrectionToast
-          message={correctionMessage}
-          onDismiss={handleCorrectionDismiss}
-        />
-
         <View
           style={[styles.topBar, { paddingTop: insets.top + scale(8) }]}
           pointerEvents="box-none"
         >
           <Pressable
             style={[styles.pillButton, styles.backButton]}
-            onPress={() => navigation.goBack()}
+            onPress={handleBack}
           >
             <Text style={styles.pillButtonText}>←</Text>
           </Pressable>
 
           <View style={[styles.pillButton, styles.timerPill]}>
-            <WorkoutTimer onReachThirty={handleTimerReachThirty} />
+            <WorkoutTimer seconds={timerSeconds} />
           </View>
 
           <Pressable style={[styles.pillButton, styles.volumeButton]}>
@@ -338,23 +524,24 @@ function LiveWorkout({ route, navigation }: Props) {
 
       <View style={styles.bottomPanel}>
         <View style={styles.bottomPanelMain}>
-          <Text style={styles.exerciseName}>{exercise.name}</Text>
+          <Text style={styles.exerciseName}>
+            {EXERCISE_LABELS[currentExercise]}
+          </Text>
           <Text style={styles.currentExerciseLabel}>CURRENT EXERCISE</Text>
 
           <View style={styles.statsRow}>
-            {stats.map((stat, index) => (
-              <View
-                key={stat.label}
-                style={[
-                  styles.statColumn,
-                  index > 0 && styles.statColumnDivider,
-                ]}
-              >
-                <Text style={styles.statText}>
-                  {stat.value} {stat.label}
-                </Text>
-              </View>
-            ))}
+            <View style={styles.statColumn}>
+              <Text style={styles.statText}>{workout.duration} min</Text>
+            </View>
+            <View style={[styles.statColumn, styles.statColumnDivider]}>
+              <Text style={styles.statText}>
+                {workout.intensity.charAt(0).toUpperCase() +
+                  workout.intensity.slice(1)}
+              </Text>
+            </View>
+            <View style={[styles.statColumn, styles.statColumnDivider]}>
+              <Text style={styles.statText}>AI Tracked</Text>
+            </View>
           </View>
         </View>
 
