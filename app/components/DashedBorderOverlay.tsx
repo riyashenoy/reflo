@@ -7,7 +7,7 @@ const inset = scale(12);
 const webBorderStyle: ViewStyle =
   Platform.OS === 'web'
     ? ({
-        borderWidth: scale(2),
+        borderWidth: scale(4),
         borderStyle: 'dashed',
         borderColor: `${theme.colors.red}b3`,
       } as ViewStyle)
@@ -25,7 +25,7 @@ const styles = StyleSheet.create({
     bottom: inset,
     left: inset,
     borderRadius: scale(24),
-    borderWidth: scale(2),
+    borderWidth: scale(4),
     borderColor: theme.colors.red,
     opacity: 0.7,
     zIndex: 2,

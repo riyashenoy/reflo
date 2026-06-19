@@ -16,13 +16,13 @@ import {
 import { Audio, type AVPlaybackStatus } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import Svg, { Circle } from 'react-native-svg';
 
 import DashedBorderOverlay from '../components/DashedBorderOverlay';
 import LiveWorkoutNativeCamera from '../components/LiveWorkoutNativeCamera';
 import { getWorkoutById } from '../data/workouts';
 import {
   usePoseDetection,
-  type DetectedPose,
   type FormAssessmentData,
   type PoseExercise,
   type SessionLogEntry,
@@ -85,24 +85,7 @@ const CLIP_MAP: Record<string, number> = {
   '13': require('../../assets/audio/13.mp3'),
 };
 
-const SKELETON_DOT_COLOR = '#CC1D1D';
-const SKELETON_LINE_COLOR = 'rgba(255, 255, 255, 0.45)';
-const SKELETON_DRAW_THRESHOLD = 0.3;
-
-const SKELETON_CONNECTIONS: [number, number][] = [
-  [5, 7],
-  [7, 9],
-  [6, 8],
-  [8, 10],
-  [5, 6],
-  [5, 11],
-  [6, 12],
-  [11, 12],
-  [11, 13],
-  [13, 15],
-  [12, 14],
-  [14, 16],
-];
+const BORDER_INSET = scale(12);
 
 function formatTimer(seconds: number) {
   return (
@@ -127,54 +110,6 @@ function getClipForError(errorKey: string): string {
   return map[errorKey] ?? '01';
 }
 
-function drawSkeleton(
-  poses: DetectedPose[],
-  canvas: HTMLCanvasElement,
-  video: HTMLVideoElement
-) {
-  const ctx = canvas.getContext('2d');
-  if (!ctx || video.videoWidth === 0 || video.videoHeight === 0) {
-    return;
-  }
-
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  if (!poses.length) {
-    return;
-  }
-
-  const keypoints = poses[0].keypoints;
-
-  ctx.strokeStyle = SKELETON_LINE_COLOR;
-  ctx.lineWidth = 2;
-  SKELETON_CONNECTIONS.forEach(([i, j]) => {
-    const a = keypoints[i];
-    const b = keypoints[j];
-    if (
-      a &&
-      b &&
-      (a.score ?? 0) > SKELETON_DRAW_THRESHOLD &&
-      (b.score ?? 0) > SKELETON_DRAW_THRESHOLD
-    ) {
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.stroke();
-    }
-  });
-
-  keypoints.forEach((kp) => {
-    if ((kp.score ?? 0) > SKELETON_DRAW_THRESHOLD) {
-      ctx.beginPath();
-      ctx.arc(kp.x, kp.y, 6, 0, 2 * Math.PI);
-      ctx.fillStyle = SKELETON_DOT_COLOR;
-      ctx.fill();
-    }
-  });
-}
-
 const WorkoutTimer = memo(function WorkoutTimer({
   seconds,
 }: {
@@ -183,14 +118,63 @@ const WorkoutTimer = memo(function WorkoutTimer({
   return <Text style={styles.timerText}>{formatTimer(seconds)}</Text>;
 });
 
+const PROGRESS_RADIUS = 20;
+const PROGRESS_CIRCUMFERENCE = 2 * Math.PI * PROGRESS_RADIUS;
+
+const ExerciseProgressCircle = memo(function ExerciseProgressCircle({
+  currentExercise,
+}: {
+  currentExercise: PoseExercise;
+}) {
+  const exerciseNumber =
+    currentExercise === 'hundred'
+      ? 1
+      : currentExercise === 'long_stretch'
+        ? 2
+        : currentExercise === 'footwork_toes'
+          ? 3
+          : 0;
+  const progress = exerciseNumber / 3;
+  const strokeDashoffset = PROGRESS_CIRCUMFERENCE * (1 - progress);
+
+  return (
+    <View style={styles.progressCircle}>
+      <Svg width={52} height={52} style={styles.progressSvg}>
+        <Circle
+          cx={26}
+          cy={26}
+          r={PROGRESS_RADIUS}
+          fill="none"
+          stroke="#ffffff22"
+          strokeWidth={3}
+        />
+        <Circle
+          cx={26}
+          cy={26}
+          r={PROGRESS_RADIUS}
+          fill="none"
+          stroke="#CC1D1D"
+          strokeWidth={3}
+          strokeDasharray={PROGRESS_CIRCUMFERENCE}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          transform="rotate(-90 26 26)"
+        />
+      </Svg>
+      <Text style={styles.progressNumber}>{exerciseNumber || '–'}</Text>
+    </View>
+  );
+});
+
 function LiveWorkout({ route, navigation }: Props) {
   const { workoutId } = route.params ?? {};
   const workout = workoutId ? getWorkoutById(workoutId) : undefined;
   const insets = useSafeAreaInsets();
 
-  const [repCount] = useState(0);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [currentExercise, setCurrentExercise] = useState<PoseExercise>('none');
+  const [showOnboarding, setShowOnboarding] = useState(true);
+  const [workoutStarted, setWorkoutStarted] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -310,34 +294,55 @@ function LiveWorkout({ route, navigation }: Props) {
     [queueClip]
   );
 
-  useEffect(() => {
-    async function loadAndPlayBaseTrack() {
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-      });
+  const loadAndPlayBaseTrack = useCallback(async () => {
+    await Audio.setAudioModeAsync({
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+    });
 
-      const { sound } = await Audio.Sound.createAsync(
-        require('../../assets/audio/basetrack.mp3'),
-        { shouldPlay: true, volume: 1.0 }
-      );
-      baseTrackRef.current = sound;
+    const { sound } = await Audio.Sound.createAsync(
+      require('../../assets/audio/basetrack.mp3'),
+      { shouldPlay: true, volume: 1.0 }
+    );
+    baseTrackRef.current = sound;
 
-      sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
-        if (status.isLoaded && status.didJustFinish) {
-          navigateToPostWorkout();
-        }
-      });
+    sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
+      if (status.isLoaded && status.didJustFinish) {
+        navigateToPostWorkout();
+      }
+    });
+  }, [navigateToPostWorkout]);
+
+  const handleReady = useCallback(() => {
+    setShowOnboarding(false);
+    setWorkoutStarted(true);
+    void loadAndPlayBaseTrack();
+  }, [loadAndPlayBaseTrack]);
+
+  const skipToEnd = useCallback(async () => {
+    if (!workoutStarted) {
+      setShowOnboarding(false);
+      setWorkoutStarted(true);
+      await loadAndPlayBaseTrack();
     }
 
-    void loadAndPlayBaseTrack();
+    await baseTrackRef.current?.setPositionAsync(292000);
+    timerSecondsRef.current = 292;
+    setTimerSeconds(292);
+    setCurrentExercise('footwork_toes');
+  }, [workoutStarted, loadAndPlayBaseTrack]);
 
+  useEffect(() => {
     return () => {
       void baseTrackRef.current?.unloadAsync();
     };
-  }, [navigateToPostWorkout]);
+  }, []);
 
   useEffect(() => {
+    if (!workoutStarted) {
+      return;
+    }
+
     const interval = setInterval(() => {
       const t = timerSecondsRef.current + 1;
       timerSecondsRef.current = t;
@@ -363,7 +368,7 @@ function LiveWorkout({ route, navigation }: Props) {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [onWindowOpen]);
+  }, [workoutStarted, onWindowOpen]);
 
   const handleBack = useCallback(() => {
     void baseTrackRef.current?.unloadAsync();
@@ -412,6 +417,10 @@ function LiveWorkout({ route, navigation }: Props) {
   }, []);
 
   useEffect(() => {
+    if (!workoutStarted) {
+      return;
+    }
+
     startCamera();
 
     return () => {
@@ -423,23 +432,15 @@ function LiveWorkout({ route, navigation }: Props) {
         videoRef.current.srcObject = null;
       }
     };
-  }, [startCamera]);
+  }, [workoutStarted, startCamera]);
 
-  const { poses } = usePoseDetection(
+  usePoseDetection(
     videoRef,
+    canvasRef,
     Platform.OS === 'web' ? currentExercise : 'none',
-    formData
+    formData,
+    workoutStarted
   );
-
-  useEffect(() => {
-    if (Platform.OS !== 'web') {
-      return;
-    }
-
-    if (canvasRef.current && videoRef.current) {
-      drawSkeleton(poses, canvasRef.current, videoRef.current);
-    }
-  }, [poses]);
 
   if (!workout) {
     return (
@@ -462,44 +463,55 @@ function LiveWorkout({ route, navigation }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.cameraSection}>
-        {Platform.OS === 'web' ? (
-          <>
-            {createElement('video', {
-              key: 'camera-feed',
-              ref: setVideoNode,
-              style: {
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-              },
-              autoPlay: true,
-              playsInline: true,
-              muted: true,
-            })}
-            {createElement('canvas', {
-              key: 'skeleton-overlay',
-              ref: setCanvasNode,
-              style: {
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                pointerEvents: 'none',
-                zIndex: 2,
-              },
-            })}
-          </>
+        {workoutStarted ? (
+          Platform.OS === 'web' ? (
+            <>
+              {createElement('video', {
+                key: 'camera-feed',
+                ref: setVideoNode,
+                style: {
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                },
+                autoPlay: true,
+                playsInline: true,
+                muted: true,
+              })}
+              {createElement('canvas', {
+                key: 'skeleton-overlay',
+                ref: setCanvasNode,
+                style: {
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  pointerEvents: 'none',
+                  zIndex: 2,
+                },
+              })}
+            </>
+          ) : (
+            <LiveWorkoutNativeCamera />
+          )
         ) : (
-          <LiveWorkoutNativeCamera />
+          <View style={styles.cameraPlaceholder} />
         )}
 
         <DashedBorderOverlay />
+
+        <Pressable
+          style={styles.skipButtonFloating}
+          onPress={() => void skipToEnd()}
+        >
+          <Text style={styles.skipButtonText}>Skip</Text>
+        </Pressable>
 
         <View
           style={[styles.topBar, { paddingTop: insets.top + scale(8) }]}
@@ -516,10 +528,27 @@ function LiveWorkout({ route, navigation }: Props) {
             <WorkoutTimer seconds={timerSeconds} />
           </View>
 
-          <Pressable style={[styles.pillButton, styles.volumeButton]}>
-            <Text style={styles.pillButtonText}>🔊</Text>
-          </Pressable>
+          <View style={styles.topBarSpacer} />
         </View>
+
+        {showOnboarding ? (
+          <View style={styles.onboardingOverlay}>
+            <View style={styles.onboardingCard}>
+              <View style={styles.onboardingGifPlaceholder}>
+                <Text style={styles.onboardingGifLabel}>
+                  Place your device where your full body is visible from the side
+                </Text>
+              </View>
+              <Text style={styles.onboardingHint}>
+                AI corrections will be announced with a ding so you know when to
+                listen
+              </Text>
+              <Pressable style={styles.readyButton} onPress={handleReady}>
+                <Text style={styles.readyButtonText}>I&apos;m Ready</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.bottomPanel}>
@@ -545,9 +574,7 @@ function LiveWorkout({ route, navigation }: Props) {
           </View>
         </View>
 
-        <View style={styles.repCounter}>
-          <Text style={styles.repCounterText}>{repCount}</Text>
-        </View>
+        <ExerciseProgressCircle currentExercise={currentExercise} />
       </View>
     </View>
   );
@@ -577,6 +604,104 @@ const styles = StyleSheet.create({
     paddingBottom: scale(8),
     zIndex: 3,
   },
+  topBarSpacer: {
+    width: scale(40),
+  },
+  skipButtonFloating: {
+    position: 'absolute',
+    bottom: BORDER_INSET + scale(16),
+    right: BORDER_INSET + scale(16),
+    backgroundColor: '#00000066',
+    borderRadius: theme.radius.xl,
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: scale(32),
+    paddingHorizontal: scale(12),
+    zIndex: 11,
+  },
+  skipButtonText: {
+    ...theme.typography.body,
+    color: theme.colors.white,
+    fontSize: scale(12),
+    fontFamily: theme.fonts.bodyMedium,
+  },
+  cameraPlaceholder: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: theme.colors.dark,
+  },
+  progressCircle: {
+    width: scale(52),
+    height: scale(52),
+    borderRadius: scale(26),
+    backgroundColor: theme.colors.dark,
+    borderWidth: scale(1),
+    borderColor: `${theme.colors.white}22`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressSvg: {
+    position: 'absolute',
+  },
+  progressNumber: {
+    color: theme.colors.white,
+    fontSize: scale(16),
+    fontFamily: theme.fonts.bodyMedium,
+    fontWeight: '500',
+  },
+  onboardingOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: '#000000cc',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: scale(24),
+    zIndex: 10,
+  },
+  onboardingCard: {
+    width: '100%',
+    maxWidth: scale(360),
+    backgroundColor: '#1a1a1a',
+    borderRadius: scale(20),
+    padding: scale(28),
+    alignItems: 'center',
+  },
+  onboardingGifPlaceholder: {
+    width: scale(280),
+    height: scale(200),
+    borderRadius: scale(12),
+    backgroundColor: theme.colors.grey200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: scale(16),
+    marginBottom: scale(20),
+  },
+  onboardingGifLabel: {
+    ...theme.typography.body,
+    color: theme.colors.dark,
+    fontSize: scale(14),
+    textAlign: 'center',
+    lineHeight: scale(20),
+  },
+  onboardingHint: {
+    ...theme.typography.body,
+    color: `${theme.colors.white}99`,
+    fontSize: scale(13),
+    textAlign: 'center',
+    lineHeight: scale(18),
+    marginBottom: scale(24),
+  },
+  readyButton: {
+    width: '100%',
+    backgroundColor: '#CC1D1D',
+    borderRadius: 999,
+    paddingVertical: scale(16),
+    alignItems: 'center',
+  },
+  readyButtonText: {
+    ...theme.typography.body,
+    fontFamily: theme.fonts.bodyMedium,
+    color: theme.colors.white,
+    fontSize: scale(16),
+  },
   pillButton: {
     backgroundColor: '#00000066',
     borderRadius: theme.radius.xl,
@@ -591,9 +716,6 @@ const styles = StyleSheet.create({
   },
   timerPill: {
     minWidth: scale(72),
-  },
-  volumeButton: {
-    width: scale(40),
   },
   pillButtonText: {
     ...theme.typography.body,
@@ -641,21 +763,6 @@ const styles = StyleSheet.create({
   },
   statText: {
     ...theme.typography.body,
-    color: theme.colors.white,
-  },
-  repCounter: {
-    width: scale(52),
-    height: scale(52),
-    borderRadius: scale(26),
-    backgroundColor: theme.colors.dark,
-    borderWidth: scale(1),
-    borderColor: `${theme.colors.white}22`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  repCounterText: {
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: scale(20),
     color: theme.colors.white,
   },
   notFound: {

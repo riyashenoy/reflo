@@ -33,8 +33,10 @@ export type SessionLogEntry = {
 
 export function usePoseDetection(
   _videoRef: RefObject<HTMLVideoElement | null>,
+  _canvasRef: RefObject<HTMLCanvasElement | null>,
   _currentExercise: PoseExercise,
-  _formDataRef: RefObject<FormAssessmentData>
+  _formDataRef: RefObject<FormAssessmentData>,
+  _workoutStarted = false
 ) {
   return { isDetecting: false, poses: [] as DetectedPose[] };
 }

@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import '@tensorflow/tfjs-backend-webgl';
-import * as tf from '@tensorflow/tfjs';
-import * as poseDetection from '@tensorflow-models/pose-detection';
 
+import { clearSkeleton, drawSkeleton } from '../lib/poseSkeleton.web';
 import type {
   DetectedPose,
   FormAssessmentData,
@@ -10,6 +8,16 @@ import type {
 } from './usePoseDetection';
 
 type Landmark = { x: number; y: number; score: number };
+
+// MoveNet 17-keypoint indices
+const LANDMARK_INDICES = {
+  nose: 0,
+  left_shoulder: 5,
+  left_wrist: 9,
+  left_hip: 11,
+  left_knee: 13,
+  left_ankle: 15,
+} as const;
 
 const LANDMARK_ORDER = [
   'nose',
@@ -32,20 +40,19 @@ function getAngle(
   const dot = AB.x * CB.x + AB.y * CB.y;
   const mag =
     Math.sqrt(AB.x ** 2 + AB.y ** 2) * Math.sqrt(CB.x ** 2 + CB.y ** 2);
+  if (mag === 0) {
+    return 0;
+  }
   return Math.acos(Math.min(1, Math.max(-1, dot / mag))) * (180 / Math.PI);
 }
 
 function extractLandmarks(
-  keypoints: poseDetection.Keypoint[]
+  keypoints: Array<{ x: number; y: number; score?: number }>
 ): Landmark[] | null {
-  const byName = new Map(
-    keypoints.filter((kp) => kp.name).map((kp) => [kp.name!, kp])
-  );
-
   const landmarks: Landmark[] = [];
 
   for (const name of LANDMARK_ORDER) {
-    const kp = byName.get(name);
+    const kp = keypoints[LANDMARK_INDICES[name]];
     if (!kp || (kp.score ?? 0) < MIN_SCORE) {
       return null;
     }
@@ -96,7 +103,7 @@ function detectError(
   }
 
   if (exercise === 'footwork_toes') {
-    let baseline = ankleBaselineY;
+    const baseline = ankleBaselineY;
     if (baseline === null) {
       return { errorKey: null, ankleBaselineY: ankle.y };
     }
@@ -115,15 +122,17 @@ function detectError(
 
 export function usePoseDetection(
   videoRef: RefObject<HTMLVideoElement | null>,
+  canvasRef: RefObject<HTMLCanvasElement | null>,
   currentExercise: PoseExercise,
-  formDataRef: RefObject<FormAssessmentData>
+  formDataRef: RefObject<FormAssessmentData>,
+  workoutStarted: boolean
 ) {
   const [isDetecting, setIsDetecting] = useState(false);
-  const [poses, setPoses] = useState<DetectedPose[]>([]);
   const landmarkHistory = useRef<Landmark[][]>([]);
   const ankleBaselineY = useRef<number | null>(null);
   const currentExerciseRef = useRef(currentExercise);
   const formDataRefStable = useRef(formDataRef);
+  const rafId = useRef(0);
 
   currentExerciseRef.current = currentExercise;
   formDataRefStable.current = formDataRef;
@@ -185,22 +194,45 @@ export function usePoseDetection(
   }
 
   useEffect(() => {
-    if (currentExercise === 'none') {
+    if (!workoutStarted || currentExercise === 'none') {
       setIsDetecting(false);
-      setPoses([]);
       landmarkHistory.current = [];
+      clearSkeleton(canvasRef.current);
       return;
     }
 
-    let detector: poseDetection.PoseDetector | null = null;
-    let animationId = 0;
     let disposed = false;
+    let detector: { estimatePoses: Function; dispose: () => void } | null =
+      null;
     let inFlight = false;
+    let lastDetectTime = 0;
+    const DETECT_INTERVAL_MS = 100;
+
+    const stopLoop = () => {
+      if (rafId.current) {
+        cancelAnimationFrame(rafId.current);
+        rafId.current = 0;
+      }
+    };
 
     const init = async () => {
       try {
-        await tf.setBackend('webgl');
-        await tf.ready();
+        const tf = await import('@tensorflow/tfjs');
+        await import('@tensorflow/tfjs-backend-webgl');
+        const poseDetection = await import('@tensorflow-models/pose-detection');
+
+        if (disposed) {
+          return;
+        }
+
+        try {
+          await tf.setBackend('webgl');
+          await tf.ready();
+        } catch (webglError) {
+          console.warn('[usePoseDetection] WebGL unavailable, using CPU:', webglError);
+          await tf.setBackend('cpu');
+          await tf.ready();
+        }
 
         detector = await poseDetection.createDetector(
           poseDetection.SupportedModels.MoveNet,
@@ -210,7 +242,7 @@ export function usePoseDetection(
         );
 
         if (disposed) {
-          detector.dispose();
+          detector?.dispose();
           return;
         }
 
@@ -222,11 +254,27 @@ export function usePoseDetection(
           }
 
           const video = videoRef.current;
-          if (video && video.readyState >= 2 && detector && !inFlight) {
+          const canvas = canvasRef.current;
+          const now = performance.now();
+
+          if (
+            video &&
+            video.readyState >= 2 &&
+            detector &&
+            !inFlight &&
+            now - lastDetectTime >= DETECT_INTERVAL_MS
+          ) {
+            lastDetectTime = now;
             inFlight = true;
             try {
-              const detectedPoses = await detector.estimatePoses(video);
-              setPoses(detectedPoses as DetectedPose[]);
+              const detectedPoses = (await detector.estimatePoses(
+                video
+              )) as DetectedPose[];
+
+              if (canvas) {
+                drawSkeleton(detectedPoses, canvas, video);
+              }
+
               if (detectedPoses.length > 0) {
                 const raw = extractLandmarks(detectedPoses[0].keypoints);
                 if (raw) {
@@ -235,23 +283,24 @@ export function usePoseDetection(
                 }
               }
             } catch (error) {
-              console.warn('[usePoseDetection] estimatePoses failed:', error);
+              console.warn('[usePoseDetection] frame failed:', error);
             } finally {
               inFlight = false;
             }
           }
 
-          animationId = requestAnimationFrame(() => {
+          rafId.current = requestAnimationFrame(() => {
             void loop();
           });
         };
 
-        animationId = requestAnimationFrame(() => {
+        rafId.current = requestAnimationFrame(() => {
           void loop();
         });
       } catch (error) {
         console.error('[usePoseDetection] init failed:', error);
         setIsDetecting(false);
+        clearSkeleton(canvasRef.current);
       }
     };
 
@@ -259,14 +308,15 @@ export function usePoseDetection(
 
     return () => {
       disposed = true;
-      cancelAnimationFrame(animationId);
+      stopLoop();
       landmarkHistory.current = [];
       ankleBaselineY.current = null;
       detector?.dispose();
+      detector = null;
       setIsDetecting(false);
-      setPoses([]);
+      clearSkeleton(canvasRef.current);
     };
-  }, [currentExercise, videoRef]);
+  }, [canvasRef, currentExercise, videoRef, workoutStarted]);
 
-  return { isDetecting, poses };
+  return { isDetecting, poses: [] as DetectedPose[] };
 }
