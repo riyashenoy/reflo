@@ -6,6 +6,7 @@ export interface Exercise {
   reps: number;
   cue: string;
   tracked: boolean;
+  meta?: string;
 }
 
 export interface Workout {
@@ -21,13 +22,49 @@ export interface Workout {
 
 export const workouts: Workout[] = [
   {
+    id: 'full-body-burn',
+    title: 'Full Body Burn',
+    description:
+      'Lengthen and tone with a balanced pilates reformer flow focused on flexibility and control.',
+    duration: 5,
+    intensity: 'medium',
+    tags: ['Full Body', 'Flexibility', 'Pilates'],
+    aiTracked: true,
+    exercises: [
+      {
+        name: 'The Hundred',
+        sets: 1,
+        reps: 100,
+        meta: '1 set · 100 counts',
+        cue: 'Pump arms vigorously while keeping core engaged and lower back pressed down.',
+        tracked: true,
+      },
+      {
+        name: 'Long Stretch',
+        sets: 3,
+        reps: 10,
+        meta: '3 sets · 10 reps',
+        cue: 'Press the carriage away with a long spine and controlled return.',
+        tracked: true,
+      },
+      {
+        name: 'Footwork Toes',
+        sets: 3,
+        reps: 10,
+        meta: '3 sets · 10 reps',
+        cue: 'Keep heels lifted and knees aligned over second toes throughout.',
+        tracked: true,
+      },
+    ],
+  },
+  {
     id: 'sculpt-and-stretch',
     title: 'Sculpt and stretch',
     description:
       'Lengthen and tone with a balanced pilates flow focused on flexibility and control.',
     duration: 20,
     intensity: 'medium',
-    tags: ['full body', 'flexibility', 'pilates'],
+    tags: ['flexibility', 'pilates'],
     aiTracked: true,
     exercises: [
       {
@@ -56,46 +93,6 @@ export const workouts: Workout[] = [
         sets: 2,
         reps: 8,
         cue: 'Extend through the upper back without compressing the lower back.',
-        tracked: true,
-      },
-    ],
-  },
-  {
-    id: 'full-body-burn',
-    title: 'Full body burn',
-    description:
-      'High-intensity pilates flow targeting your entire body with AI-tracked form corrections.',
-    duration: 15,
-    intensity: 'high',
-    tags: ['full body', 'cardio', 'pilates'],
-    aiTracked: true,
-    exercises: [
-      {
-        name: 'Hundred',
-        sets: 1,
-        reps: 100,
-        cue: 'Pump arms vigorously while keeping core engaged and lower back pressed down.',
-        tracked: true,
-      },
-      {
-        name: 'Roll Up',
-        sets: 2,
-        reps: 8,
-        cue: 'Articulate through the spine one vertebra at a time, arms reaching forward.',
-        tracked: true,
-      },
-      {
-        name: 'Single Leg Stretch',
-        sets: 2,
-        reps: 10,
-        cue: 'Pull knee to chest while extending opposite leg at a 45-degree angle.',
-        tracked: true,
-      },
-      {
-        name: 'Plank to Pike',
-        sets: 3,
-        reps: 8,
-        cue: 'Lift hips high while keeping shoulders stacked over wrists.',
         tracked: true,
       },
     ],

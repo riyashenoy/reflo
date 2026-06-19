@@ -10,6 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useIsMobileWeb } from './app/hooks/useIsMobileWeb';
+import { SavedWorkoutsProvider } from './app/context/SavedWorkoutsContext';
 import RootNavigation from './app/navigation';
 import theme from './app/theme';
 
@@ -69,7 +70,9 @@ export default function App() {
 
   const appContent = (
     <SafeAreaProvider>
-      <RootNavigation />
+      <SavedWorkoutsProvider>
+        <RootNavigation />
+      </SavedWorkoutsProvider>
       <StatusBar style="auto" />
     </SafeAreaProvider>
   );

@@ -12,13 +12,18 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { workouts, type Workout } from '../data/workouts';
+import {
+  getLibraryWorkoutsForFilter,
+  type LibraryWorkout,
+} from '../data/workoutLibrary';
+import { useSavedWorkouts } from '../context/SavedWorkoutsContext';
 import { useLayoutWidth } from '../hooks/useLayoutWidth';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
 
-const FILTERS = ['Full Body', 'Upper Body', 'Lower Body', 'Core'] as const;
+const FILTERS = ['Saved', 'Full Body', 'Upper Body', 'Lower Body', 'Core'] as const;
+const SAVED_FILTER = 'Saved';
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'Th', 'F', 'Sa'] as const;
 const COMPLETED_DAY_COUNT = 3;
 const HORIZONTAL_PADDING = scale(20);
@@ -42,27 +47,28 @@ function getFilterDirection(from: string, to: string): 1 | -1 {
 
 type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
 
-type GridWorkout = Workout & { gridKey: string };
-
-function matchesFilter(workout: Workout, activeFilter: string): boolean {
-  const filterTag = activeFilter.toLowerCase();
-  return workout.tags.some((tag) => tag.toLowerCase() === filterTag);
-}
+type GridLibraryWorkout = LibraryWorkout & { gridKey: string };
 
 function buildGridWorkouts(
-  items: Workout[],
+  items: LibraryWorkout[],
   filter: string,
   minItems = GRID_MIN_ITEMS
-): GridWorkout[] {
-  const base = items.length > 0 ? items : workouts;
-  const result: GridWorkout[] = base.map((workout, index) => ({
+): GridLibraryWorkout[] {
+  if (filter === SAVED_FILTER) {
+    return items.map((workout, index) => ({
+      ...workout,
+      gridKey: `${filter}-${workout.id}-${index}`,
+    }));
+  }
+
+  const result: GridLibraryWorkout[] = items.map((workout, index) => ({
     ...workout,
     gridKey: `${filter}-${workout.id}-${index}`,
   }));
 
   let cycleIndex = 0;
-  while (result.length < minItems) {
-    const workout = base[cycleIndex % base.length];
+  while (result.length < minItems && items.length > 0) {
+    const workout = items[cycleIndex % items.length];
     result.push({
       ...workout,
       gridKey: `${filter}-${workout.id}-repeat-${result.length}`,
@@ -83,26 +89,36 @@ function getStreakDayStatus(dayIndex: number) {
 function WorkoutGrid({
   filter,
   cardWidth,
+  savedIds,
   onWorkoutPress,
 }: {
   filter: string;
   cardWidth: number;
-  onWorkoutPress: (workoutId: string) => void;
+  savedIds: string[];
+  onWorkoutPress: (libraryId: string) => void;
 }) {
   const rows = useMemo(() => {
-    const matched = workouts.filter((workout) =>
-      matchesFilter(workout, filter)
-    );
     const filteredWorkouts = buildGridWorkouts(
-      matched.length > 0 ? matched : workouts,
+      getLibraryWorkoutsForFilter(filter, savedIds),
       filter
     );
-    const result: GridWorkout[][] = [];
+    const result: GridLibraryWorkout[][] = [];
     for (let index = 0; index < filteredWorkouts.length; index += 2) {
       result.push(filteredWorkouts.slice(index, index + 2));
     }
     return result;
-  }, [filter]);
+  }, [filter, savedIds]);
+
+  if (filter === SAVED_FILTER && rows.length === 0) {
+    return (
+      <View style={styles.emptySavedState}>
+        <Text style={styles.emptySavedTitle}>No saved workouts yet</Text>
+        <Text style={styles.emptySavedText}>
+          Tap the star on any class page to bookmark it here.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <>
@@ -192,13 +208,17 @@ function WorkoutCard({
   width,
   onPress,
 }: {
-  workout: Workout;
+  workout: LibraryWorkout;
   width: number;
   onPress: () => void;
 }) {
   return (
     <Pressable style={[styles.workoutCard, { width }]} onPress={onPress}>
-      <View style={styles.cardImagePlaceholder} />
+      <Image
+        source={workout.coverImage}
+        style={styles.cardImage}
+        resizeMode="cover"
+      />
       <Text style={styles.cardTitle}>{workout.title.toUpperCase()}</Text>
     </Pressable>
   );
@@ -206,6 +226,7 @@ function WorkoutCard({
 
 export default function Home() {
   const navigation = useNavigation<NavigationProp>();
+  const { savedIds } = useSavedWorkouts();
   const tabTopPadding = useTabScreenTopPadding();
   const layoutWidth = useLayoutWidth();
   const [selectedFilter, setSelectedFilter] = useState<string>('Full Body');
@@ -220,8 +241,8 @@ export default function Home() {
     (layoutWidth - HORIZONTAL_PADDING * 2 - CARD_GAP) / 2;
 
   const handleWorkoutPress = useCallback(
-    (workoutId: string) => {
-      navigation.navigate('ClassDetail', { workoutId });
+    (libraryId: string) => {
+      navigation.navigate('ClassDetail', { libraryId });
     },
     [navigation]
   );
@@ -353,6 +374,7 @@ export default function Home() {
                 <WorkoutGrid
                   filter={outgoingFilter}
                   cardWidth={cardWidth}
+                  savedIds={savedIds}
                   onWorkoutPress={handleWorkoutPress}
                 />
               </Animated.View>
@@ -369,6 +391,7 @@ export default function Home() {
                 <WorkoutGrid
                   filter={incomingFilter}
                   cardWidth={cardWidth}
+                  savedIds={savedIds}
                   onWorkoutPress={handleWorkoutPress}
                 />
               </Animated.View>
@@ -377,6 +400,7 @@ export default function Home() {
             <WorkoutGrid
               filter={displayFilter}
               cardWidth={cardWidth}
+              savedIds={savedIds}
               onWorkoutPress={handleWorkoutPress}
             />
           )}
@@ -492,17 +516,35 @@ const styles = StyleSheet.create({
     flexGrow: 0,
     flexShrink: 0,
   },
-  cardImagePlaceholder: {
+  cardImage: {
     width: '100%',
     aspectRatio: 1,
-    backgroundColor: theme.colors.grey200,
     borderRadius: theme.radius.sm,
     marginBottom: scale(10),
+    backgroundColor: theme.colors.grey200,
   },
   cardTitle: {
     ...theme.typography.label,
     fontFamily: theme.fonts.label,
     color: theme.colors.textPrimary,
     paddingHorizontal: scale(2),
+  },
+  emptySavedState: {
+    paddingVertical: scale(32),
+    paddingHorizontal: scale(8),
+    alignItems: 'center',
+  },
+  emptySavedTitle: {
+    ...theme.typography.body,
+    fontFamily: theme.fonts.bodyMedium,
+    color: theme.colors.textPrimary,
+    marginBottom: scale(8),
+    textAlign: 'center',
+  },
+  emptySavedText: {
+    ...theme.typography.body,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: scale(18),
   },
 });

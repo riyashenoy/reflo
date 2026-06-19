@@ -1,5 +1,7 @@
 import {
   Dimensions,
+  Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,7 +11,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { getWorkoutById } from '../data/workouts';
+import { getWorkoutById, type Intensity } from '../data/workouts';
+import {
+  DEMO_WORKOUT_ID,
+  getLibraryWorkoutForDemo,
+} from '../data/workoutLibrary';
+import { useSavedWorkouts } from '../context/SavedWorkoutsContext';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
 
@@ -18,19 +25,40 @@ type Props = NativeStackScreenProps<AppStackParamList, 'ClassDetail'>;
 const HORIZONTAL_PADDING = scale(20);
 const HERO_HEIGHT_RATIO = 0.4;
 
-function formatIntensity(intensity: string) {
+function formatIntensity(intensity: Intensity) {
   return intensity.charAt(0).toUpperCase() + intensity.slice(1);
 }
 
-function formatExerciseMeta(sets: number, reps: number) {
+function formatExerciseMeta(
+  sets: number,
+  reps: number,
+  meta?: string
+) {
+  if (meta) {
+    return meta;
+  }
+  if (sets === 1 && reps >= 50) {
+    return `${sets} set · ${reps} counts`;
+  }
   return `${sets} sets · ${reps} reps`;
 }
 
+function getIntensityColor(intensity: Intensity) {
+  return intensity === 'high' ? theme.colors.red : theme.colors.white;
+}
+
 export default function ClassDetail({ route, navigation }: Props) {
-  const { workoutId } = route.params ?? {};
-  const workout = workoutId ? getWorkoutById(workoutId) : undefined;
+  const { libraryId, workoutId: routeWorkoutId } = route.params ?? {};
+  const libraryWorkout = getLibraryWorkoutForDemo(libraryId, routeWorkoutId);
+  const workout = getWorkoutById(
+    libraryWorkout?.workoutId ?? routeWorkoutId ?? DEMO_WORKOUT_ID
+  );
+  const { isSaved, toggleSaved } = useSavedWorkouts();
   const insets = useSafeAreaInsets();
   const heroHeight = Dimensions.get('window').height * HERO_HEIGHT_RATIO;
+  const bookmarkId = libraryWorkout?.id ?? routeWorkoutId;
+  const saved = bookmarkId ? isSaved(bookmarkId) : false;
+  const displayTitle = libraryWorkout?.title ?? workout?.title;
 
   if (!workout) {
     return (
@@ -47,21 +75,25 @@ export default function ClassDetail({ route, navigation }: Props) {
   }
 
   const stats = [
-    { label: 'Minutes', value: String(workout.duration), accent: false },
     {
-      label: 'Intensity',
+      value: String(workout.duration),
+      label: 'Minutes',
+      color: theme.colors.white,
+    },
+    {
       value: formatIntensity(workout.intensity),
-      accent: true,
+      label: 'Intensity',
+      color: getIntensityColor(workout.intensity),
     },
     {
-      label: 'Exercises',
       value: String(workout.exercises.length),
-      accent: false,
+      label: 'Exercises',
+      color: theme.colors.white,
     },
     {
-      label: '✦ AI Corrections',
-      value: workout.aiTracked ? 'Yes' : 'No',
-      accent: true,
+      value: workout.aiTracked ? '✦ AI' : 'No',
+      label: 'Corrections',
+      color: workout.aiTracked ? theme.colors.teal : theme.colors.white,
     },
   ];
 
@@ -73,7 +105,26 @@ export default function ClassDetail({ route, navigation }: Props) {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.hero, { height: heroHeight }]}>
-          <View style={styles.heroPlaceholder} />
+          {libraryWorkout ? (
+            <Image
+              source={libraryWorkout.coverImage}
+              style={styles.heroImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.heroPlaceholder} />
+          )}
+          <View
+            style={[
+              styles.heroGradient,
+              Platform.OS === 'web'
+                ? ({
+                    backgroundImage:
+                      'linear-gradient(to bottom, rgba(36,33,33,0) 0%, rgba(36,33,33,0.55) 55%, #242121 100%)',
+                  } as object)
+                : null,
+            ]}
+          />
           <Pressable
             style={[styles.iconButton, { top: insets.top + scale(12), left: scale(20) }]}
             onPress={() => navigation.goBack()}
@@ -81,20 +132,38 @@ export default function ClassDetail({ route, navigation }: Props) {
             <Text style={styles.iconButtonText}>←</Text>
           </Pressable>
           <Pressable
-            style={[styles.iconButton, { top: insets.top + scale(12), right: scale(20) }]}
+            style={[
+              styles.iconButton,
+              saved && styles.iconButtonSaved,
+              { top: insets.top + scale(12), right: scale(20) },
+            ]}
+            onPress={() => {
+              if (bookmarkId) {
+                toggleSaved(bookmarkId);
+              }
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={saved ? 'Remove bookmark' : 'Bookmark workout'}
           >
-            <Text style={styles.iconButtonText}>☆</Text>
+            <Text
+              style={[
+                styles.iconButtonText,
+                saved && styles.iconButtonTextSaved,
+              ]}
+            >
+              {saved ? '★' : '☆'}
+            </Text>
           </Pressable>
         </View>
 
         <View style={styles.content}>
-          <Text style={styles.title}>{workout.title}</Text>
+          <Text style={styles.title}>{displayTitle}</Text>
           <Text style={styles.description}>{workout.description}</Text>
 
           <View style={styles.tagRow}>
             {workout.tags.map((tag) => (
               <View key={tag} style={styles.tagPill}>
-                <Text style={styles.tagPillText}>{tag}</Text>
+                <Text style={styles.tagPillText}>{tag.toUpperCase()}</Text>
               </View>
             ))}
           </View>
@@ -108,12 +177,7 @@ export default function ClassDetail({ route, navigation }: Props) {
                   index > 0 && styles.statColumnDivider,
                 ]}
               >
-                <Text
-                  style={[
-                    styles.statValue,
-                    stat.accent && styles.statValueAccent,
-                  ]}
-                >
+                <Text style={[styles.statValue, { color: stat.color }]}>
                   {stat.value}
                 </Text>
                 <Text style={styles.statLabel}>{stat.label}</Text>
@@ -144,18 +208,20 @@ export default function ClassDetail({ route, navigation }: Props) {
               </Text>
               <View style={styles.exerciseThumbnail} />
               <View style={styles.exerciseInfo}>
-                <View style={styles.exerciseTitleRow}>
-                  <Text style={styles.exerciseName}>{exercise.name}</Text>
-                  {exercise.tracked ? (
-                    <View style={styles.trackedBadge}>
-                      <Text style={styles.trackedBadgeText}>+ Tracked</Text>
-                    </View>
-                  ) : null}
-                </View>
+                <Text style={styles.exerciseName}>{exercise.name}</Text>
                 <Text style={styles.exerciseMeta}>
-                  {formatExerciseMeta(exercise.sets, exercise.reps)}
+                  {formatExerciseMeta(
+                    exercise.sets,
+                    exercise.reps,
+                    exercise.meta
+                  )}
                 </Text>
               </View>
+              {exercise.tracked ? (
+                <View style={styles.trackedBadge}>
+                  <Text style={styles.trackedBadgeText}>✦ Tracked</Text>
+                </View>
+              ) : null}
             </Pressable>
           ))}
 
@@ -164,7 +230,7 @@ export default function ClassDetail({ route, navigation }: Props) {
       </ScrollView>
 
       <Pressable
-        style={styles.beginButton}
+        style={[styles.beginButton, { bottom: insets.bottom + scale(24) }]}
         onPress={() =>
           navigation.navigate('LiveWorkout', { workoutId: workout.id })
         }
@@ -189,10 +255,20 @@ const styles = StyleSheet.create({
   hero: {
     width: '100%',
     position: 'relative',
+    backgroundColor: theme.colors.surfaceMuted,
+  },
+  heroImage: {
+    ...StyleSheet.absoluteFill,
+    width: '100%',
+    height: '100%',
   },
   heroPlaceholder: {
-    flex: 1,
+    ...StyleSheet.absoluteFill,
     backgroundColor: theme.colors.surfaceMuted,
+  },
+  heroGradient: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(36, 33, 33, 0.35)',
   },
   iconButton: {
     position: 'absolute',
@@ -202,10 +278,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 2,
   },
   iconButtonText: {
     color: theme.colors.white,
     fontSize: scale(18),
+  },
+  iconButtonSaved: {
+    backgroundColor: 'rgba(121, 203, 208, 0.25)',
+  },
+  iconButtonTextSaved: {
+    color: theme.colors.teal,
   },
   content: {
     paddingHorizontal: HORIZONTAL_PADDING,
@@ -214,13 +297,15 @@ const styles = StyleSheet.create({
   title: {
     ...theme.typography.header,
     fontFamily: theme.fonts.header,
+    fontSize: scale(28),
     color: theme.colors.white,
     marginBottom: scale(8),
   },
   description: {
     ...theme.typography.body,
+    fontSize: scale(14),
     color: `${theme.colors.white}99`,
-    lineHeight: 20,
+    lineHeight: scale(20),
     marginBottom: scale(16),
   },
   tagRow: {
@@ -231,15 +316,17 @@ const styles = StyleSheet.create({
   },
   tagPill: {
     borderWidth: scale(1),
-    borderColor: `${theme.colors.white}44`,
+    borderColor: `${theme.colors.white}55`,
     borderRadius: theme.radius.full,
-    paddingHorizontal: scale(12),
+    paddingHorizontal: scale(14),
     paddingVertical: scale(6),
   },
   tagPillText: {
-    ...theme.typography.body,
-    fontSize: scale(12),
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    fontSize: scale(10),
     color: theme.colors.white,
+    letterSpacing: scale(0.6),
   },
   statsRow: {
     flexDirection: 'row',
@@ -247,27 +334,26 @@ const styles = StyleSheet.create({
   },
   statColumn: {
     flex: 1,
-    paddingHorizontal: scale(6),
+    alignItems: 'flex-start',
+    paddingHorizontal: scale(4),
   },
   statColumnDivider: {
     borderLeftWidth: scale(1),
     borderLeftColor: `${theme.colors.white}22`,
+    paddingLeft: scale(10),
   },
   statValue: {
-    ...theme.typography.body,
     fontFamily: theme.fonts.bodyMedium,
-    fontSize: scale(18),
-    color: theme.colors.white,
+    fontSize: scale(20),
     marginBottom: scale(4),
-  },
-  statValueAccent: {
-    color: theme.colors.red,
   },
   statLabel: {
     ...theme.typography.label,
     fontFamily: theme.fonts.label,
     fontSize: scale(9),
     color: `${theme.colors.white}66`,
+    letterSpacing: scale(0.4),
+    textTransform: 'none',
   },
   sectionDivider: {
     height: scale(1),
@@ -292,43 +378,42 @@ const styles = StyleSheet.create({
   exerciseNumber: {
     width: scale(28),
     ...theme.typography.body,
+    fontSize: scale(14),
     color: `${theme.colors.white}66`,
   },
   exerciseThumbnail: {
-    width: scale(40),
-    height: scale(40),
-    backgroundColor: `${theme.colors.white}22`,
-    borderRadius: scale(4),
+    width: scale(44),
+    height: scale(44),
+    backgroundColor: `${theme.colors.white}18`,
+    borderRadius: scale(6),
     marginRight: scale(12),
   },
   exerciseInfo: {
     flex: 1,
-  },
-  exerciseTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: scale(8),
-    marginBottom: scale(4),
+    paddingRight: scale(8),
   },
   exerciseName: {
     ...theme.typography.body,
     fontFamily: theme.fonts.bodyMedium,
     fontSize: scale(15),
     color: theme.colors.white,
+    marginBottom: scale(4),
   },
   trackedBadge: {
     borderWidth: scale(1),
-    borderColor: theme.colors.red,
+    borderColor: theme.colors.teal,
     borderRadius: theme.radius.md,
     paddingHorizontal: scale(8),
-    paddingVertical: scale(2),
+    paddingVertical: scale(3),
+    alignSelf: 'center',
   },
   trackedBadgeText: {
     ...theme.typography.label,
     fontFamily: theme.fonts.label,
     fontSize: scale(9),
-    color: theme.colors.red,
+    color: theme.colors.teal,
+    letterSpacing: scale(0.3),
+    textTransform: 'none',
   },
   exerciseMeta: {
     ...theme.typography.body,
@@ -340,17 +425,19 @@ const styles = StyleSheet.create({
   },
   beginButton: {
     position: 'absolute',
-    bottom: scale(24),
     right: scale(24),
     backgroundColor: theme.colors.red,
-    paddingHorizontal: scale(28),
+    paddingHorizontal: scale(32),
     paddingVertical: scale(14),
     borderRadius: theme.radius.full,
+    zIndex: 5,
   },
   beginButtonText: {
     ...theme.typography.label,
     fontFamily: theme.fonts.label,
+    fontSize: scale(12),
     color: theme.colors.white,
+    letterSpacing: scale(0.8),
   },
   notFound: {
     ...theme.typography.body,
