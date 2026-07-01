@@ -87,6 +87,64 @@ function getTrainingDayIndices(frequency?: string): number[] {
   return TRAINING_DAY_INDICES[frequency ?? '3-4x'] ?? TRAINING_DAY_INDICES['3-4x'];
 }
 
+function getTrainingDayCount(frequency?: string): number {
+  return getTrainingDayIndices(frequency).length;
+}
+
+function shuffleArray<T>(items: T[], random: () => number): T[] {
+  const copy = [...items];
+
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+  }
+
+  return copy;
+}
+
+function buildAvoidCategories(profile: UserProfile): Set<LibraryCategory> {
+  const avoidCategories = new Set<LibraryCategory>();
+
+  for (const area of profile.mindfulAreas ?? []) {
+    for (const category of MINDFUL_CATEGORY_AVOID[area] ?? []) {
+      avoidCategories.add(category);
+    }
+  }
+
+  return avoidCategories;
+}
+
+function assignWorkoutsToDayIndices(
+  profile: UserProfile,
+  dayIndices: number[],
+  random: () => number
+): Map<number, ScheduledDay> {
+  const categoryPriority = buildCategoryPriority(profile);
+  const avoidCategories = buildAvoidCategories(profile);
+  const assignments = new Map<number, ScheduledDay>();
+  let workoutRotation = Math.floor(random() * libraryWorkouts.length);
+
+  for (const dayIndex of dayIndices) {
+    const category =
+      categoryPriority[workoutRotation % categoryPriority.length] ?? 'Full Body';
+    const libraryItem = pickLibraryWorkout(
+      category,
+      workoutRotation,
+      avoidCategories
+    );
+    workoutRotation += 1;
+
+    assignments.set(dayIndex, {
+      dateKey: '',
+      libraryId: libraryItem.id,
+      workoutId: libraryItem.workoutId,
+      isRestDay: false,
+    });
+  }
+
+  return assignments;
+}
+
 function buildCategoryPriority(profile: UserProfile): LibraryCategory[] {
   const scores = new Map<LibraryCategory, number>();
 
@@ -171,18 +229,11 @@ function pickLibraryWorkout(
 
 export function generateScheduleDays(
   profile: UserProfile,
-  weekDateKeys: string[],
-  reference = new Date()
+  weekDateKeys: string[]
 ): ScheduledDay[] {
   const trainingIndices = new Set(getTrainingDayIndices(profile.trainingFrequency));
   const categoryPriority = buildCategoryPriority(profile);
-  const avoidCategories = new Set<LibraryCategory>();
-
-  for (const area of profile.mindfulAreas ?? []) {
-    for (const category of MINDFUL_CATEGORY_AVOID[area] ?? []) {
-      avoidCategories.add(category);
-    }
-  }
+  const avoidCategories = buildAvoidCategories(profile);
 
   let workoutRotation = 0;
 
@@ -216,6 +267,67 @@ export function generateScheduleDays(
   });
 }
 
+function generateShuffledScheduleDays(
+  profile: UserProfile,
+  weekDateKeys: string[],
+  completedDateKeys: Set<string>,
+  random: () => number = Math.random
+): ScheduledDay[] {
+  const trainingCount = getTrainingDayCount(profile.trainingFrequency);
+  const lockedIndices = weekDateKeys.reduce<Set<number>>((locked, dateKey, dayIndex) => {
+    if (completedDateKeys.has(dateKey)) {
+      locked.add(dayIndex);
+    }
+    return locked;
+  }, new Set());
+
+  const lockedTrainingCount = lockedIndices.size;
+  const flexibleIndices = weekDateKeys
+    .map((_, dayIndex) => dayIndex)
+    .filter((dayIndex) => !lockedIndices.has(dayIndex));
+
+  const trainingSlotsNeeded = Math.max(
+    0,
+    Math.min(trainingCount - lockedTrainingCount, flexibleIndices.length)
+  );
+
+  const shuffledFlexible = shuffleArray(flexibleIndices, random);
+  const trainingFlexibleIndices = shuffledFlexible.slice(0, trainingSlotsNeeded);
+  const workoutAssignments = assignWorkoutsToDayIndices(
+    profile,
+    trainingFlexibleIndices,
+    random
+  );
+
+  return weekDateKeys.map((dateKey, dayIndex) => {
+    if (lockedIndices.has(dayIndex)) {
+      return {
+        dateKey,
+        libraryId: null,
+        workoutId: null,
+        isRestDay: false,
+      };
+    }
+
+    const assignment = workoutAssignments.get(dayIndex);
+    if (assignment) {
+      return {
+        dateKey,
+        libraryId: assignment.libraryId,
+        workoutId: assignment.workoutId,
+        isRestDay: false,
+      };
+    }
+
+    return {
+      dateKey,
+      libraryId: null,
+      workoutId: null,
+      isRestDay: true,
+    };
+  });
+}
+
 export function getCompletedDateKeysFromEntries(
   entries: WorkoutHistoryEntry[]
 ): Set<string> {
@@ -225,22 +337,28 @@ export function getCompletedDateKeysFromEntries(
 export async function regenerateWeeklySchedule(
   profile: UserProfile,
   completedDateKeys: Set<string>,
-  reference = new Date()
+  reference = new Date(),
+  options?: { shuffleTrainingDays?: boolean }
 ): Promise<WeeklySchedule> {
+  const shuffleTrainingDays = options?.shuffleTrainingDays ?? true;
   const weekDateKeys = getWeekDateKeys(reference);
-  const freshDays = generateScheduleDays(profile, weekDateKeys, reference);
   const existing = await readWeeklySchedule();
   const existingByDate = new Map(
     (existing?.days ?? []).map((day) => [day.dateKey, day])
   );
 
+  const freshDays = shuffleTrainingDays
+    ? generateShuffledScheduleDays(profile, weekDateKeys, completedDateKeys)
+    : generateScheduleDays(profile, weekDateKeys);
+
   const days = weekDateKeys.map((dateKey, index) => {
     if (completedDateKeys.has(dateKey)) {
-      return (
-        existingByDate.get(dateKey) ?? {
-          ...freshDays[index],
-        }
-      );
+      const lockedDay = existingByDate.get(dateKey);
+      if (lockedDay) {
+        return lockedDay;
+      }
+
+      return freshDays[index];
     }
 
     return freshDays[index];
@@ -270,7 +388,9 @@ export async function ensureCurrentWeekSchedule(
   const existing = await readWeeklySchedule();
 
   if (!existing || existing.weekStartKey !== weekStartKey) {
-    return regenerateWeeklySchedule(profile, completedDateKeys, reference);
+    return regenerateWeeklySchedule(profile, completedDateKeys, reference, {
+      shuffleTrainingDays: false,
+    });
   }
 
   return existing;

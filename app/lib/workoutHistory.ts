@@ -104,10 +104,10 @@ export function getWeekDateKeys(reference = new Date()): string[] {
   });
 }
 
-/** Last 7 days ending on `reference`, with today first (leftmost). */
+/** Next 7 days starting from `reference` (today first, leftmost). */
 export function getRollingStreakDateKeys(reference = new Date()): string[] {
   return Array.from({ length: 7 }, (_, index) =>
-    toDateKey(addDays(reference, -index))
+    toDateKey(addDays(reference, index))
   );
 }
 
@@ -225,7 +225,7 @@ export function getHomeStreakDays(
   const todayKey = toDateKey(reference);
 
   return getRollingStreakDateKeys(reference).map((dateKey, index) => {
-    const day = addDays(reference, -index);
+    const day = addDays(reference, index);
 
     return {
       label: DAY_LABELS[day.getDay()],

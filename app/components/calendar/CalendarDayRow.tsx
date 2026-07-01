@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { WeeklyPlanDay } from '../../lib/workoutHistory';
+import { toDateKey, type WeeklyPlanDay } from '../../lib/workoutHistory';
 import theme, { scale } from '../../theme';
 
 export type CalendarDayVariant =
@@ -46,7 +46,13 @@ function getWorkoutTitle(day: WeeklyPlanDay, variant: CalendarDayVariant): strin
   return day.workoutTitle.toUpperCase();
 }
 
-function StatusIcon({ variant }: { variant: CalendarDayVariant }) {
+function StatusIcon({
+  variant,
+  isTodayRow,
+}: {
+  variant: CalendarDayVariant;
+  isTodayRow: boolean;
+}) {
   if (variant === 'rest') {
     return null;
   }
@@ -61,6 +67,10 @@ function StatusIcon({ variant }: { variant: CalendarDayVariant }) {
 
   if (variant === 'missed') {
     return <View style={styles.iconMissed} />;
+  }
+
+  if (isTodayRow) {
+    return <View style={styles.iconToday} />;
   }
 
   return <View style={styles.iconScheduled} />;
@@ -78,32 +88,54 @@ export function CalendarDayRow({
   onPress,
 }: CalendarDayRowProps) {
   const variant = resolveCalendarDayVariant(day);
-  const isToday = variant === 'today';
-  const dayLabel = isToday ? `${day.dayName} · TODAY` : day.dayName;
+  const todayKey = toDateKey(new Date());
+  const isTodayRow = day.dateKey === todayKey;
+  const dayLabel = isTodayRow ? `${day.dayName} · TODAY` : day.dayName;
   const isPressable = variant !== 'rest';
   const isRest = variant === 'rest';
   const isMissed = variant === 'missed';
+  const isPastRest = isRest && day.dateKey < todayKey;
 
-  const dayLabelColor = isToday ? theme.colors.red : theme.colors.textSecondary;
-  const titleColor = isRest ? theme.colors.grey400 : theme.colors.textPrimary;
-  const statusColor = isRest ? theme.colors.grey400 : theme.colors.textSecondary;
+  const dayLabelColor = isTodayRow ? theme.colors.red : theme.colors.textSecondary;
+  const titleColor = isPastRest
+    ? theme.colors.grey400
+    : theme.colors.textPrimary;
+  const statusColor = isPastRest
+    ? theme.colors.grey400
+    : theme.colors.textSecondary;
 
   const content = (
     <>
       {showDivider ? <View style={styles.divider} /> : null}
-      <View style={[styles.row, isMissed && styles.rowMissed]}>
+      <View
+        style={[
+          styles.row,
+          isTodayRow && styles.rowToday,
+          isMissed && styles.rowMissed,
+        ]}
+      >
         <View style={styles.rowContent}>
           <Text style={[styles.dayLabel, { color: dayLabelColor }]}>
             {dayLabel}
           </Text>
-          <Text style={[styles.workoutTitle, { color: titleColor }]}>
+          <Text
+            style={[
+              styles.workoutTitle,
+              {
+                color: titleColor,
+                fontFamily: isPastRest
+                  ? theme.fonts.body
+                  : theme.fonts.bodyMedium,
+              },
+            ]}
+          >
             {getWorkoutTitle(day, variant)}
           </Text>
           <Text style={[styles.statusLine, { color: statusColor }]}>
             {getStatusLine(day, variant)}
           </Text>
         </View>
-        <StatusIcon variant={variant} />
+        <StatusIcon variant={variant} isTodayRow={isTodayRow} />
       </View>
     </>
   );
@@ -129,6 +161,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: scale(16),
+  },
+  rowToday: {
+    backgroundColor: `${theme.colors.red}0a`,
+    marginHorizontal: scale(-20),
+    paddingHorizontal: scale(20),
   },
   rowMissed: {
     opacity: 0.5,
@@ -174,6 +211,14 @@ const styles = StyleSheet.create({
     borderWidth: scale(1.5),
     borderColor: theme.colors.border,
     backgroundColor: 'transparent',
+  },
+  iconToday: {
+    width: scale(28),
+    height: scale(28),
+    borderRadius: scale(14),
+    borderWidth: scale(2),
+    borderColor: theme.colors.red,
+    backgroundColor: theme.colors.white,
   },
   iconMissed: {
     width: scale(28),

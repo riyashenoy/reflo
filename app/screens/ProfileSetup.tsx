@@ -234,7 +234,9 @@ export default function ProfileSetup({ navigation }: Props) {
           targetAreas,
           trainingFrequency,
         },
-        new Set()
+        new Set(),
+        undefined,
+        { shuffleTrainingDays: false }
       );
 
       navigation.reset({
