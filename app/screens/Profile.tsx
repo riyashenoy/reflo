@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 import {
   Alert,
-  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
@@ -28,7 +27,12 @@ import {
   type UserProfile,
 } from '../lib/userProfile';
 import { ProfileAvatar } from '../components/ProfileAvatar';
-import { FadeInView, PressableScale, ProfileHeaderSkeleton, SkeletonBlock } from '../components/motion';
+import {
+  FadeInView,
+  PressableScale,
+  ProfileHeaderSkeleton,
+  SkeletonBlock,
+} from '../components/motion';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
@@ -53,12 +57,11 @@ function BodyRow({
   return (
     <>
       {showDivider ? <View style={styles.rowDivider} /> : null}
-      <Pressable style={styles.listRow} onPress={onPress}>
-        <View style={styles.greyIcon} />
+      <PressableScale style={styles.listRow} onPress={onPress}>
         <Text style={styles.rowLabel}>{label}</Text>
         <Text style={styles.rowValue}>{value}</Text>
         <Text style={styles.chevron}>›</Text>
-      </Pressable>
+      </PressableScale>
     </>
   );
 }
@@ -80,7 +83,6 @@ function PreferenceRow({
     <>
       {showDivider ? <View style={styles.rowDivider} /> : null}
       <View style={styles.listRow}>
-        <View style={styles.tealIcon} />
         <View style={styles.preferenceText}>
           <Text style={styles.rowLabel}>{title}</Text>
           <Text style={styles.rowSubtitle}>{subtitle}</Text>
@@ -191,7 +193,12 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { paddingTop: tabTopPadding, paddingHorizontal: scale(20) }]}>
+      <View
+        style={[
+          styles.container,
+          { paddingTop: tabTopPadding, paddingHorizontal: scale(20) },
+        ]}
+      >
         <ProfileHeaderSkeleton />
         <SkeletonBlock height={scale(88)} style={{ marginBottom: scale(16) }} />
         <SkeletonBlock height={scale(140)} />
@@ -206,149 +213,160 @@ export default function Profile() {
         styles.scrollContent,
         { paddingTop: tabTopPadding },
       ]}
+      showsVerticalScrollIndicator={false}
     >
       <View style={styles.headerRow}>
-        <View style={styles.headerLeft}>
-          <ProfileAvatar
-            name={profile?.name}
-            email={auth.currentUser?.email}
-          />
-          <View style={styles.headerText}>
-            <Text style={styles.name}>{displayName}</Text>
-            <Text style={styles.subtitle}>{profileSubtitle}</Text>
+        <Text style={styles.heading}>Your Profile.</Text>
+        <PressableScale
+          style={styles.editButton}
+          hitSlop={8}
+          onPress={() => openEdit('about')}
+        >
+          <Text style={styles.editIcon}>✎</Text>
+        </PressableScale>
+      </View>
+
+      <FadeInView delay={60} style={styles.hero}>
+        <ProfileAvatar
+          name={profile?.name}
+          email={auth.currentUser?.email}
+        />
+        <Text style={styles.name}>{displayName}</Text>
+        <Text style={styles.subtitle}>{profileSubtitle}</Text>
+      </FadeInView>
+
+      <FadeInView delay={100}>
+        <PressableScale
+          style={styles.mindfulCard}
+          onPress={() => openEdit('mindful')}
+        >
+          <View style={styles.mindfulText}>
+            <Text style={styles.mindfulLabel}>Mindful Areas</Text>
+            <Text style={styles.mindfulSubtitle}>{mindfulSubtitle}</Text>
           </View>
-        </View>
-        <Pressable onPress={() => openEdit('about')} hitSlop={8}>
-          <Text style={styles.editLink}>Edit</Text>
-        </Pressable>
-      </View>
+          <Text style={styles.mindfulChevron}>›</Text>
+        </PressableScale>
+      </FadeInView>
 
-      <Pressable
-        style={styles.mindfulCard}
-        onPress={() => openEdit('mindful')}
-      >
-        <Text style={styles.warningIcon}>⚠</Text>
-        <View style={styles.mindfulText}>
-          <Text style={styles.mindfulTitle}>Mindful Areas</Text>
-          <Text style={styles.mindfulSubtitle}>{mindfulSubtitle}</Text>
-        </View>
-        <Text style={styles.chevron}>›</Text>
-      </Pressable>
-
-      <SectionLabel title="BODY" />
-      <View style={styles.card}>
-        <BodyRow
-          label="Height"
-          value={formatHeight(profile)}
-          onPress={() => openEdit('body')}
-        />
-        <BodyRow
-          label="Weight"
-          value={formatWeight(profile)}
-          onPress={() => openEdit('body')}
-          showDivider
-        />
-        <BodyRow
-          label="Age"
-          value={getAgeFromBirthday(profile?.birthday)}
-          onPress={() => openEdit('body')}
-          showDivider
-        />
-      </View>
-
-      <SectionLabel title="PREFERENCES" />
-      <View style={styles.card}>
-        <PreferenceRow
-          title="Motion Capture"
-          subtitle="Real-time form corrections"
-          value={motionCapture}
-          onValueChange={(value) => {
-            setMotionCapture(value);
-            updatePreferences({
-              motionCapture: value,
-              instructorVoice,
-              workoutMusic,
-              reminders,
-            });
-          }}
-        />
-        <PreferenceRow
-          title="Instructor Voice"
-          subtitle="AI Audio cues"
-          value={instructorVoice}
-          onValueChange={(value) => {
-            setInstructorVoice(value);
-            updatePreferences({
-              motionCapture,
-              instructorVoice: value,
-              workoutMusic,
-              reminders,
-            });
-          }}
-          showDivider
-        />
-        <PreferenceRow
-          title="Workout music"
-          subtitle="Plays during class"
-          value={workoutMusic}
-          onValueChange={(value) => {
-            setWorkoutMusic(value);
-            updatePreferences({
-              motionCapture,
-              instructorVoice,
-              workoutMusic: value,
-              reminders,
-            });
-          }}
-          showDivider
-        />
-        <PreferenceRow
-          title="Reminders"
-          subtitle="Daily workout nudges"
-          value={reminders}
-          onValueChange={(value) => {
-            setReminders(value);
-            updatePreferences({
-              motionCapture,
-              instructorVoice,
-              workoutMusic,
-              reminders: value,
-            });
-          }}
-          showDivider
-        />
-      </View>
-
-      <View style={styles.sectionDivider} />
-      <Pressable
-        style={styles.accountHeader}
-        onPress={() => setAccountExpanded((prev) => !prev)}
-      >
-        <Text style={styles.accountSectionLabel}>ACCOUNT SETTINGS</Text>
-        <Text style={styles.accountChevron}>
-          {accountExpanded ? '⌃' : '⌄'}
-        </Text>
-      </Pressable>
-
-      {accountExpanded ? (
+      <FadeInView delay={140}>
+        <SectionLabel title="BODY" />
         <View style={styles.card}>
-          <Pressable style={styles.listRow} onPress={handleEmailPress}>
-            <Text style={styles.rowLabel}>Email</Text>
-            <Text style={styles.rowValue}>{displayEmail}</Text>
-            <Text style={styles.chevron}>›</Text>
-          </Pressable>
-          <View style={styles.rowDivider} />
-          <Pressable
-            style={styles.signOutRow}
-            onPress={handleSignOut}
-            disabled={signingOut}
-          >
-            <Text style={styles.signOutText}>
-              {signingOut ? 'Signing out…' : 'Sign Out'}
-            </Text>
-          </Pressable>
+          <BodyRow
+            label="Height"
+            value={formatHeight(profile)}
+            onPress={() => openEdit('body')}
+          />
+          <BodyRow
+            label="Weight"
+            value={formatWeight(profile)}
+            onPress={() => openEdit('body')}
+            showDivider
+          />
+          <BodyRow
+            label="Age"
+            value={getAgeFromBirthday(profile?.birthday)}
+            onPress={() => openEdit('body')}
+            showDivider
+          />
         </View>
-      ) : null}
+      </FadeInView>
+
+      <FadeInView delay={180}>
+        <SectionLabel title="PREFERENCES" />
+        <View style={styles.card}>
+          <PreferenceRow
+            title="Motion Capture"
+            subtitle="Real-time form corrections"
+            value={motionCapture}
+            onValueChange={(value) => {
+              setMotionCapture(value);
+              updatePreferences({
+                motionCapture: value,
+                instructorVoice,
+                workoutMusic,
+                reminders,
+              });
+            }}
+          />
+          <PreferenceRow
+            title="Instructor Voice"
+            subtitle="AI Audio cues"
+            value={instructorVoice}
+            onValueChange={(value) => {
+              setInstructorVoice(value);
+              updatePreferences({
+                motionCapture,
+                instructorVoice: value,
+                workoutMusic,
+                reminders,
+              });
+            }}
+            showDivider
+          />
+          <PreferenceRow
+            title="Workout music"
+            subtitle="Plays during class"
+            value={workoutMusic}
+            onValueChange={(value) => {
+              setWorkoutMusic(value);
+              updatePreferences({
+                motionCapture,
+                instructorVoice,
+                workoutMusic: value,
+                reminders,
+              });
+            }}
+            showDivider
+          />
+          <PreferenceRow
+            title="Reminders"
+            subtitle="Daily workout nudges"
+            value={reminders}
+            onValueChange={(value) => {
+              setReminders(value);
+              updatePreferences({
+                motionCapture,
+                instructorVoice,
+                workoutMusic,
+                reminders: value,
+              });
+            }}
+            showDivider
+          />
+        </View>
+      </FadeInView>
+
+      <FadeInView delay={220}>
+        <PressableScale
+          style={styles.accountHeader}
+          onPress={() => setAccountExpanded((prev) => !prev)}
+        >
+          <Text style={styles.accountSectionLabel}>ACCOUNT</Text>
+          <Text style={styles.accountChevron}>
+            {accountExpanded ? '⌃' : '⌄'}
+          </Text>
+        </PressableScale>
+
+        {accountExpanded ? (
+          <View style={styles.card}>
+            <PressableScale style={styles.listRow} onPress={handleEmailPress}>
+              <Text style={styles.rowLabel}>Email</Text>
+              <Text style={styles.rowValue}>{displayEmail}</Text>
+              <Text style={styles.chevron}>›</Text>
+            </PressableScale>
+            <View style={styles.rowDivider} />
+            <PressableScale
+              style={styles.signOutRow}
+              onPress={handleSignOut}
+              disabled={signingOut}
+            >
+              <Text style={styles.signOutText}>
+                {signingOut ? 'Signing out…' : 'Sign Out'}
+              </Text>
+            </PressableScale>
+          </View>
+        ) : null}
+      </FadeInView>
     </ScrollView>
   );
 }
@@ -356,12 +374,6 @@ export default function Profile() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: theme.colors.background,
   },
   scrollContent: {
@@ -372,64 +384,69 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: scale(24),
+    marginBottom: scale(28),
   },
-  headerLeft: {
-    flexDirection: 'row',
+  heading: {
+    ...theme.typography.header,
+    fontFamily: theme.fonts.header,
+    color: theme.colors.textPrimary,
+    flex: 1,
+    paddingRight: scale(12),
+  },
+  editButton: {
+    paddingTop: scale(4),
+  },
+  editIcon: {
+    fontSize: scale(22),
+    color: theme.colors.red,
+  },
+  hero: {
     alignItems: 'center',
-    flex: 1,
-  },
-  headerText: {
-    flex: 1,
-    paddingRight: scale(8),
+    marginBottom: scale(28),
   },
   name: {
-    ...theme.typography.body,
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: scale(18),
+    ...theme.typography.mediumHeader,
+    fontFamily: theme.fonts.header,
     color: theme.colors.textPrimary,
-    marginBottom: scale(4),
+    marginTop: scale(16),
+    marginBottom: scale(6),
+    textAlign: 'center',
   },
   subtitle: {
     ...theme.typography.body,
     fontSize: scale(13),
     color: theme.colors.textSecondary,
-  },
-  editLink: {
-    ...theme.typography.body,
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: scale(15),
-    color: theme.colors.red,
+    textAlign: 'center',
   },
   mindfulCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.mindfulBg,
-    borderWidth: scale(1),
-    borderColor: theme.colors.amber,
+    backgroundColor: theme.colors.dark,
     borderRadius: theme.radius.md,
-    padding: scale(16),
-    marginBottom: scale(24),
-  },
-  warningIcon: {
-    fontSize: scale(22),
-    color: theme.colors.amber,
-    marginRight: scale(12),
+    paddingVertical: scale(16),
+    paddingHorizontal: scale(18),
+    marginBottom: scale(28),
   },
   mindfulText: {
     flex: 1,
+    paddingRight: scale(12),
   },
-  mindfulTitle: {
-    ...theme.typography.body,
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: scale(15),
-    color: theme.colors.textPrimary,
-    marginBottom: scale(2),
+  mindfulLabel: {
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: theme.colors.grey400,
+    marginBottom: scale(6),
   },
   mindfulSubtitle: {
     ...theme.typography.body,
-    fontSize: scale(13),
-    color: theme.colors.textSecondary,
+    fontSize: scale(14),
+    color: theme.colors.white,
+    lineHeight: scale(20),
+  },
+  mindfulChevron: {
+    fontSize: scale(22),
+    color: theme.colors.white,
+    opacity: 0.7,
   },
   sectionLabel: {
     ...theme.typography.label,
@@ -451,20 +468,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: scale(16),
     paddingVertical: scale(16),
   },
-  greyIcon: {
-    width: scale(36),
-    height: scale(36),
-    borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.grey200,
-    marginRight: scale(14),
-  },
-  tealIcon: {
-    width: scale(36),
-    height: scale(36),
-    borderRadius: theme.radius.sm,
-    backgroundColor: `${theme.colors.teal}40`,
-    marginRight: scale(14),
-  },
   rowLabel: {
     flex: 1,
     ...theme.typography.body,
@@ -485,7 +488,7 @@ const styles = StyleSheet.create({
   },
   preferenceText: {
     flex: 1,
-    paddingRight: scale(8),
+    paddingRight: scale(12),
   },
   chevron: {
     fontSize: scale(20),
@@ -496,16 +499,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.border,
     marginLeft: scale(16),
   },
-  sectionDivider: {
-    height: scale(1),
-    backgroundColor: theme.colors.border,
-    marginBottom: scale(16),
-  },
   accountHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: scale(8),
+    marginBottom: scale(10),
   },
   accountSectionLabel: {
     ...theme.typography.label,

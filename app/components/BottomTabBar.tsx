@@ -12,7 +12,7 @@ const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   Home: 'home',
   Calendar: 'calendar-outline',
   Progress: 'stats-chart',
-  Profile: 'person-outline',
+  Profile: 'person',
 };
 
 function TabButton({

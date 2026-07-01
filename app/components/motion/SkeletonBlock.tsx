@@ -63,15 +63,9 @@ export function SkeletonBlock({
 export function ProfileHeaderSkeleton() {
   return (
     <View style={styles.profileHeader}>
-      <SkeletonBlock width={scale(80)} height={scale(80)} borderRadius={scale(40)} />
-      <View style={styles.profileText}>
-        <SkeletonBlock width="55%" height={scale(22)} />
-        <SkeletonBlock
-          width="40%"
-          height={scale(14)}
-          style={styles.profileSubtitle}
-        />
-      </View>
+      <SkeletonBlock width={scale(88)} height={scale(88)} borderRadius={scale(44)} />
+      <SkeletonBlock width="50%" height={scale(22)} style={styles.profileName} />
+      <SkeletonBlock width="35%" height={scale(14)} />
     </View>
   );
 }
@@ -81,16 +75,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.grey200,
   },
   profileHeader: {
-    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: scale(24),
+    marginBottom: scale(28),
   },
-  profileText: {
-    flex: 1,
-    marginLeft: scale(14),
-    gap: scale(8),
-  },
-  profileSubtitle: {
-    marginTop: scale(8),
+  profileName: {
+    marginTop: scale(16),
+    marginBottom: scale(8),
   },
 });

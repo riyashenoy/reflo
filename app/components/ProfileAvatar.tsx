@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { getProfileInitial } from '../lib/userProfile';
 import theme, { scale } from '../theme';
@@ -6,13 +6,14 @@ import theme, { scale } from '../theme';
 type ProfileAvatarProps = {
   name?: string;
   email?: string | null;
+  style?: StyleProp<ViewStyle>;
 };
 
-export function ProfileAvatar({ name, email }: ProfileAvatarProps) {
+export function ProfileAvatar({ name, email, style }: ProfileAvatarProps) {
   const initial = getProfileInitial(name, email);
 
   return (
-    <View style={styles.avatar}>
+    <View style={[styles.avatar, style]}>
       <Text style={styles.initial}>{initial}</Text>
     </View>
   );
@@ -20,15 +21,14 @@ export function ProfileAvatar({ name, email }: ProfileAvatarProps) {
 
 const styles = StyleSheet.create({
   avatar: {
-    width: scale(80),
-    height: scale(80),
-    borderRadius: scale(40),
+    width: scale(88),
+    height: scale(88),
+    borderRadius: scale(44),
     backgroundColor: theme.colors.white,
     borderWidth: scale(2),
     borderColor: theme.colors.red,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: scale(14),
   },
   initial: {
     fontFamily: theme.fonts.headerMedium,
