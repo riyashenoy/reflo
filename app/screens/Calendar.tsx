@@ -1,6 +1,6 @@
+import { useState } from 'react';
 import {
-  Alert,
-  Pressable,
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,6 +9,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { CalendarDayRow } from '../components/calendar/CalendarDayRow';
 import { PressableScale } from '../components/motion';
 import { useWorkoutHistory } from '../hooks/useWorkoutHistory';
 import type { WeeklyPlanDay } from '../lib/workoutHistory';
@@ -18,54 +19,39 @@ import theme, { scale } from '../theme';
 
 type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
 
-function StatusIcon({ day }: { day: WeeklyPlanDay }) {
-  if (day.status === 'completed') {
-    return (
-      <View style={styles.statusCircleCompleted}>
-        <Text style={styles.statusCheckmark}>✓</Text>
-      </View>
-    );
-  }
-
-  return (
-    <View
-      style={[
-        styles.statusCircleEmpty,
-        day.status === 'today' && styles.statusCircleToday,
-      ]}
-    />
-  );
-}
-
 export default function Calendar() {
   const navigation = useNavigation<NavigationProp>();
   const tabTopPadding = useTabScreenTopPadding();
-  const { weeklyPlan } = useWorkoutHistory();
+  const { weeklyPlan, isLoading, regenerateSchedule } = useWorkoutHistory();
+  const [regenerating, setRegenerating] = useState(false);
 
-  const handleGenerateSchedule = () => {
-    Alert.alert('Coming soon', 'Schedule generation is not available yet.');
+  const handleGenerateSchedule = async () => {
+    setRegenerating(true);
+    try {
+      await regenerateSchedule();
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  const handleEditFocus = () => {
+    navigation.navigate('ProfileEdit', { section: 'focus' });
   };
 
   const handleDayPress = (day: WeeklyPlanDay) => {
+    if (day.isRestDay) {
+      return;
+    }
+
     if (day.status === 'completed') {
       navigation.navigate('PostWorkout', { workoutId: day.workoutId });
       return;
     }
 
-    navigation.navigate('ClassDetail', { workoutId: day.workoutId });
-  };
-
-  const getStatusLine = (day: WeeklyPlanDay) => {
-    if (day.status === 'completed') {
-      return `Done · ${day.duration} min · Form Score ${day.formScore ?? 82}`;
-    }
-    if (day.status === 'today') {
-      return `Up Next · ${day.duration} minutes`;
-    }
-    if (day.status === 'missed') {
-      return `Missed · ${day.duration} min`;
-    }
-    return `Scheduled · ${day.duration} min`;
+    navigation.navigate('ClassDetail', {
+      libraryId: day.libraryId,
+      workoutId: day.workoutId,
+    });
   };
 
   return (
@@ -75,60 +61,43 @@ export default function Calendar() {
         styles.scrollContent,
         { paddingTop: tabTopPadding },
       ]}
+      showsVerticalScrollIndicator={false}
     >
       <View style={styles.headerRow}>
         <Text style={styles.heading}>Your Weekly Plan.</Text>
-        <PressableScale style={styles.editButton} hitSlop={8}>
+        <PressableScale style={styles.editButton} hitSlop={8} onPress={handleEditFocus}>
           <Text style={styles.editIcon}>✎</Text>
         </PressableScale>
       </View>
 
-      <PressableScale style={styles.generateButton} onPress={handleGenerateSchedule}>
-        <Text style={styles.generateButtonText}>✦ GENERATE NEW SCHEDULE</Text>
+      <PressableScale
+        style={styles.generateButton}
+        onPress={handleGenerateSchedule}
+        disabled={regenerating}
+      >
+        {regenerating ? (
+          <ActivityIndicator color={theme.colors.white} size="small" />
+        ) : (
+          <Text style={styles.generateButtonText}>✦ GENERATE NEW SCHEDULE</Text>
+        )}
       </PressableScale>
 
-      <View style={styles.dayList}>
-        {weeklyPlan.map((day, index) => {
-          const isToday = day.status === 'today';
-          const statusLine = getStatusLine(day);
-          const dayLabel = isToday
-            ? `${day.dayName} · TODAY`
-            : day.dayName;
-
-          return (
-            <View key={day.dateKey}>
-              {index > 0 ? <View style={styles.divider} /> : null}
-              <Pressable
-                style={[styles.dayRow, isToday && styles.dayRowToday]}
-                onPress={() => handleDayPress(day)}
-              >
-                <View style={styles.dayRowContent}>
-                  <Text
-                    style={[
-                      styles.dayLabel,
-                      isToday && styles.dayLabelToday,
-                    ]}
-                  >
-                    {dayLabel}
-                  </Text>
-                  <Text style={styles.workoutName}>
-                    {day.workoutTitle.toUpperCase()}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.statusLine,
-                      isToday && styles.statusLineToday,
-                    ]}
-                  >
-                    {statusLine}
-                  </Text>
-                </View>
-                <StatusIcon day={day} />
-              </Pressable>
-            </View>
-          );
-        })}
-      </View>
+      {isLoading ? (
+        <View style={styles.loadingState}>
+          <ActivityIndicator color={theme.colors.red} />
+        </View>
+      ) : (
+        <View style={styles.dayList}>
+          {weeklyPlan.map((day, index) => (
+            <CalendarDayRow
+              key={day.dateKey}
+              day={day}
+              showDivider={index > 0}
+              onPress={() => handleDayPress(day)}
+            />
+          ))}
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -150,6 +119,7 @@ const styles = StyleSheet.create({
   },
   heading: {
     ...theme.typography.header,
+    fontFamily: theme.fonts.header,
     color: theme.colors.textPrimary,
     flex: 1,
     paddingRight: scale(12),
@@ -162,84 +132,26 @@ const styles = StyleSheet.create({
     color: theme.colors.red,
   },
   generateButton: {
-    alignSelf: 'flex-start',
+    alignSelf: 'stretch',
     backgroundColor: theme.colors.dark,
     borderRadius: theme.radius.full,
     paddingVertical: scale(12),
     paddingHorizontal: scale(18),
     marginBottom: scale(24),
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: scale(44),
   },
   generateButtonText: {
     ...theme.typography.label,
+    fontFamily: theme.fonts.label,
     color: theme.colors.white,
+  },
+  loadingState: {
+    paddingVertical: scale(48),
+    alignItems: 'center',
   },
   dayList: {
-    marginTop: scale(4),
-  },
-  divider: {
-    height: scale(1),
-    backgroundColor: theme.colors.border,
-  },
-  dayRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: scale(16),
-  },
-  dayRowToday: {
-    backgroundColor: `${theme.colors.red}0a`,
-    marginHorizontal: scale(-20),
-    paddingHorizontal: scale(20),
-  },
-  dayRowContent: {
-    flex: 1,
-    paddingRight: scale(12),
-  },
-  dayLabel: {
-    ...theme.typography.label,
-    color: theme.colors.textSecondary,
-    marginBottom: scale(4),
-  },
-  dayLabelToday: {
-    color: theme.colors.red,
-  },
-  workoutName: {
-    ...theme.typography.body,
-    fontFamily: theme.fonts.bodyMedium,
-    color: theme.colors.textPrimary,
-    textTransform: 'uppercase',
-    marginBottom: scale(4),
-  },
-  statusLine: {
-    ...theme.typography.body,
-    fontSize: scale(12),
-    color: theme.colors.textSecondary,
-  },
-  statusLineToday: {
-    color: theme.colors.textSecondary,
-  },
-  statusCircleCompleted: {
-    width: scale(28),
-    height: scale(28),
-    borderRadius: scale(14),
-    backgroundColor: theme.colors.teal,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statusCheckmark: {
-    color: theme.colors.white,
-    fontSize: scale(14),
-    fontWeight: '700',
-  },
-  statusCircleEmpty: {
-    width: scale(28),
-    height: scale(28),
-    borderRadius: scale(14),
-    backgroundColor: theme.colors.grey200,
-  },
-  statusCircleToday: {
-    borderWidth: scale(2),
-    borderColor: theme.colors.red,
-    backgroundColor: theme.colors.white,
+    width: '100%',
   },
 });

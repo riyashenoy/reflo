@@ -35,7 +35,7 @@ export type AppStackParamList = {
   ExercisePreview: { workoutId: string; exerciseIndex: number };
   LiveWorkout: { workoutId?: string };
   PostWorkout: { workoutId?: string; sessionLog?: SessionLogEntry[] };
-  ProfileEdit: { section?: 'about' | 'body' | 'mindful' };
+  ProfileEdit: { section?: 'about' | 'body' | 'mindful' | 'focus' };
 };
 
 export type MainTabParamList = {

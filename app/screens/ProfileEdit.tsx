@@ -18,10 +18,19 @@ import {
   EQUIPMENT_OPTIONS,
   EXPERIENCE_LEVEL_OPTIONS,
   fetchUserProfile,
+  GOAL_OPTIONS,
   MINDFUL_AREA_OPTIONS,
   saveUserProfile,
+  TARGET_AREA_OPTIONS,
+  TRAINING_FREQUENCY_OPTIONS,
   type ProfileEditSection,
+  type TrainingFrequency,
 } from '../lib/userProfile';
+import {
+  getCompletedDateKeys,
+  readWorkoutHistory,
+} from '../lib/workoutHistory';
+import { regenerateWeeklySchedule } from '../lib/weeklySchedule';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
 
@@ -137,6 +146,10 @@ export default function ProfileEdit({ route, navigation }: Props) {
   const [weightUnit, setWeightUnit] = useState('kg');
   const [birthday, setBirthday] = useState('');
   const [mindfulAreas, setMindfulAreas] = useState<string[]>([]);
+  const [goals, setGoals] = useState<string[]>([]);
+  const [targetAreas, setTargetAreas] = useState<string[]>([]);
+  const [trainingFrequency, setTrainingFrequency] =
+    useState<TrainingFrequency>('3-4x');
 
   useEffect(() => {
     const load = async () => {
@@ -166,6 +179,15 @@ export default function ProfileEdit({ route, navigation }: Props) {
           setWeightUnit(profile.weightUnit ?? 'kg');
           setBirthday(profile.birthday ?? '');
           setMindfulAreas(profile.mindfulAreas ?? []);
+          setGoals(profile.goals ?? []);
+          setTargetAreas(profile.targetAreas ?? []);
+          if (
+            TRAINING_FREQUENCY_OPTIONS.includes(
+              profile.trainingFrequency as TrainingFrequency
+            )
+          ) {
+            setTrainingFrequency(profile.trainingFrequency as TrainingFrequency);
+          }
         }
       } catch (err) {
         Alert.alert('Error', getAuthErrorMessage(err));
@@ -212,7 +234,20 @@ export default function ProfileEdit({ route, navigation }: Props) {
         weightUnit,
         birthday,
         mindfulAreas,
+        goals,
+        targetAreas,
+        trainingFrequency,
       });
+
+      const history = await readWorkoutHistory();
+      const profile = await fetchUserProfile(uid);
+      if (profile) {
+        await regenerateWeeklySchedule(
+          profile,
+          getCompletedDateKeys(history)
+        );
+      }
+
       navigation.goBack();
     } catch (err) {
       Alert.alert('Save failed', getAuthErrorMessage(err));
@@ -240,7 +275,9 @@ export default function ProfileEdit({ route, navigation }: Props) {
         <Pressable onPress={() => navigation.goBack()}>
           <Text style={styles.backText}>← Back</Text>
         </Pressable>
-        <Text style={styles.topBarTitle}>Edit Profile</Text>
+        <Text style={styles.topBarTitle}>
+          {section === 'focus' ? 'Workout Focus' : 'Edit Profile'}
+        </Text>
         <View style={styles.topBarSpacer} />
       </View>
 
@@ -366,6 +403,71 @@ export default function ProfileEdit({ route, navigation }: Props) {
             })}
           </View>
         </View>
+
+        <View onLayout={registerSection('focus')} style={styles.sectionBlock}>
+          <Text style={styles.sectionHeading}>Workout focus</Text>
+          <Text style={styles.sectionHint}>
+            These choices shape your weekly plan on the Calendar.
+          </Text>
+
+          <SectionLabel>PRIMARY GOALS</SectionLabel>
+          <View style={styles.goalsGrid}>
+            {GOAL_OPTIONS.map((goal) => {
+              const selected = goals.includes(goal.id);
+              return (
+                <Pressable
+                  key={goal.id}
+                  style={[styles.goalCard, selected && styles.goalCardSelected]}
+                  onPress={() =>
+                    setGoals((prev) => toggleSelection(prev, goal.id))
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.goalTitle,
+                      selected && styles.goalTitleSelected,
+                    ]}
+                  >
+                    {goal.title}
+                  </Text>
+                  <Text style={styles.goalSubtitle}>{goal.subtitle}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <SectionLabel>TARGET AREAS</SectionLabel>
+          <View style={styles.chipWrap}>
+            {TARGET_AREA_OPTIONS.map((area) => {
+              const selected = targetAreas.includes(area);
+              return (
+                <Pressable
+                  key={area}
+                  style={[styles.chip, selected && styles.chipSelected]}
+                  onPress={() =>
+                    setTargetAreas((prev) => toggleSelection(prev, area))
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      selected && styles.chipTextSelected,
+                    ]}
+                  >
+                    {area}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <SectionLabel>TRAINING FREQUENCY</SectionLabel>
+          <ThreeOptionToggle
+            options={[...TRAINING_FREQUENCY_OPTIONS]}
+            value={trainingFrequency}
+            onChange={setTrainingFrequency}
+          />
+        </View>
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
@@ -431,6 +533,13 @@ const styles = StyleSheet.create({
     fontSize: scale(22),
     color: theme.colors.textPrimary,
     marginBottom: scale(12),
+  },
+  sectionHint: {
+    ...theme.typography.body,
+    fontSize: scale(13),
+    color: theme.colors.textSecondary,
+    marginBottom: scale(12),
+    lineHeight: scale(18),
   },
   fieldLabel: {
     ...theme.typography.label,
@@ -569,6 +678,34 @@ const styles = StyleSheet.create({
   chipTextSelected: {
     color: theme.colors.red,
     fontWeight: '600',
+  },
+  goalsGrid: {
+    gap: scale(10),
+    marginBottom: scale(16),
+  },
+  goalCard: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radius.md,
+    borderWidth: scale(1),
+    borderColor: theme.colors.border,
+    padding: scale(14),
+  },
+  goalCardSelected: {
+    backgroundColor: `${theme.colors.red}0a`,
+    borderColor: theme.colors.red,
+  },
+  goalTitle: {
+    fontSize: scale(15),
+    fontFamily: theme.fonts.bodyMedium,
+    color: theme.colors.textPrimary,
+    marginBottom: scale(4),
+  },
+  goalTitleSelected: {
+    color: theme.colors.red,
+  },
+  goalSubtitle: {
+    fontSize: scale(12),
+    color: theme.colors.textSecondary,
   },
   footer: {
     paddingHorizontal: scale(20),

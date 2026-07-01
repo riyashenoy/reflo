@@ -1,6 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getWorkoutById } from '../data/workouts';
+import { getLibraryWorkout } from '../data/workoutLibrary';
+import type { ScheduledDay, WeeklySchedule } from './weeklySchedule';
+import { getScheduledDayMap } from './weeklySchedule';
 import type { SessionLogEntry } from '../hooks/usePoseDetection';
 
 const STORAGE_KEY = 'reflo.workoutHistory';
@@ -27,9 +30,11 @@ export type WeeklyPlanDay = {
   dateKey: string;
   status: WeekDayStatus;
   workoutId: string;
+  libraryId?: string;
   workoutTitle: string;
   duration: number;
   formScore?: number;
+  isRestDay?: boolean;
 };
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'Th', 'F', 'Sa'] as const;
@@ -233,9 +238,12 @@ export function getHomeStreakDays(
 
 export function buildWeeklyPlan(
   entries: WorkoutHistoryEntry[],
+  schedule: WeeklySchedule | null = null,
   reference = new Date()
 ): WeeklyPlanDay[] {
   const completionByDate = getCompletionByDate(entries);
+  const scheduledByDate = getScheduledDayMap(schedule);
+  const todayKey = toDateKey(reference);
   const todayIndex = reference.getDay();
   const weekDateKeys = getWeekDateKeys(reference);
   const fallbackWorkout = getWorkoutById(DEFAULT_WORKOUT_ID);
@@ -243,31 +251,64 @@ export function buildWeeklyPlan(
   return DAY_NAMES.map((dayName, dayIndex) => {
     const dateKey = weekDateKeys[dayIndex];
     const completion = completionByDate.get(dateKey);
+    const scheduled: ScheduledDay | undefined = scheduledByDate.get(dateKey);
 
     let status: WeekDayStatus;
     if (completion) {
       status = 'completed';
     } else if (dayIndex === todayIndex) {
       status = 'today';
-    } else if (dayIndex > todayIndex) {
+    } else if (dateKey > todayKey) {
       status = 'future';
     } else {
       status = 'missed';
     }
 
-    const workout = completion
-      ? getWorkoutById(completion.workoutId)
-      : fallbackWorkout;
+    if (completion) {
+      const workout = getWorkoutById(completion.workoutId);
+      return {
+        dayIndex,
+        dayName,
+        dateKey,
+        status,
+        workoutId: completion.workoutId,
+        workoutTitle: workout?.title ?? 'Workout',
+        duration: workout?.duration ?? 5,
+        formScore: completion.formScore,
+        isRestDay: false,
+      };
+    }
+
+    if (scheduled?.isRestDay) {
+      return {
+        dayIndex,
+        dayName,
+        dateKey,
+        status,
+        workoutId: '',
+        workoutTitle: 'Rest Day',
+        duration: 0,
+        isRestDay: true,
+      };
+    }
+
+    const workoutId =
+      scheduled?.workoutId ?? fallbackWorkout?.id ?? DEFAULT_WORKOUT_ID;
+    const libraryItem = scheduled?.libraryId
+      ? getLibraryWorkout(scheduled.libraryId)
+      : undefined;
+    const workout = getWorkoutById(workoutId) ?? fallbackWorkout;
 
     return {
       dayIndex,
       dayName,
       dateKey,
       status,
-      workoutId: completion?.workoutId ?? fallbackWorkout?.id ?? DEFAULT_WORKOUT_ID,
-      workoutTitle: workout?.title ?? 'Workout',
+      workoutId,
+      libraryId: scheduled?.libraryId ?? libraryItem?.id,
+      workoutTitle: libraryItem?.title ?? workout?.title ?? 'Workout',
       duration: workout?.duration ?? 5,
-      formScore: completion?.formScore,
+      isRestDay: false,
     };
   });
 }

@@ -93,8 +93,6 @@ const CLIP_MAP: Record<string, number> = {
   '13': require('../../assets/audio/13.mp3'),
 };
 
-const BORDER_INSET = scale(12);
-
 function formatTimer(seconds: number) {
   const total = Math.max(0, Math.floor(seconds));
   return (
@@ -604,13 +602,6 @@ function LiveWorkout({ route, navigation }: Props) {
 
         <DashedBorderOverlay />
 
-        <PressableScale
-          style={styles.skipButtonFloating}
-          onPress={() => void skipToEnd()}
-        >
-          <Text style={styles.skipButtonText}>Skip</Text>
-        </PressableScale>
-
         <View
           style={[styles.topBar, { paddingTop: insets.top + scale(8) }]}
           pointerEvents="box-none"
@@ -626,7 +617,12 @@ function LiveWorkout({ route, navigation }: Props) {
             <WorkoutTimer seconds={remainingSeconds} />
           </View>
 
-          <View style={styles.topBarSpacer} />
+          <PressableScale
+            style={[styles.pillButton, styles.skipButton]}
+            onPress={() => void skipToEnd()}
+          >
+            <Text style={styles.skipButtonText}>Skip</Text>
+          </PressableScale>
         </View>
 
         <FadeSlideOverlay visible={showOnboarding}>
@@ -698,27 +694,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: scale(16),
     paddingBottom: scale(8),
-    zIndex: 3,
+    zIndex: 15,
   },
-  topBarSpacer: {
-    width: scale(40),
-  },
-  skipButtonFloating: {
-    position: 'absolute',
-    bottom: BORDER_INSET + scale(16),
-    right: BORDER_INSET + scale(16),
-    backgroundColor: '#00000066',
-    borderRadius: theme.radius.xl,
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: scale(32),
-    paddingHorizontal: scale(12),
-    zIndex: 11,
+  skipButton: {
+    minWidth: scale(56),
+    height: scale(40),
+    paddingHorizontal: scale(14),
   },
   skipButtonText: {
     ...theme.typography.body,
     color: theme.colors.white,
-    fontSize: scale(12),
+    fontSize: scale(13),
     fontFamily: theme.fonts.bodyMedium,
   },
   cameraPlaceholder: {

@@ -10,7 +10,7 @@ import TabBarFade from './TabBarFade';
 
 const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   Home: 'home',
-  Calendar: 'calendar-outline',
+  Calendar: 'calendar',
   Progress: 'stats-chart',
   Profile: 'person',
 };

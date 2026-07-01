@@ -14,6 +14,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { auth, db } from '../lib/firebase';
 import { getAuthErrorMessage } from '../lib/authErrors';
+import { regenerateWeeklySchedule } from '../lib/weeklySchedule';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
 
@@ -217,6 +218,24 @@ export default function ProfileSetup({ navigation }: Props) {
         trainingFrequency,
         createdAt: new Date().toISOString(),
       });
+
+      await regenerateWeeklySchedule(
+        {
+          name: name.trim(),
+          experienceLevel,
+          equipment,
+          height,
+          heightUnit,
+          weight,
+          weightUnit,
+          birthday,
+          mindfulAreas,
+          goals,
+          targetAreas,
+          trainingFrequency,
+        },
+        new Set()
+      );
 
       navigation.reset({
         index: 0,

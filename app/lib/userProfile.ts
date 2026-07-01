@@ -28,7 +28,29 @@ export interface UserProfile {
   updatedAt?: string;
 }
 
-export type ProfileEditSection = 'about' | 'body' | 'mindful';
+export type ProfileEditSection = 'about' | 'body' | 'mindful' | 'focus';
+
+export const GOAL_OPTIONS = [
+  { id: 'strength', title: 'Build Strength', subtitle: 'Muscle tone and endurance' },
+  { id: 'flexibility', title: 'Flexibility', subtitle: 'Mobility and stretch' },
+  { id: 'weight', title: 'Lose Weight', subtitle: 'Calorie burn focus' },
+  { id: 'posture', title: 'Better Posture', subtitle: 'Alignment and balance' },
+  { id: 'stress', title: 'Stress Relief', subtitle: 'Mind-body connection' },
+  { id: 'performance', title: 'Performance', subtitle: 'Sport cross training' },
+] as const;
+
+export const TARGET_AREA_OPTIONS = [
+  'Core',
+  'Glutes',
+  'Arms',
+  'Back',
+  'Inner Thighs',
+  'Full Body',
+] as const;
+
+export const TRAINING_FREQUENCY_OPTIONS = ['1-2x', '3-4x', '5-7x'] as const;
+
+export type TrainingFrequency = (typeof TRAINING_FREQUENCY_OPTIONS)[number];
 
 export const MINDFUL_AREA_OPTIONS = [
   'Lower back',

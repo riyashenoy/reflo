@@ -6,50 +6,61 @@ import {
   View,
 } from 'react-native';
 
+import { FormScoreChart, ProgressEmptyState } from '../components/FormScoreChart';
 import { FadeInView, SegmentPillLight } from '../components/motion';
+import { useLayoutWidth } from '../hooks/useLayoutWidth';
+import { useWorkoutHistory } from '../hooks/useWorkoutHistory';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
+import {
+  buildProgressSummary,
+  type ProgressPeriod,
+} from '../lib/progressStats';
 import theme, { scale } from '../theme';
 
-type Period = 'Week' | 'Month' | 'All time';
-
-const PERIODS: Period[] = ['Week', 'Month', 'All time'];
-
-const PERIOD_DATA: Record<
-  Period,
-  {
-    sessions: number;
-    streak: number;
-    bestScore: number;
-    corrections: number;
-  }
-> = {
-  Week: { sessions: 4, streak: 4, bestScore: 89, corrections: 6 },
-  Month: { sessions: 12, streak: 4, bestScore: 96, corrections: 24 },
-  'All time': { sessions: 28, streak: 7, bestScore: 96, corrections: 58 },
-};
+const PERIODS: ProgressPeriod[] = ['Week', 'Month', 'All time'];
 
 function StatCard({
   value,
   label,
   style,
+  accent,
 }: {
   value: number | string;
   label: string;
   style?: object;
+  accent?: boolean;
 }) {
   return (
-    <View style={[styles.card, styles.statCard, style]}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+    <View
+      style={[
+        styles.card,
+        styles.statCard,
+        accent && styles.statCardAccent,
+        style,
+      ]}
+    >
+      <Text style={[styles.statValue, accent && styles.statValueAccent]}>
+        {value}
+      </Text>
+      <Text style={[styles.statLabel, accent && styles.statLabelAccent]}>
+        {label}
+      </Text>
     </View>
   );
 }
 
 export default function Progress() {
   const tabTopPadding = useTabScreenTopPadding();
-  const [activePeriod, setActivePeriod] = useState<Period>('Week');
+  const layoutWidth = useLayoutWidth();
+  const { entries, streak, isLoading } = useWorkoutHistory();
+  const [activePeriod, setActivePeriod] = useState<ProgressPeriod>('Week');
 
-  const data = useMemo(() => PERIOD_DATA[activePeriod], [activePeriod]);
+  const chartWidth = layoutWidth - scale(40) - scale(32);
+
+  const summary = useMemo(
+    () => buildProgressSummary(entries, activePeriod, streak),
+    [activePeriod, entries, streak]
+  );
 
   return (
     <ScrollView
@@ -77,33 +88,57 @@ export default function Progress() {
 
       <FadeInView style={styles.cards} delay={80}>
         <View style={[styles.card, styles.chartCard]}>
-          <View style={styles.chartPlaceholder}>
-            <Text style={styles.chartPlaceholderText}>
-              Form Score Over Time
+          <Text style={styles.chartTitle}>Form Score Over Time</Text>
+          {isLoading ? (
+            <View style={styles.chartLoading}>
+              <Text style={styles.chartLoadingText}>Loading workouts…</Text>
+            </View>
+          ) : summary.hasData ? (
+            <FormScoreChart points={summary.chartPoints} width={chartWidth} />
+          ) : (
+            <ProgressEmptyState />
+          )}
+        </View>
+
+        {summary.hasData ? (
+          <>
+            <View style={styles.statRow}>
+              <StatCard
+                value={summary.sessions}
+                label="Sessions Done"
+                style={styles.halfCard}
+              />
+              <StatCard
+                value={summary.streak}
+                label="Current Streak"
+                style={styles.halfCard}
+              />
+            </View>
+
+            <View style={styles.statRow}>
+              <StatCard
+                value={summary.averageScore}
+                label="Average Form Score"
+                style={styles.halfCard}
+              />
+              <StatCard
+                value={summary.bestScore}
+                label="Personal Best"
+                style={styles.halfCard}
+                accent
+              />
+            </View>
+          </>
+        ) : !isLoading ? (
+          <View style={styles.card}>
+            <Text style={styles.motivationTitle}>Build your movement story</Text>
+            <Text style={styles.motivationText}>
+              Complete a class from your weekly plan or the workout library.
+              Your sessions, streak, and form scores will appear here
+              automatically.
             </Text>
           </View>
-        </View>
-
-        <View style={styles.statRow}>
-          <StatCard
-            value={data.sessions}
-            label="Sessions Done"
-            style={styles.halfCard}
-          />
-          <StatCard
-            value={data.streak}
-            label="Streak"
-            style={styles.halfCard}
-          />
-        </View>
-
-        <StatCard value={data.corrections} label="Top Corrections" />
-
-        <StatCard
-          value={data.bestScore}
-          label="Personal Best"
-          style={styles.personalBestCard}
-        />
+        ) : null}
       </FadeInView>
     </ScrollView>
   );
@@ -139,25 +174,6 @@ const styles = StyleSheet.create({
     padding: scale(3),
     gap: scale(2),
   },
-  periodOption: {
-    paddingHorizontal: scale(10),
-    paddingVertical: scale(6),
-    borderRadius: theme.radius.full,
-  },
-  periodOptionActive: {
-    backgroundColor: theme.colors.white,
-    borderWidth: scale(1),
-    borderColor: theme.colors.border,
-  },
-  periodOptionText: {
-    ...theme.typography.body,
-    fontSize: scale(11),
-    color: theme.colors.textSecondary,
-  },
-  periodOptionTextActive: {
-    fontFamily: theme.fonts.bodyMedium,
-    color: theme.colors.textPrimary,
-  },
   cards: {
     gap: scale(12),
   },
@@ -169,16 +185,21 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   chartCard: {
-    height: scale(220),
+    minHeight: scale(240),
   },
-  chartPlaceholder: {
+  chartTitle: {
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: theme.colors.textSecondary,
+    marginBottom: scale(12),
+  },
+  chartLoading: {
     flex: 1,
-    backgroundColor: theme.colors.grey200,
-    borderRadius: theme.radius.sm,
+    minHeight: scale(180),
     justifyContent: 'center',
     alignItems: 'center',
   },
-  chartPlaceholderText: {
+  chartLoadingText: {
     ...theme.typography.body,
     color: theme.colors.textSecondary,
   },
@@ -195,21 +216,37 @@ const styles = StyleSheet.create({
     minHeight: scale(100),
     justifyContent: 'center',
   },
+  statCardAccent: {
+    backgroundColor: theme.colors.dark,
+    borderColor: theme.colors.dark,
+  },
   statValue: {
     fontFamily: theme.fonts.headerMedium,
     fontSize: scale(28),
     color: theme.colors.textPrimary,
     marginBottom: scale(4),
   },
+  statValueAccent: {
+    color: theme.colors.white,
+  },
   statLabel: {
     ...theme.typography.body,
     fontSize: scale(12),
     color: theme.colors.textSecondary,
   },
-  personalBestCard: {
-    alignSelf: 'center',
-    width: '70%',
-    minHeight: scale(88),
-    alignItems: 'center',
+  statLabelAccent: {
+    color: theme.colors.grey400,
+  },
+  motivationTitle: {
+    ...theme.typography.mediumHeader,
+    fontFamily: theme.fonts.header,
+    color: theme.colors.textPrimary,
+    marginBottom: scale(8),
+  },
+  motivationText: {
+    ...theme.typography.body,
+    fontSize: scale(13),
+    lineHeight: scale(20),
+    color: theme.colors.textSecondary,
   },
 });
