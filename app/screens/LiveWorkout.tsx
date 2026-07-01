@@ -226,6 +226,8 @@ function LiveWorkout({ route, navigation }: Props) {
   const baseTrackRef = useRef<Audio.Sound | null>(null);
   const clipSoundsRef = useRef<Record<string, Audio.Sound>>({});
   const clipPlaying = useRef(false);
+  const lastClipEndTime = useRef(0);
+  const prevProcessedSecondRef = useRef(-1);
   const hasNavigatedToPostWorkout = useRef(false);
   const formData = useRef<FormAssessmentData>({
     errorCount: {},
@@ -262,7 +264,13 @@ function LiveWorkout({ route, navigation }: Props) {
         type: SessionLogEntry['type'];
       }
     ) => {
+      const now = timerSecondsRef.current;
+
       if (clipPlaying.current) {
+        return;
+      }
+
+      if (now - lastClipEndTime.current < 3) {
         return;
       }
 
@@ -277,6 +285,8 @@ function LiveWorkout({ route, navigation }: Props) {
         if (!clipSound) {
           const clipSource = CLIP_MAP[clipNumber];
           if (!clipSource) {
+            clipPlaying.current = false;
+            await baseTrackRef.current?.setVolumeAsync(1.0);
             return;
           }
 
@@ -301,6 +311,7 @@ function LiveWorkout({ route, navigation }: Props) {
             void (async () => {
               await baseTrackRef.current?.setVolumeAsync(1.0);
               clipPlaying.current = false;
+              lastClipEndTime.current = timerSecondsRef.current;
             })();
             resolve();
           };
@@ -384,6 +395,7 @@ function LiveWorkout({ route, navigation }: Props) {
   }, [navigateToPostWorkout]);
 
   const handleReady = useCallback(() => {
+    prevProcessedSecondRef.current = -1;
     setShowOnboarding(false);
     setWorkoutStarted(true);
     void loadAndPlayBaseTrack();
@@ -406,6 +418,7 @@ function LiveWorkout({ route, navigation }: Props) {
     await baseTrackRef.current?.setPositionAsync(skipSeconds * 1000);
     timerSecondsRef.current = skipSeconds;
     setTimerSeconds(skipSeconds);
+    prevProcessedSecondRef.current = skipSeconds;
     setCurrentExercise('footwork_toes');
   }, [workout, workoutStarted, loadAndPlayBaseTrack]);
 
@@ -435,28 +448,52 @@ function LiveWorkout({ route, navigation }: Props) {
     }
 
     const interval = setInterval(() => {
-      const t = timerSecondsRef.current + 1;
-      timerSecondsRef.current = t;
-      setTimerSeconds(t);
+      void (async () => {
+        if (!baseTrackRef.current) {
+          return;
+        }
 
-      if (t === 5) {
-        setCurrentExercise('hundred');
-      }
-      if (t === 130) {
-        setCurrentExercise('long_stretch');
-      }
-      if (t === 220) {
-        setCurrentExercise('footwork_toes');
-      }
-
-      CORRECTION_WINDOWS.forEach(({ exercise, windows }) => {
-        windows.forEach((window) => {
-          if (t === window.start && currentExerciseRef.current === exercise) {
-            onWindowOpen(exercise);
+        try {
+          const status = await baseTrackRef.current.getStatusAsync();
+          if (!status.isLoaded || !status.isPlaying) {
+            return;
           }
-        });
-      });
-    }, 1000);
+
+          const t = Math.floor(status.positionMillis / 1000);
+          timerSecondsRef.current = t;
+          setTimerSeconds(t);
+
+          if (t === prevProcessedSecondRef.current) {
+            return;
+          }
+          prevProcessedSecondRef.current = t;
+
+          if (t === 5) {
+            setCurrentExercise('hundred');
+          }
+          if (t === 130) {
+            setCurrentExercise('long_stretch');
+          }
+          if (t === 220) {
+            setCurrentExercise('footwork_toes');
+          }
+
+          CORRECTION_WINDOWS.forEach(({ exercise, windows }) => {
+            windows.forEach((window) => {
+              if (
+                t === window.start + 1 &&
+                window.end - t >= 6 &&
+                currentExerciseRef.current === exercise
+              ) {
+                onWindowOpen(exercise);
+              }
+            });
+          });
+        } catch {
+          // Ignore transient audio status read failures.
+        }
+      })();
+    }, 500);
 
     return () => clearInterval(interval);
   }, [workoutStarted, onWindowOpen]);
@@ -551,12 +588,6 @@ function LiveWorkout({ route, navigation }: Props) {
     );
   }
 
-  const trackDurationSeconds = getTrackDurationSeconds(workout);
-  const remainingSeconds = Math.max(
-    0,
-    Math.floor(trackDurationSeconds - timerSeconds)
-  );
-
   return (
     <View style={styles.container}>
       <View style={styles.cameraSection}>
@@ -616,7 +647,7 @@ function LiveWorkout({ route, navigation }: Props) {
           </PressableScale>
 
           <View style={[styles.pillButton, styles.timerPill]}>
-            <WorkoutTimer seconds={remainingSeconds} />
+            <WorkoutTimer seconds={timerSeconds} />
           </View>
 
           <PressableScale

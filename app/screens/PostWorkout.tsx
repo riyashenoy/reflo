@@ -351,8 +351,6 @@ export default function PostWorkout({ route, navigation }: Props) {
         contentContainerStyle={styles.overallContent}
       >
         <FadeInView>
-          <ProgressBar progress={1} />
-
           <Text style={styles.ratingQuestion}>How was the class overall?</Text>
 
           <View style={styles.starsRow}>
