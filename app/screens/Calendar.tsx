@@ -9,6 +9,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { PressableScale } from '../components/motion';
 import { useWorkoutHistory } from '../hooks/useWorkoutHistory';
 import type { WeeklyPlanDay } from '../lib/workoutHistory';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
@@ -77,14 +78,14 @@ export default function Calendar() {
     >
       <View style={styles.headerRow}>
         <Text style={styles.heading}>Your Weekly Plan.</Text>
-        <Pressable style={styles.editButton} hitSlop={8}>
+        <PressableScale style={styles.editButton} hitSlop={8}>
           <Text style={styles.editIcon}>✎</Text>
-        </Pressable>
+        </PressableScale>
       </View>
 
-      <Pressable style={styles.generateButton} onPress={handleGenerateSchedule}>
+      <PressableScale style={styles.generateButton} onPress={handleGenerateSchedule}>
         <Text style={styles.generateButtonText}>✦ GENERATE NEW SCHEDULE</Text>
-      </Pressable>
+      </PressableScale>
 
       <View style={styles.dayList}>
         {weeklyPlan.map((day, index) => {

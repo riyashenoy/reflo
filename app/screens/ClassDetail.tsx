@@ -2,7 +2,6 @@ import {
   Dimensions,
   Image,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,6 +10,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { FadeInView, PressableScale } from '../components/motion';
 import { getWorkoutById, type Intensity } from '../data/workouts';
 import {
   DEMO_WORKOUT_ID,
@@ -63,12 +63,12 @@ export default function ClassDetail({ route, navigation }: Props) {
   if (!workout) {
     return (
       <View style={styles.container}>
-        <Pressable
+        <PressableScale
           style={[styles.iconButton, { top: insets.top + scale(12), left: scale(20) }]}
           onPress={() => navigation.goBack()}
         >
           <Text style={styles.iconButtonText}>←</Text>
-        </Pressable>
+        </PressableScale>
         <Text style={styles.notFound}>Workout not found</Text>
       </View>
     );
@@ -125,13 +125,13 @@ export default function ClassDetail({ route, navigation }: Props) {
                 : null,
             ]}
           />
-          <Pressable
+          <PressableScale
             style={[styles.iconButton, { top: insets.top + scale(12), left: scale(20) }]}
             onPress={() => navigation.goBack()}
           >
             <Text style={styles.iconButtonText}>←</Text>
-          </Pressable>
-          <Pressable
+          </PressableScale>
+          <PressableScale
             style={[
               styles.iconButton,
               saved && styles.iconButtonSaved,
@@ -153,10 +153,10 @@ export default function ClassDetail({ route, navigation }: Props) {
             >
               {saved ? '★' : '☆'}
             </Text>
-          </Pressable>
+          </PressableScale>
         </View>
 
-        <View style={styles.content}>
+        <FadeInView style={styles.content} delay={100}>
           <Text style={styles.title}>{displayTitle}</Text>
           <Text style={styles.description}>{workout.description}</Text>
 
@@ -189,7 +189,7 @@ export default function ClassDetail({ route, navigation }: Props) {
           <Text style={styles.sectionLabel}>CLASS BREAKDOWN</Text>
 
           {workout.exercises.map((exercise, index) => (
-            <Pressable
+            <PressableScale
               key={`${exercise.name}-${index}`}
               style={[
                 styles.exerciseRow,
@@ -222,21 +222,21 @@ export default function ClassDetail({ route, navigation }: Props) {
                   <Text style={styles.trackedBadgeText}>✦ Tracked</Text>
                 </View>
               ) : null}
-            </Pressable>
+            </PressableScale>
           ))}
 
           <View style={styles.bottomSpacer} />
-        </View>
+        </FadeInView>
       </ScrollView>
 
-      <Pressable
+      <PressableScale
         style={[styles.beginButton, { bottom: insets.bottom + scale(24) }]}
         onPress={() =>
           navigation.navigate('LiveWorkout', { workoutId: workout.id })
         }
       >
         <Text style={styles.beginButtonText}>BEGIN</Text>
-      </Pressable>
+      </PressableScale>
     </View>
   );
 }

@@ -3,7 +3,6 @@ import {
   Animated,
   Easing,
   Image,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,10 +15,18 @@ import {
   getLibraryWorkoutsForFilter,
   type LibraryWorkout,
 } from '../data/workoutLibrary';
+import {
+  CrossfadeText,
+  FadeInView,
+  PressableScale,
+  SegmentPill,
+  StreakDayCircle,
+} from '../components/motion';
 import { useSavedWorkouts } from '../context/SavedWorkoutsContext';
 import { useWorkoutHistory } from '../hooks/useWorkoutHistory';
 import { getStreakHeading } from '../lib/workoutHistory';
 import { useLayoutWidth } from '../hooks/useLayoutWidth';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
@@ -29,8 +36,7 @@ const SAVED_FILTER = 'Saved';
 const HORIZONTAL_PADDING = scale(20);
 const CARD_GAP = scale(12);
 const GRID_MIN_ITEMS = 4;
-const CROSSFADE_MS = 300;
-const HORIZONTAL_SLIDE = scale(28);
+const SLIDE_MS = 320;
 
 function getFilterIndex(filter: string): number {
   return FILTERS.indexOf(filter as (typeof FILTERS)[number]);
@@ -104,12 +110,12 @@ function WorkoutGrid({
 
   if (filter === SAVED_FILTER && rows.length === 0) {
     return (
-      <View style={styles.emptySavedState}>
+      <FadeInView style={styles.emptySavedState}>
         <Text style={styles.emptySavedTitle}>No saved workouts yet</Text>
         <Text style={styles.emptySavedText}>
           Tap the star on any class page to bookmark it here.
         </Text>
-      </View>
+      </FadeInView>
     );
   }
 
@@ -141,58 +147,8 @@ function FilterPill({
   isActive: boolean;
   onPress: () => void;
 }) {
-  const activeProgress = useRef(
-    new Animated.Value(isActive ? 1 : 0)
-  ).current;
-  const pressScale = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    Animated.timing(activeProgress, {
-      toValue: isActive ? 1 : 0,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-  }, [activeProgress, isActive]);
-
-  const backgroundColor = activeProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [theme.colors.grey200, theme.colors.dark],
-  });
-
-  const handlePressIn = () => {
-    Animated.spring(pressScale, {
-      toValue: 0.96,
-      friction: 7,
-      tension: 200,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(pressScale, {
-      toValue: 1,
-      friction: 7,
-      tension: 160,
-      useNativeDriver: true,
-    }).start();
-  };
-
   return (
-    <Pressable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-    >
-      <Animated.View
-        style={[
-          styles.filterPill,
-          { backgroundColor, transform: [{ scale: pressScale }] },
-        ]}
-      >
-        <Text style={styles.filterPillText}>{label}</Text>
-      </Animated.View>
-    </Pressable>
+    <SegmentPill label={label} isActive={isActive} onPress={onPress} />
   );
 }
 
@@ -206,14 +162,17 @@ function WorkoutCard({
   onPress: () => void;
 }) {
   return (
-    <Pressable style={[styles.workoutCard, { width }]} onPress={onPress}>
+    <PressableScale
+      style={[styles.workoutCard, { width }]}
+      onPress={onPress}
+    >
       <Image
         source={workout.coverImage}
         style={styles.cardImage}
         resizeMode="cover"
       />
       <Text style={styles.cardTitle}>{workout.title.toUpperCase()}</Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -223,6 +182,7 @@ export default function Home() {
   const { streak, weekStreakDays } = useWorkoutHistory();
   const tabTopPadding = useTabScreenTopPadding();
   const layoutWidth = useLayoutWidth();
+  const reduceMotion = useReducedMotion();
   const [selectedFilter, setSelectedFilter] = useState<string>('Full Body');
   const [displayFilter, setDisplayFilter] = useState<string>('Full Body');
   const [outgoingFilter, setOutgoingFilter] = useState<string | null>(null);
@@ -231,8 +191,8 @@ export default function Home() {
   const transitionProgress = useRef(new Animated.Value(1)).current;
   const isAnimatingFilter = useRef(false);
 
-  const cardWidth =
-    (layoutWidth - HORIZONTAL_PADDING * 2 - CARD_GAP) / 2;
+  const contentWidth = layoutWidth - HORIZONTAL_PADDING * 2;
+  const cardWidth = (contentWidth - CARD_GAP) / 2;
 
   const handleWorkoutPress = useCallback(
     (libraryId: string) => {
@@ -241,54 +201,69 @@ export default function Home() {
     [navigation]
   );
 
-  const outgoingOpacity = transitionProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0],
-  });
-  const incomingOpacity = transitionProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1],
-  });
-  const outgoingTranslateX = transitionProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -transitionDirection * HORIZONTAL_SLIDE],
-  });
-  const incomingTranslateX = transitionProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [transitionDirection * HORIZONTAL_SLIDE, 0],
-  });
-
   const handleFilterPress = useCallback(
     (filter: string) => {
       if (filter === selectedFilter || isAnimatingFilter.current) {
         return;
       }
 
-      const direction = getFilterDirection(displayFilter, filter);
+      if (reduceMotion) {
+        setSelectedFilter(filter);
+        setDisplayFilter(filter);
+        return;
+      }
 
+      const direction = getFilterDirection(displayFilter, filter);
+      transitionProgress.setValue(0);
       setSelectedFilter(filter);
       setTransitionDirection(direction);
       setOutgoingFilter(displayFilter);
       setIncomingFilter(filter);
-      isAnimatingFilter.current = true;
-      transitionProgress.setValue(0);
+    },
+    [displayFilter, reduceMotion, selectedFilter, transitionProgress]
+  );
 
+  useEffect(() => {
+    if (!outgoingFilter || !incomingFilter) {
+      return;
+    }
+
+    isAnimatingFilter.current = true;
+
+    const frame = requestAnimationFrame(() => {
       Animated.timing(transitionProgress, {
         toValue: 1,
-        duration: CROSSFADE_MS,
-        easing: Easing.inOut(Easing.cubic),
+        duration: SLIDE_MS,
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }).start(({ finished }) => {
         if (finished) {
-          setDisplayFilter(filter);
+          setDisplayFilter(incomingFilter);
         }
         setOutgoingFilter(null);
         setIncomingFilter(null);
         isAnimatingFilter.current = false;
       });
-    },
-    [displayFilter, selectedFilter, transitionProgress]
-  );
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [incomingFilter, outgoingFilter, transitionProgress]);
+
+  const isTransitioning = outgoingFilter !== null && incomingFilter !== null;
+  const slidePanels = isTransitioning
+    ? transitionDirection === 1
+      ? [outgoingFilter, incomingFilter]
+      : [incomingFilter, outgoingFilter]
+    : [displayFilter];
+  const slideTranslateX = isTransitioning
+    ? transitionProgress.interpolate({
+        inputRange: [0, 1],
+        outputRange:
+          transitionDirection === 1
+            ? [0, -contentWidth]
+            : [-contentWidth, 0],
+      })
+    : 0;
 
   const listHeader = useMemo(
     () => (
@@ -298,33 +273,22 @@ export default function Home() {
           style={styles.logo}
         />
 
-        <Text style={styles.heading}>{getStreakHeading(streak)}</Text>
+        <FadeInView delay={80}>
+          <CrossfadeText
+            text={getStreakHeading(streak)}
+            style={styles.heading}
+          />
+        </FadeInView>
 
         <View style={styles.streakRow}>
-          {weekStreakDays.map((day) => (
-            <View key={day.dateKey} style={styles.streakDay}>
-              <Text
-                style={[
-                  styles.streakLabel,
-                  day.isToday && styles.streakLabelToday,
-                ]}
-              >
-                {day.label}
-              </Text>
-              <View
-                style={[
-                  styles.streakCircle,
-                  day.isCompleted
-                    ? styles.streakCircleCompleted
-                    : styles.streakCircleIncomplete,
-                  day.isToday && !day.isCompleted && styles.streakCircleToday,
-                ]}
-              >
-                {day.isCompleted ? (
-                  <Text style={styles.streakCheckmark}>✓</Text>
-                ) : null}
-              </View>
-            </View>
+          {weekStreakDays.map((day, index) => (
+            <StreakDayCircle
+              key={day.dateKey}
+              label={day.label}
+              isCompleted={day.isCompleted}
+              isToday={day.isToday}
+              index={index}
+            />
           ))}
         </View>
 
@@ -360,49 +324,28 @@ export default function Home() {
       >
         {listHeader}
 
-        <View style={styles.gridContainer}>
-          {outgoingFilter && incomingFilter ? (
-            <>
-              <Animated.View
-                pointerEvents="none"
-                style={{
-                  opacity: outgoingOpacity,
-                  transform: [{ translateX: outgoingTranslateX }],
-                }}
-              >
+        <View style={[styles.gridContainer, { width: contentWidth }]}>
+          <Animated.View
+            pointerEvents={isTransitioning ? 'none' : 'auto'}
+            style={[
+              styles.gridStrip,
+              {
+                width: contentWidth * slidePanels.length,
+                transform: [{ translateX: slideTranslateX }],
+              },
+            ]}
+          >
+            {slidePanels.map((filter) => (
+              <View key={filter} style={{ width: contentWidth }}>
                 <WorkoutGrid
-                  filter={outgoingFilter}
+                  filter={filter}
                   cardWidth={cardWidth}
                   savedIds={savedIds}
                   onWorkoutPress={handleWorkoutPress}
                 />
-              </Animated.View>
-              <Animated.View
-                pointerEvents="none"
-                style={[
-                  styles.gridLayer,
-                  {
-                    opacity: incomingOpacity,
-                    transform: [{ translateX: incomingTranslateX }],
-                  },
-                ]}
-              >
-                <WorkoutGrid
-                  filter={incomingFilter}
-                  cardWidth={cardWidth}
-                  savedIds={savedIds}
-                  onWorkoutPress={handleWorkoutPress}
-                />
-              </Animated.View>
-            </>
-          ) : (
-            <WorkoutGrid
-              filter={displayFilter}
-              cardWidth={cardWidth}
-              savedIds={savedIds}
-              onWorkoutPress={handleWorkoutPress}
-            />
-          )}
+              </View>
+            ))}
+          </Animated.View>
         </View>
       </ScrollView>
     </View>
@@ -424,9 +367,10 @@ const styles = StyleSheet.create({
   gridContainer: {
     minHeight: scale(200),
     overflow: 'hidden',
+    alignSelf: 'center',
   },
-  gridLayer: {
-    ...StyleSheet.absoluteFill,
+  gridStrip: {
+    flexDirection: 'row',
   },
   logo: {
     width: scale(72),
@@ -445,42 +389,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: scale(36),
     paddingHorizontal: scale(2),
-  },
-  streakDay: {
-    alignItems: 'center',
-    minWidth: scale(28),
-  },
-  streakLabel: {
-    ...theme.typography.label,
-    fontFamily: theme.fonts.label,
-    fontSize: scale(9),
-    color: theme.colors.textSecondary,
-    marginBottom: scale(8),
-  },
-  streakLabelToday: {
-    color: theme.colors.red,
-  },
-  streakCircle: {
-    width: scale(28),
-    height: scale(28),
-    borderRadius: scale(14),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  streakCircleCompleted: {
-    backgroundColor: theme.colors.red,
-  },
-  streakCircleIncomplete: {
-    backgroundColor: theme.colors.grey200,
-  },
-  streakCircleToday: {
-    borderWidth: scale(2),
-    borderColor: theme.colors.red,
-  },
-  streakCheckmark: {
-    color: theme.colors.white,
-    fontSize: scale(14),
-    fontWeight: '700',
   },
   sectionHeading: {
     ...theme.typography.mediumHeader,

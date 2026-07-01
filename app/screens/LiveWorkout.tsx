@@ -7,8 +7,8 @@ import {
   useState,
 } from 'react';
 import {
+  Animated,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -20,6 +20,7 @@ import Svg, { Circle } from 'react-native-svg';
 
 import DashedBorderOverlay from '../components/DashedBorderOverlay';
 import LiveWorkoutNativeCamera from '../components/LiveWorkoutNativeCamera';
+import { FadeSlideOverlay, PressableScale } from '../components/motion';
 import { getWorkoutById } from '../data/workouts';
 import {
   configureWorkoutAudioMode,
@@ -32,6 +33,8 @@ import {
   type PoseExercise,
   type SessionLogEntry,
 } from '../hooks/usePoseDetection';
+import { useReducedMotion } from '../hooks/useReducedMotion';
+import { motion } from '../lib/motion';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
 
@@ -132,12 +135,14 @@ const WorkoutTimer = memo(function WorkoutTimer({
 
 const PROGRESS_RADIUS = 20;
 const PROGRESS_CIRCUMFERENCE = 2 * Math.PI * PROGRESS_RADIUS;
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const ExerciseProgressCircle = memo(function ExerciseProgressCircle({
   currentExercise,
 }: {
   currentExercise: PoseExercise;
 }) {
+  const reduceMotion = useReducedMotion();
   const exerciseNumber =
     currentExercise === 'hundred'
       ? 1
@@ -147,7 +152,30 @@ const ExerciseProgressCircle = memo(function ExerciseProgressCircle({
           ? 3
           : 0;
   const progress = exerciseNumber / 3;
-  const strokeDashoffset = PROGRESS_CIRCUMFERENCE * (1 - progress);
+  const animatedProgress = useRef(new Animated.Value(progress)).current;
+  const numberScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.timing(animatedProgress, {
+      toValue: progress,
+      duration: reduceMotion ? 0 : motion.duration.slow,
+      easing: motion.easing.out,
+      useNativeDriver: false,
+    }).start();
+
+    if (!reduceMotion && exerciseNumber > 0) {
+      numberScale.setValue(0.92);
+      Animated.spring(numberScale, {
+        toValue: 1,
+        ...motion.spring.gentle,
+      }).start();
+    }
+  }, [animatedProgress, exerciseNumber, numberScale, progress, reduceMotion]);
+
+  const strokeDashoffset = animatedProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [PROGRESS_CIRCUMFERENCE, 0],
+  });
 
   return (
     <View style={styles.progressCircle}>
@@ -160,7 +188,7 @@ const ExerciseProgressCircle = memo(function ExerciseProgressCircle({
           stroke="#ffffff22"
           strokeWidth={3}
         />
-        <Circle
+        <AnimatedCircle
           cx={26}
           cy={26}
           r={PROGRESS_RADIUS}
@@ -173,7 +201,11 @@ const ExerciseProgressCircle = memo(function ExerciseProgressCircle({
           transform="rotate(-90 26 26)"
         />
       </Svg>
-      <Text style={styles.progressNumber}>{exerciseNumber || '–'}</Text>
+      <Animated.Text
+        style={[styles.progressNumber, { transform: [{ scale: numberScale }] }]}
+      >
+        {exerciseNumber || '–'}
+      </Animated.Text>
     </View>
   );
 });
@@ -504,7 +536,7 @@ function LiveWorkout({ route, navigation }: Props) {
   if (!workout) {
     return (
       <View style={styles.container}>
-        <Pressable
+        <PressableScale
           style={[
             styles.pillButton,
             styles.backButton,
@@ -513,7 +545,7 @@ function LiveWorkout({ route, navigation }: Props) {
           onPress={handleBack}
         >
           <Text style={styles.pillButtonText}>←</Text>
-        </Pressable>
+        </PressableScale>
         <Text style={styles.notFound}>Workout not found</Text>
       </View>
     );
@@ -572,23 +604,23 @@ function LiveWorkout({ route, navigation }: Props) {
 
         <DashedBorderOverlay />
 
-        <Pressable
+        <PressableScale
           style={styles.skipButtonFloating}
           onPress={() => void skipToEnd()}
         >
           <Text style={styles.skipButtonText}>Skip</Text>
-        </Pressable>
+        </PressableScale>
 
         <View
           style={[styles.topBar, { paddingTop: insets.top + scale(8) }]}
           pointerEvents="box-none"
         >
-          <Pressable
+          <PressableScale
             style={[styles.pillButton, styles.backButton]}
             onPress={handleBack}
           >
             <Text style={styles.pillButtonText}>←</Text>
-          </Pressable>
+          </PressableScale>
 
           <View style={[styles.pillButton, styles.timerPill]}>
             <WorkoutTimer seconds={remainingSeconds} />
@@ -597,24 +629,22 @@ function LiveWorkout({ route, navigation }: Props) {
           <View style={styles.topBarSpacer} />
         </View>
 
-        {showOnboarding ? (
-          <View style={styles.onboardingOverlay}>
-            <View style={styles.onboardingCard}>
-              <View style={styles.onboardingGifPlaceholder}>
-                <Text style={styles.onboardingGifLabel}>
-                  Place your device where your full body is visible from the side
-                </Text>
-              </View>
-              <Text style={styles.onboardingHint}>
-                AI corrections will be announced with a ding so you know when to
-                listen
+        <FadeSlideOverlay visible={showOnboarding}>
+          <View style={styles.onboardingCard}>
+            <View style={styles.onboardingGifPlaceholder}>
+              <Text style={styles.onboardingGifLabel}>
+                Place your device where your full body is visible from the side
               </Text>
-              <Pressable style={styles.readyButton} onPress={handleReady}>
-                <Text style={styles.readyButtonText}>I&apos;m Ready</Text>
-              </Pressable>
             </View>
+            <Text style={styles.onboardingHint}>
+              AI corrections will be announced with a ding so you know when to
+              listen
+            </Text>
+            <PressableScale style={styles.readyButton} onPress={handleReady}>
+              <Text style={styles.readyButtonText}>I&apos;m Ready</Text>
+            </PressableScale>
           </View>
-        ) : null}
+        </FadeSlideOverlay>
       </View>
 
       <View style={styles.bottomPanel}>

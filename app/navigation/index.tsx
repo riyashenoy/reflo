@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, StyleSheet, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -79,7 +79,11 @@ function AppNavigator({ initialRouteName }: { initialRouteName: AppEntryRoute })
   return (
     <AppStack.Navigator
       initialRouteName={initialRouteName}
-      screenOptions={{ headerShown: true }}
+      screenOptions={{
+        headerShown: false,
+        animation: 'fade_from_bottom',
+        animationDuration: 280,
+      }}
     >
       <AppStack.Screen
         name="Main"
@@ -138,11 +142,7 @@ export default function RootNavigation() {
   }, []);
 
   if (initializing) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color={theme.colors.red} />
-      </View>
-    );
+    return <AppLoadingScreen />;
   }
 
   return (
@@ -167,10 +167,39 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-  loading: {
+});
+
+function AppLoadingScreen() {
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(opacity, {
+      toValue: 1,
+      duration: 280,
+      useNativeDriver: true,
+    }).start();
+  }, [opacity]);
+
+  return (
+    <View style={loadingStyles.container}>
+      <Animated.Image
+        source={require('../../assets/images/logo.png')}
+        style={[loadingStyles.logo, { opacity }]}
+        resizeMode="contain"
+      />
+    </View>
+  );
+}
+
+const loadingStyles = StyleSheet.create({
+  container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: theme.colors.background,
+  },
+  logo: {
+    width: 96,
+    height: 48,
   },
 });

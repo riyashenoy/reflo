@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Pressable,
+  Animated,
   ScrollView,
   StyleSheet,
   Text,
@@ -8,6 +8,11 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import {
+  AnimatedProgressBar,
+  FadeInView,
+  PressableScale,
+} from '../components/motion';
 import { getWorkoutById } from '../data/workouts';
 import { recordWorkoutCompletion } from '../lib/workoutHistory';
 import type { AppStackParamList } from '../navigation';
@@ -91,13 +96,38 @@ const DAY_NAMES = [
 ];
 
 function ProgressBar({ progress }: { progress: number }) {
-  const clamped = Math.min(Math.max(progress, 0), 1);
+  return (
+    <AnimatedProgressBar
+      progress={progress}
+      style={styles.progressTrack}
+    />
+  );
+}
+
+function SuccessEmoji() {
+  const scale = useRef(new Animated.Value(0.9)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scale, {
+        toValue: 1,
+        friction: 7,
+        tension: 120,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 360,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [opacity, scale]);
 
   return (
-    <View style={styles.progressTrack}>
-      <View style={[styles.progressFill, { flex: clamped }]} />
-      <View style={{ flex: 1 - clamped }} />
-    </View>
+    <Animated.Text style={[styles.emoji, { opacity, transform: [{ scale }] }]}>
+      🎉
+    </Animated.Text>
   );
 }
 
@@ -179,86 +209,90 @@ export default function PostWorkout({ route, navigation }: Props) {
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
       >
-        <Text style={styles.emoji}>🎉</Text>
-        <Text style={styles.heading}>You Crushed It.</Text>
-        <Text style={styles.subtitle}>
-          {workout.title} · {workout.duration} min · {dayOfWeek}
-        </Text>
+        <FadeInView>
+          <SuccessEmoji />
+          <Text style={styles.heading}>You Crushed It.</Text>
+          <Text style={styles.subtitle}>
+            {workout.title} · {workout.duration} min · {dayOfWeek}
+          </Text>
 
-        <Text style={[styles.sectionLabel, styles.sectionLabelGreen]}>
-          WHAT WENT WELL
-        </Text>
-        <BulletCard items={reportItems.wentWell} />
+          <Text style={[styles.sectionLabel, styles.sectionLabelGreen]}>
+            WHAT WENT WELL
+          </Text>
+          <BulletCard items={reportItems.wentWell} />
 
-        <Text style={[styles.sectionLabel, styles.sectionLabelRed]}>
-          WORK ON THIS
-        </Text>
-        <BulletCard items={reportItems.workOn} />
+          <Text style={[styles.sectionLabel, styles.sectionLabelRed]}>
+            WORK ON THIS
+          </Text>
+          <BulletCard items={reportItems.workOn} />
 
-        <Pressable
-          style={[styles.pillButton, styles.pillButtonRight]}
-          onPress={() => {
-            setStage('rating');
-            setRatingIndex(0);
-            setSelectedOption(null);
-          }}
-        >
-          <Text style={styles.pillButtonText}>RATE WORKOUT →</Text>
-        </Pressable>
+          <PressableScale
+            style={[styles.pillButton, styles.pillButtonRight]}
+            onPress={() => {
+              setStage('rating');
+              setRatingIndex(0);
+              setSelectedOption(null);
+            }}
+          >
+            <Text style={styles.pillButtonText}>RATE WORKOUT →</Text>
+          </PressableScale>
+        </FadeInView>
       </ScrollView>
     );
   }
 
   if (stage === 'rating' && currentExercise) {
     const progress =
-      exerciseCount > 0 ? ratingIndex / exerciseCount : 0;
+      exerciseCount > 0 ? (ratingIndex + 1) / exerciseCount : 0;
 
     return (
       <View style={styles.container}>
         <ProgressBar progress={progress} />
 
         <ScrollView contentContainerStyle={styles.ratingContent}>
-          <Text style={styles.ratingQuestion}>
-            How was the {currentExercise.name}?
-          </Text>
+          <FadeInView key={`rating-${ratingIndex}`}>
+            <Text style={styles.ratingQuestion}>
+              How was the {currentExercise.name}?
+            </Text>
 
-          <View style={styles.optionsList}>
-            {RATING_OPTIONS.map((option) => {
-              const isSelected = selectedOption === option;
-              return (
-                <Pressable
-                  key={option}
-                  style={[
-                    styles.optionCard,
-                    isSelected && styles.optionCardSelected,
-                  ]}
-                  onPress={() => setSelectedOption(option)}
-                >
-                  <View
+            <View style={styles.optionsList}>
+              {RATING_OPTIONS.map((option) => {
+                const isSelected = selectedOption === option;
+                return (
+                  <PressableScale
+                    key={option}
                     style={[
-                      styles.radioOuter,
-                      isSelected && styles.radioOuterSelected,
+                      styles.optionCard,
+                      isSelected && styles.optionCardSelected,
                     ]}
+                    onPress={() => setSelectedOption(option)}
                   >
-                    {isSelected ? <View style={styles.radioInner} /> : null}
-                  </View>
-                  <Text style={styles.optionText}>{option}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
+                    <View
+                      style={[
+                        styles.radioOuter,
+                        isSelected && styles.radioOuterSelected,
+                      ]}
+                    >
+                      {isSelected ? <View style={styles.radioInner} /> : null}
+                    </View>
+                    <Text style={styles.optionText}>{option}</Text>
+                  </PressableScale>
+                );
+              })}
+            </View>
 
-          <Pressable
-            style={[
-              styles.pillButton,
-              styles.pillButtonRight,
-              !selectedOption && styles.pillButtonDisabled,
-            ]}
-            onPress={handleNextRating}
-            disabled={!selectedOption}
-          >
-            <Text style={styles.pillButtonText}>NEXT →</Text>
-          </Pressable>
+            <PressableScale
+              style={[
+                styles.pillButton,
+                styles.pillButtonRight,
+                !selectedOption && styles.pillButtonDisabled,
+              ]}
+              onPress={handleNextRating}
+              disabled={!selectedOption}
+            >
+              <Text style={styles.pillButtonText}>NEXT →</Text>
+            </PressableScale>
+          </FadeInView>
         </ScrollView>
       </View>
     );
@@ -270,38 +304,40 @@ export default function PostWorkout({ route, navigation }: Props) {
         style={styles.container}
         contentContainerStyle={styles.overallContent}
       >
-        <ProgressBar progress={1} />
+        <FadeInView>
+          <ProgressBar progress={1} />
 
-        <Text style={styles.ratingQuestion}>How was the class overall?</Text>
+          <Text style={styles.ratingQuestion}>How was the class overall?</Text>
 
-        <View style={styles.starsRow}>
-          {[1, 2, 3, 4, 5].map((star) => (
-            <Pressable key={star} onPress={() => setStarRating(star)}>
-              <Text
-                style={[
-                  styles.star,
-                  star <= starRating
-                    ? styles.starFilled
-                    : styles.starEmpty,
-                ]}
-              >
-                ★
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+          <View style={styles.starsRow}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <PressableScale key={star} onPress={() => setStarRating(star)}>
+                <Text
+                  style={[
+                    styles.star,
+                    star <= starRating
+                      ? styles.starFilled
+                      : styles.starEmpty,
+                  ]}
+                >
+                  ★
+                </Text>
+              </PressableScale>
+            ))}
+          </View>
 
-        <Pressable
-          style={[
-            styles.pillButton,
-            styles.pillButtonCenter,
-            starRating === 0 && styles.pillButtonDisabled,
-          ]}
-          onPress={handleCompleteRating}
-          disabled={starRating === 0}
-        >
-          <Text style={styles.pillButtonText}>COMPLETE RATING</Text>
-        </Pressable>
+          <PressableScale
+            style={[
+              styles.pillButton,
+              styles.pillButtonCenter,
+              starRating === 0 && styles.pillButtonDisabled,
+            ]}
+            onPress={handleCompleteRating}
+            disabled={starRating === 0}
+          >
+            <Text style={styles.pillButtonText}>COMPLETE RATING</Text>
+          </PressableScale>
+        </FadeInView>
       </ScrollView>
     );
   }
@@ -378,18 +414,8 @@ const styles = StyleSheet.create({
     marginBottom: scale(6),
   },
   progressTrack: {
-    height: scale(4),
-    flexDirection: 'row',
-    backgroundColor: theme.colors.grey200,
-    borderRadius: scale(2),
     marginHorizontal: scale(20),
     marginTop: scale(16),
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: scale(4),
-    backgroundColor: theme.colors.red,
-    borderRadius: scale(2),
   },
   ratingQuestion: {
     ...theme.typography.mediumHeader,

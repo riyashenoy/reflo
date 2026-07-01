@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text } from 'react-native';
 
+import { motion } from '../lib/motion';
 import theme, { scale } from '../theme';
 
 type Props = {
@@ -9,10 +10,11 @@ type Props = {
 };
 
 const VISIBLE_MS = 3000;
-const FADE_MS = 300;
+const FADE_MS = motion.duration.normal;
 
 export default function CorrectionToast({ message, onDismiss }: Props) {
   const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(10)).current;
   const [visibleMessage, setVisibleMessage] = useState<string | null>(null);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -23,30 +25,58 @@ export default function CorrectionToast({ message, onDismiss }: Props) {
     }
 
     if (!message) {
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: FADE_MS,
-        useNativeDriver: true,
-      }).start(() => {
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: FADE_MS,
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: 10,
+          duration: FADE_MS,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
         setVisibleMessage(null);
       });
       return;
     }
 
     setVisibleMessage(message);
-    opacity.setValue(1);
-
-    dismissTimerRef.current = setTimeout(() => {
+    translateY.setValue(10);
+    Animated.parallel([
       Animated.timing(opacity, {
+        toValue: 1,
+        duration: FADE_MS,
+        easing: motion.easing.out,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
         toValue: 0,
         duration: FADE_MS,
+        easing: motion.easing.out,
         useNativeDriver: true,
-      }).start(() => {
+      }),
+    ]).start();
+
+    dismissTimerRef.current = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: FADE_MS,
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: 8,
+          duration: FADE_MS,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
         setVisibleMessage(null);
         onDismiss?.();
       });
     }, VISIBLE_MS);
-  }, [message, onDismiss, opacity]);
+  }, [message, onDismiss, opacity, translateY]);
 
   useEffect(() => {
     return () => {
@@ -61,7 +91,13 @@ export default function CorrectionToast({ message, onDismiss }: Props) {
   }
 
   return (
-    <Animated.View style={[styles.container, { opacity }]} pointerEvents="none">
+    <Animated.View
+      style={[
+        styles.container,
+        { opacity, transform: [{ translateY }] },
+      ]}
+      pointerEvents="none"
+    >
       <Text style={styles.text}>{visibleMessage}</Text>
     </Animated.View>
   );

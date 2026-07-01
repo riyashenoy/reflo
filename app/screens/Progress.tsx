@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
 import {
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 
+import { FadeInView, SegmentPillLight } from '../components/motion';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
 import theme, { scale } from '../theme';
 
@@ -64,32 +64,18 @@ export default function Progress() {
         <Text style={styles.heading}>Your Progress.</Text>
 
         <View style={styles.periodToggle}>
-          {PERIODS.map((period) => {
-            const isActive = activePeriod === period;
-            return (
-              <Pressable
-                key={period}
-                style={[
-                  styles.periodOption,
-                  isActive && styles.periodOptionActive,
-                ]}
-                onPress={() => setActivePeriod(period)}
-              >
-                <Text
-                  style={[
-                    styles.periodOptionText,
-                    isActive && styles.periodOptionTextActive,
-                  ]}
-                >
-                  {period}
-                </Text>
-              </Pressable>
-            );
-          })}
+          {PERIODS.map((period) => (
+            <SegmentPillLight
+              key={period}
+              label={period}
+              isActive={activePeriod === period}
+              onPress={() => setActivePeriod(period)}
+            />
+          ))}
         </View>
       </View>
 
-      <View style={styles.cards}>
+      <FadeInView style={styles.cards} delay={80}>
         <View style={[styles.card, styles.chartCard]}>
           <View style={styles.chartPlaceholder}>
             <Text style={styles.chartPlaceholderText}>
@@ -118,7 +104,7 @@ export default function Progress() {
           label="Personal Best"
           style={styles.personalBestCard}
         />
-      </View>
+      </FadeInView>
     </ScrollView>
   );
 }

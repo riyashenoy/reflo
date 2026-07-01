@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -29,6 +28,7 @@ import {
   type UserProfile,
 } from '../lib/userProfile';
 import { ProfileAvatar } from '../components/ProfileAvatar';
+import { FadeInView, PressableScale, ProfileHeaderSkeleton, SkeletonBlock } from '../components/motion';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
@@ -191,8 +191,10 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.red} />
+      <View style={[styles.container, { paddingTop: tabTopPadding, paddingHorizontal: scale(20) }]}>
+        <ProfileHeaderSkeleton />
+        <SkeletonBlock height={scale(88)} style={{ marginBottom: scale(16) }} />
+        <SkeletonBlock height={scale(140)} />
       </View>
     );
   }
