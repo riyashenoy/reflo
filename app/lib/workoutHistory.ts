@@ -99,6 +99,13 @@ export function getWeekDateKeys(reference = new Date()): string[] {
   });
 }
 
+/** Last 7 days ending on `reference`, with today first (leftmost). */
+export function getRollingStreakDateKeys(reference = new Date()): string[] {
+  return Array.from({ length: 7 }, (_, index) =>
+    toDateKey(addDays(reference, -index))
+  );
+}
+
 export function estimateFormScore(sessionLog?: SessionLogEntry[]): number {
   if (!sessionLog?.length) {
     return 82;
@@ -210,15 +217,18 @@ export function getHomeStreakDays(
   completedDateKeys: Set<string>,
   reference = new Date()
 ): HomeStreakDay[] {
-  const weekDateKeys = getWeekDateKeys(reference);
   const todayKey = toDateKey(reference);
 
-  return DAY_LABELS.map((label, index) => ({
-    label,
-    dateKey: weekDateKeys[index],
-    isToday: weekDateKeys[index] === todayKey,
-    isCompleted: completedDateKeys.has(weekDateKeys[index]),
-  }));
+  return getRollingStreakDateKeys(reference).map((dateKey, index) => {
+    const day = addDays(reference, -index);
+
+    return {
+      label: DAY_LABELS[day.getDay()],
+      dateKey,
+      isToday: index === 0 && dateKey === todayKey,
+      isCompleted: completedDateKeys.has(dateKey),
+    };
+  });
 }
 
 export function buildWeeklyPlan(
