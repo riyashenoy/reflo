@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import {
@@ -14,7 +16,12 @@ import {
   PressableScale,
 } from '../components/motion';
 import { getWorkoutById } from '../data/workouts';
-import { recordWorkoutCompletion } from '../lib/workoutHistory';
+import { getLibraryWorkout } from '../data/workoutLibrary';
+import {
+  estimateFormScore,
+  recordWorkoutCompletion,
+  toDateKey,
+} from '../lib/workoutHistory';
 import type { AppStackParamList } from '../navigation';
 import type { SessionLogEntry } from '../hooks/usePoseDetection';
 import theme, { scale } from '../theme';
@@ -144,19 +151,39 @@ function BulletCard({ items }: { items: string[] }) {
 }
 
 export default function PostWorkout({ route, navigation }: Props) {
-  const { workoutId, sessionLog } = route.params ?? {};
+  const {
+    workoutId,
+    libraryId,
+    dateKey,
+    formScore: routeFormScore,
+    readOnly = false,
+    sessionLog,
+  } = route.params ?? {};
+  const insets = useSafeAreaInsets();
   const workout = workoutId ? getWorkoutById(workoutId) : undefined;
+  const libraryWorkout = libraryId ? getLibraryWorkout(libraryId) : undefined;
+  const displayTitle = libraryWorkout?.title ?? workout?.title ?? 'Workout';
   const reportItems = buildReportItems(sessionLog);
   const hasRecordedCompletion = useRef(false);
 
+  const displayedFormScore = useMemo(() => {
+    if (routeFormScore != null) {
+      return routeFormScore;
+    }
+    return estimateFormScore(sessionLog, dateKey ?? toDateKey(new Date()));
+  }, [routeFormScore, sessionLog, dateKey]);
+
   useEffect(() => {
-    if (!workoutId || hasRecordedCompletion.current) {
+    if (readOnly || !workoutId || hasRecordedCompletion.current) {
       return;
     }
 
     hasRecordedCompletion.current = true;
-    void recordWorkoutCompletion(workoutId, sessionLog);
-  }, [workoutId, sessionLog]);
+    void recordWorkoutCompletion(workoutId, sessionLog, {
+      dateKey: dateKey ?? toDateKey(new Date()),
+      libraryId,
+    });
+  }, [readOnly, workoutId, sessionLog, dateKey, libraryId]);
 
   const [stage, setStage] = useState<Stage>('report');
   const [ratingIndex, setRatingIndex] = useState(0);
@@ -205,39 +232,58 @@ export default function PostWorkout({ route, navigation }: Props) {
 
   if (stage === 'report') {
     return (
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <FadeInView>
-          <SuccessEmoji />
-          <Text style={styles.heading}>You Crushed It.</Text>
-          <Text style={styles.subtitle}>
-            {workout.title} · {workout.duration} min · {dayOfWeek}
-          </Text>
+      <View style={styles.container}>
+        <Pressable
+          style={[styles.closeButton, { top: insets.top + scale(8) }]}
+          onPress={() => navigation.goBack()}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
+          <Text style={styles.closeIcon}>✕</Text>
+        </Pressable>
 
-          <Text style={[styles.sectionLabel, styles.sectionLabelGreen]}>
-            WHAT WENT WELL
-          </Text>
-          <BulletCard items={reportItems.wentWell} />
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <FadeInView>
+            <SuccessEmoji />
+            <Text style={styles.heading}>You Crushed It.</Text>
+            <Text style={styles.subtitle}>
+              {displayTitle} · {workout.duration} min · {dayOfWeek}
+            </Text>
 
-          <Text style={[styles.sectionLabel, styles.sectionLabelRed]}>
-            WORK ON THIS
-          </Text>
-          <BulletCard items={reportItems.workOn} />
+            <View style={styles.formScoreHero}>
+              <Text style={styles.formScoreValue}>{displayedFormScore}</Text>
+              <Text style={styles.formScoreLabel}>FORM SCORE</Text>
+            </View>
 
-          <PressableScale
-            style={[styles.pillButton, styles.pillButtonRight]}
-            onPress={() => {
-              setStage('rating');
-              setRatingIndex(0);
-              setSelectedOption(null);
-            }}
-          >
-            <Text style={styles.pillButtonText}>RATE WORKOUT →</Text>
-          </PressableScale>
-        </FadeInView>
-      </ScrollView>
+            <Text style={[styles.sectionLabel, styles.sectionLabelGreen]}>
+              WHAT WENT WELL
+            </Text>
+            <BulletCard items={reportItems.wentWell} />
+
+            <Text style={[styles.sectionLabel, styles.sectionLabelRed]}>
+              WORK ON THIS
+            </Text>
+            <BulletCard items={reportItems.workOn} />
+
+            {!readOnly ? (
+              <PressableScale
+                style={[styles.pillButton, styles.pillButtonRight]}
+                onPress={() => {
+                  setStage('rating');
+                  setRatingIndex(0);
+                  setSelectedOption(null);
+                }}
+              >
+                <Text style={styles.pillButtonText}>RATE WORKOUT →</Text>
+              </PressableScale>
+            ) : null}
+          </FadeInView>
+        </ScrollView>
+      </View>
     );
   }
 
@@ -356,6 +402,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: scale(20),
+    paddingTop: scale(56),
     paddingBottom: scale(40),
   },
   ratingContent: {
@@ -385,7 +432,42 @@ const styles = StyleSheet.create({
     ...theme.typography.body,
     color: theme.colors.textSecondary,
     textAlign: 'center',
+    marginBottom: scale(20),
+  },
+  closeButton: {
+    position: 'absolute',
+    right: scale(20),
+    zIndex: 10,
+    width: scale(36),
+    height: scale(36),
+    borderRadius: scale(18),
+    backgroundColor: theme.colors.white,
+    borderWidth: scale(1),
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeIcon: {
+    fontSize: scale(16),
+    color: theme.colors.textPrimary,
+    fontWeight: '600',
+  },
+  formScoreHero: {
+    alignItems: 'center',
     marginBottom: scale(28),
+    paddingVertical: scale(20),
+  },
+  formScoreValue: {
+    fontFamily: theme.fonts.header,
+    fontSize: scale(72),
+    lineHeight: scale(76),
+    color: theme.colors.teal,
+  },
+  formScoreLabel: {
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
+    color: theme.colors.textSecondary,
+    marginTop: scale(4),
   },
   sectionLabel: {
     ...theme.typography.label,

@@ -7,9 +7,8 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { signOut } from 'firebase/auth';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { auth } from '../lib/firebase';
 import { getAuthErrorMessage } from '../lib/authErrors';
@@ -22,11 +21,17 @@ import {
   formatWeight,
   getAgeFromBirthday,
   saveUserProfile,
-  type ProfileEditSection,
   type UserPreferences,
   type UserProfile,
 } from '../lib/userProfile';
+import { EditPencilIcon } from '../components/EditPencilIcon';
 import { ProfileAvatar } from '../components/ProfileAvatar';
+import { ProfileAboutEditSheet } from '../components/profile/ProfileAboutEditSheet';
+import {
+  ProfileBodyEditSheet,
+  type BodyEditField,
+} from '../components/profile/ProfileBodyEditSheet';
+import { ProfileMindfulEditSheet } from '../components/profile/ProfileMindfulEditSheet';
 import {
   FadeInView,
   PressableScale,
@@ -34,10 +39,7 @@ import {
   SkeletonBlock,
 } from '../components/motion';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
-import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
-
-type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
 
 function SectionLabel({ title }: { title: string }) {
   return <Text style={styles.sectionLabel}>{title}</Text>;
@@ -103,7 +105,6 @@ function PreferenceRow({
 }
 
 export default function Profile() {
-  const navigation = useNavigation<NavigationProp>();
   const tabTopPadding = useTabScreenTopPadding();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -115,6 +116,9 @@ export default function Profile() {
   const [reminders, setReminders] = useState(false);
   const [accountExpanded, setAccountExpanded] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [bodyEditField, setBodyEditField] = useState<BodyEditField | null>(null);
+  const [aboutSheetVisible, setAboutSheetVisible] = useState(false);
+  const [mindfulSheetVisible, setMindfulSheetVisible] = useState(false);
 
   const loadProfile = useCallback(async () => {
     const uid = auth.currentUser?.uid;
@@ -153,10 +157,6 @@ export default function Profile() {
   const displayEmail = auth.currentUser?.email ?? '—';
   const profileSubtitle = formatProfileSubtitle(profile);
   const mindfulSubtitle = formatMindfulAreas(profile?.mindfulAreas);
-
-  const openEdit = (section: ProfileEditSection) => {
-    navigation.navigate('ProfileEdit', { section });
-  };
 
   const updatePreferences = async (next: UserPreferences) => {
     const uid = auth.currentUser?.uid;
@@ -220,9 +220,9 @@ export default function Profile() {
         <PressableScale
           style={styles.editButton}
           hitSlop={8}
-          onPress={() => openEdit('about')}
+          onPress={() => setAboutSheetVisible(true)}
         >
-          <Text style={styles.editIcon}>✎</Text>
+          <EditPencilIcon />
         </PressableScale>
       </View>
 
@@ -238,7 +238,7 @@ export default function Profile() {
       <FadeInView delay={100}>
         <PressableScale
           style={styles.mindfulCard}
-          onPress={() => openEdit('mindful')}
+          onPress={() => setMindfulSheetVisible(true)}
         >
           <View style={styles.mindfulText}>
             <Text style={styles.mindfulLabel}>Mindful Areas</Text>
@@ -254,18 +254,18 @@ export default function Profile() {
           <BodyRow
             label="Height"
             value={formatHeight(profile)}
-            onPress={() => openEdit('body')}
+            onPress={() => setBodyEditField('height')}
           />
           <BodyRow
             label="Weight"
             value={formatWeight(profile)}
-            onPress={() => openEdit('body')}
+            onPress={() => setBodyEditField('weight')}
             showDivider
           />
           <BodyRow
             label="Age"
             value={getAgeFromBirthday(profile?.birthday)}
-            onPress={() => openEdit('body')}
+            onPress={() => setBodyEditField('age')}
             showDivider
           />
         </View>
@@ -367,6 +367,28 @@ export default function Profile() {
           </View>
         ) : null}
       </FadeInView>
+
+      <ProfileBodyEditSheet
+        visible={bodyEditField != null}
+        field={bodyEditField}
+        profile={profile}
+        onClose={() => setBodyEditField(null)}
+        onSaved={setProfile}
+      />
+
+      <ProfileAboutEditSheet
+        visible={aboutSheetVisible}
+        profile={profile}
+        onClose={() => setAboutSheetVisible(false)}
+        onSaved={setProfile}
+      />
+
+      <ProfileMindfulEditSheet
+        visible={mindfulSheetVisible}
+        profile={profile}
+        onClose={() => setMindfulSheetVisible(false)}
+        onSaved={setProfile}
+      />
     </ScrollView>
   );
 }
@@ -395,10 +417,6 @@ const styles = StyleSheet.create({
   },
   editButton: {
     paddingTop: scale(4),
-  },
-  editIcon: {
-    fontSize: scale(22),
-    color: theme.colors.red,
   },
   hero: {
     alignItems: 'center',

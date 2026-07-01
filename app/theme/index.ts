@@ -57,6 +57,26 @@ export const theme = {
     xl: scale(20),
     full: 999,
   },
+  spacing: {
+    xs: scale(4),
+    sm: scale(8),
+    md: scale(12),
+    lg: scale(16),
+    xl: scale(20),
+    xxl: scale(24),
+    xxxl: scale(28),
+  },
+  component: {
+    screenPaddingHorizontal: scale(20),
+    cardPadding: scale(16),
+    dialogMaxWidth: scale(360),
+    dialogPadding: scale(20),
+    dialogSectionGap: scale(16),
+    buttonPaddingVertical: scale(16),
+    buttonPaddingHorizontal: scale(24),
+    buttonMinHeight: scale(48),
+    buttonGap: scale(12),
+  },
   layout: {
     tabScreen: {
       minTop: scale(20),

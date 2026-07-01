@@ -33,8 +33,15 @@ export type AppStackParamList = {
   ProfileSetup: undefined;
   ClassDetail: { libraryId?: string; workoutId?: string };
   ExercisePreview: { workoutId: string; exerciseIndex: number };
-  LiveWorkout: { workoutId?: string };
-  PostWorkout: { workoutId?: string; sessionLog?: SessionLogEntry[] };
+  LiveWorkout: { workoutId?: string; libraryId?: string; dateKey?: string };
+  PostWorkout: {
+    workoutId?: string;
+    libraryId?: string;
+    dateKey?: string;
+    formScore?: number;
+    readOnly?: boolean;
+    sessionLog?: SessionLogEntry[];
+  };
   ProfileEdit: { section?: 'about' | 'body' | 'mindful' | 'focus' };
 };
 

@@ -6,7 +6,9 @@ import {
 } from '../data/workoutLibrary';
 import type { UserProfile } from './userProfile';
 import {
+  getCompletionByDate,
   getWeekDateKeys,
+  readWorkoutHistory,
   toDateKey,
   type WorkoutHistoryEntry,
 } from './workoutHistory';
@@ -346,6 +348,7 @@ export async function regenerateWeeklySchedule(
   const existingByDate = new Map(
     (existing?.days ?? []).map((day) => [day.dateKey, day])
   );
+  const completionByDate = getCompletionByDate(await readWorkoutHistory());
 
   const freshDays = shuffleTrainingDays
     ? generateShuffledScheduleDays(profile, weekDateKeys, completedDateKeys)
@@ -353,6 +356,19 @@ export async function regenerateWeeklySchedule(
 
   const days = weekDateKeys.map((dateKey, index) => {
     if (completedDateKeys.has(dateKey)) {
+      const completion = completionByDate.get(dateKey);
+      if (completion) {
+        return {
+          dateKey,
+          libraryId:
+            completion.libraryId ??
+            existingByDate.get(dateKey)?.libraryId ??
+            null,
+          workoutId: completion.workoutId,
+          isRestDay: false,
+        };
+      }
+
       const lockedDay = existingByDate.get(dateKey);
       if (lockedDay) {
         return lockedDay;

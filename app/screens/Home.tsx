@@ -3,11 +3,13 @@ import {
   Animated,
   Easing,
   Image,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -90,11 +92,13 @@ function WorkoutGrid({
   cardWidth,
   savedIds,
   onWorkoutPress,
+  onUnsave,
 }: {
   filter: string;
   cardWidth: number;
   savedIds: string[];
   onWorkoutPress: (libraryId: string) => void;
+  onUnsave: (libraryId: string) => void;
 }) {
   const rows = useMemo(() => {
     const filteredWorkouts = buildGridWorkouts(
@@ -113,7 +117,8 @@ function WorkoutGrid({
       <FadeInView style={styles.emptySavedState}>
         <Text style={styles.emptySavedTitle}>No saved workouts yet</Text>
         <Text style={styles.emptySavedText}>
-          Tap the star on any class page to bookmark it here.
+          Tap the star on any class page to bookmark it here. Tap the star on a
+          saved card to remove it.
         </Text>
       </FadeInView>
     );
@@ -129,6 +134,8 @@ function WorkoutGrid({
               workout={item}
               width={cardWidth}
               onPress={() => onWorkoutPress(item.id)}
+              showSavedStar={filter === SAVED_FILTER}
+              onToggleSaved={() => onUnsave(item.id)}
             />
           ))}
           {row.length === 1 ? <View style={{ width: cardWidth }} /> : null}
@@ -156,29 +163,47 @@ function WorkoutCard({
   workout,
   width,
   onPress,
+  showSavedStar = false,
+  onToggleSaved,
 }: {
   workout: LibraryWorkout;
   width: number;
   onPress: () => void;
+  showSavedStar?: boolean;
+  onToggleSaved?: () => void;
 }) {
   return (
-    <PressableScale
-      style={[styles.workoutCard, { width }]}
-      onPress={onPress}
-    >
-      <Image
-        source={workout.coverImage}
-        style={styles.cardImage}
-        resizeMode="cover"
-      />
-      <Text style={styles.cardTitle}>{workout.title.toUpperCase()}</Text>
-    </PressableScale>
+    <View style={[styles.workoutCard, { width }]}>
+      <View style={styles.cardImageWrap} pointerEvents="box-none">
+        <PressableScale style={styles.cardImagePressable} onPress={onPress}>
+          <Image
+            source={workout.coverImage}
+            style={styles.cardImage}
+            resizeMode="cover"
+          />
+        </PressableScale>
+        {showSavedStar ? (
+          <Pressable
+            style={styles.cardStarButton}
+            onPress={() => onToggleSaved?.()}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel="Remove from saved"
+          >
+            <Ionicons name="star" size={scale(12)} color={theme.colors.teal} />
+          </Pressable>
+        ) : null}
+      </View>
+      <PressableScale onPress={onPress}>
+        <Text style={styles.cardTitle}>{workout.title.toUpperCase()}</Text>
+      </PressableScale>
+    </View>
   );
 }
 
 export default function Home() {
   const navigation = useNavigation<NavigationProp>();
-  const { savedIds } = useSavedWorkouts();
+  const { savedIds, toggleSaved } = useSavedWorkouts();
   const { streak, weekStreakDays } = useWorkoutHistory();
   const tabTopPadding = useTabScreenTopPadding();
   const layoutWidth = useLayoutWidth();
@@ -342,6 +367,7 @@ export default function Home() {
                   cardWidth={cardWidth}
                   savedIds={savedIds}
                   onWorkoutPress={handleWorkoutPress}
+                  onUnsave={toggleSaved}
                 />
               </View>
             ))}
@@ -430,12 +456,33 @@ const styles = StyleSheet.create({
     flexGrow: 0,
     flexShrink: 0,
   },
+  cardImageWrap: {
+    position: 'relative',
+    width: '100%',
+    marginBottom: scale(10),
+    borderRadius: theme.radius.sm,
+    overflow: 'hidden',
+  },
+  cardImagePressable: {
+    width: '100%',
+  },
   cardImage: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: theme.radius.sm,
-    marginBottom: scale(10),
     backgroundColor: theme.colors.grey200,
+  },
+  cardStarButton: {
+    position: 'absolute',
+    top: theme.spacing.sm,
+    right: theme.spacing.sm,
+    width: scale(24),
+    height: scale(24),
+    borderRadius: scale(12),
+    backgroundColor: 'rgba(121, 203, 208, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    elevation: 10,
   },
   cardTitle: {
     ...theme.typography.label,

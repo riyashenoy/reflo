@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -6,11 +6,15 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { EditPencilIcon } from '../components/EditPencilIcon';
 import { CalendarDayRow } from '../components/calendar/CalendarDayRow';
+import { WeeklyPlanEditSheet } from '../components/profile/WeeklyPlanEditSheet';
 import { PressableScale } from '../components/motion';
+import { auth } from '../lib/firebase';
+import { fetchUserProfile, type UserProfile } from '../lib/userProfile';
 import { useWorkoutHistory } from '../hooks/useWorkoutHistory';
 import type { WeeklyPlanDay } from '../lib/workoutHistory';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
@@ -22,8 +26,28 @@ type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
 export default function Calendar() {
   const navigation = useNavigation<NavigationProp>();
   const tabTopPadding = useTabScreenTopPadding();
-  const { weeklyPlan, isLoading, regenerateSchedule } = useWorkoutHistory();
+  const { weeklyPlan, isLoading, regenerateSchedule, refresh } =
+    useWorkoutHistory();
   const [regenerating, setRegenerating] = useState(false);
+  const [planEditVisible, setPlanEditVisible] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  const loadProfile = useCallback(async () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      setProfile(null);
+      return;
+    }
+
+    const data = await fetchUserProfile(uid);
+    setProfile(data);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadProfile();
+    }, [loadProfile])
+  );
 
   const handleGenerateSchedule = async () => {
     setRegenerating(true);
@@ -34,8 +58,9 @@ export default function Calendar() {
     }
   };
 
-  const handleEditFocus = () => {
-    navigation.navigate('ProfileEdit', { section: 'focus' });
+  const handleEditFocus = async () => {
+    await loadProfile();
+    setPlanEditVisible(true);
   };
 
   const handleDayPress = (day: WeeklyPlanDay) => {
@@ -44,7 +69,13 @@ export default function Calendar() {
     }
 
     if (day.status === 'completed') {
-      navigation.navigate('PostWorkout', { workoutId: day.workoutId });
+      navigation.navigate('PostWorkout', {
+        workoutId: day.workoutId,
+        libraryId: day.libraryId,
+        dateKey: day.dateKey,
+        formScore: day.formScore,
+        readOnly: true,
+      });
       return;
     }
 
@@ -66,7 +97,7 @@ export default function Calendar() {
       <View style={styles.headerRow}>
         <Text style={styles.heading}>Your Weekly Plan.</Text>
         <PressableScale style={styles.editButton} hitSlop={8} onPress={handleEditFocus}>
-          <Text style={styles.editIcon}>✎</Text>
+          <EditPencilIcon />
         </PressableScale>
       </View>
 
@@ -98,6 +129,13 @@ export default function Calendar() {
           ))}
         </View>
       )}
+
+      <WeeklyPlanEditSheet
+        visible={planEditVisible}
+        profile={profile}
+        onClose={() => setPlanEditVisible(false)}
+        onSaved={refresh}
+      />
     </ScrollView>
   );
 }
@@ -126,10 +164,6 @@ const styles = StyleSheet.create({
   },
   editButton: {
     paddingTop: scale(4),
-  },
-  editIcon: {
-    fontSize: scale(22),
-    color: theme.colors.red,
   },
   generateButton: {
     alignSelf: 'stretch',

@@ -209,7 +209,7 @@ const ExerciseProgressCircle = memo(function ExerciseProgressCircle({
 });
 
 function LiveWorkout({ route, navigation }: Props) {
-  const { workoutId } = route.params ?? {};
+  const { workoutId, libraryId, dateKey } = route.params ?? {};
   const workout = workoutId ? getWorkoutById(workoutId) : undefined;
   const insets = useSafeAreaInsets();
 
@@ -248,9 +248,11 @@ function LiveWorkout({ route, navigation }: Props) {
     hasNavigatedToPostWorkout.current = true;
     navigation.navigate('PostWorkout', {
       workoutId,
+      libraryId,
+      dateKey: dateKey ?? undefined,
       sessionLog: sessionLog.current,
     });
-  }, [navigation, workoutId]);
+  }, [navigation, workoutId, libraryId, dateKey]);
 
   const queueClip = useCallback(
     async (
@@ -740,21 +742,21 @@ const styles = StyleSheet.create({
   },
   onboardingCard: {
     width: '100%',
-    maxWidth: scale(360),
+    maxWidth: theme.component.dialogMaxWidth,
     backgroundColor: '#1a1a1a',
-    borderRadius: scale(20),
-    padding: scale(28),
+    borderRadius: theme.radius.xl,
+    padding: theme.component.dialogPadding,
     alignItems: 'center',
   },
   onboardingGifPlaceholder: {
     width: scale(280),
     height: scale(200),
-    borderRadius: scale(12),
+    borderRadius: theme.radius.md,
     backgroundColor: theme.colors.grey200,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: scale(16),
-    marginBottom: scale(20),
+    padding: theme.component.cardPadding,
+    marginBottom: theme.component.dialogSectionGap,
   },
   onboardingGifLabel: {
     ...theme.typography.body,
@@ -769,20 +771,22 @@ const styles = StyleSheet.create({
     fontSize: scale(13),
     textAlign: 'center',
     lineHeight: scale(18),
-    marginBottom: scale(24),
+    marginBottom: theme.spacing.xxl,
   },
   readyButton: {
     width: '100%',
-    backgroundColor: '#CC1D1D',
-    borderRadius: 999,
-    paddingVertical: scale(16),
+    backgroundColor: theme.colors.red,
+    borderRadius: theme.radius.full,
+    paddingVertical: theme.component.buttonPaddingVertical,
+    paddingHorizontal: theme.component.buttonPaddingHorizontal,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: theme.component.buttonMinHeight,
   },
   readyButtonText: {
-    ...theme.typography.body,
-    fontFamily: theme.fonts.bodyMedium,
+    ...theme.typography.label,
+    fontFamily: theme.fonts.label,
     color: theme.colors.white,
-    fontSize: scale(16),
   },
   pillButton: {
     backgroundColor: '#00000066',

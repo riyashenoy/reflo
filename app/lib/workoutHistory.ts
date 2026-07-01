@@ -11,8 +11,14 @@ const STORAGE_KEY = 'reflo.workoutHistory';
 export type WorkoutHistoryEntry = {
   date: string;
   workoutId: string;
+  libraryId?: string;
   formScore: number;
   completedAt: string;
+};
+
+export type RecordWorkoutCompletionOptions = {
+  dateKey?: string;
+  libraryId?: string;
 };
 
 export type WeekDayStatus = 'completed' | 'today' | 'future' | 'missed';
@@ -111,8 +117,15 @@ export function getRollingStreakDateKeys(reference = new Date()): string[] {
   );
 }
 
-export function estimateFormScore(sessionLog?: SessionLogEntry[]): number {
+export function estimateFormScore(
+  sessionLog?: SessionLogEntry[],
+  seed?: string
+): number {
   if (!sessionLog?.length) {
+    if (seed) {
+      const hash = seed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      return Math.min(99, Math.max(60, 72 + (hash % 28)));
+    }
     return 82;
   }
 
@@ -150,13 +163,18 @@ export async function readWorkoutHistory(): Promise<WorkoutHistoryEntry[]> {
 
 export async function recordWorkoutCompletion(
   workoutId: string,
-  sessionLog?: SessionLogEntry[]
+  sessionLog?: SessionLogEntry[],
+  options?: RecordWorkoutCompletionOptions
 ): Promise<WorkoutHistoryEntry> {
+  const completedAt = new Date().toISOString();
+  const dateKey = options?.dateKey ?? toDateKey(new Date());
+
   const entry: WorkoutHistoryEntry = {
-    date: toDateKey(new Date()),
+    date: dateKey,
     workoutId,
-    formScore: estimateFormScore(sessionLog),
-    completedAt: new Date().toISOString(),
+    libraryId: options?.libraryId,
+    formScore: estimateFormScore(sessionLog, `${dateKey}-${completedAt}`),
+    completedAt,
   };
 
   const history = await readWorkoutHistory();
@@ -265,6 +283,9 @@ export function buildWeeklyPlan(
     }
 
     if (completion) {
+      const libraryItem = completion.libraryId
+        ? getLibraryWorkout(completion.libraryId)
+        : undefined;
       const workout = getWorkoutById(completion.workoutId);
       return {
         dayIndex,
@@ -272,7 +293,8 @@ export function buildWeeklyPlan(
         dateKey,
         status,
         workoutId: completion.workoutId,
-        workoutTitle: workout?.title ?? 'Workout',
+        libraryId: completion.libraryId ?? libraryItem?.id,
+        workoutTitle: libraryItem?.title ?? workout?.title ?? 'Workout',
         duration: workout?.duration ?? 5,
         formScore: completion.formScore,
         isRestDay: false,

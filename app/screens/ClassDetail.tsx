@@ -17,6 +17,7 @@ import {
   getLibraryWorkoutForDemo,
 } from '../data/workoutLibrary';
 import { useSavedWorkouts } from '../context/SavedWorkoutsContext';
+import { toDateKey } from '../lib/workoutHistory';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
 
@@ -232,7 +233,11 @@ export default function ClassDetail({ route, navigation }: Props) {
       <PressableScale
         style={[styles.beginButton, { bottom: insets.bottom + scale(24) }]}
         onPress={() =>
-          navigation.navigate('LiveWorkout', { workoutId: workout.id })
+          navigation.navigate('LiveWorkout', {
+            workoutId: workout.id,
+            libraryId: libraryWorkout?.id,
+            dateKey: toDateKey(new Date()),
+          })
         }
       >
         <Text style={styles.beginButtonText}>BEGIN</Text>
