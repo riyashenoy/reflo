@@ -235,12 +235,28 @@ function LiveWorkout({ route, navigation }: Props) {
     goodFrames: 0,
   });
   const sessionLog = useRef<SessionLogEntry[]>([]);
+  const currentErrors = useRef<Set<string>>(new Set());
+  const sustainedClean = useRef(false);
 
   currentExerciseRef.current = currentExercise;
 
   useEffect(() => {
     formData.current = { errorCount: {}, frameCount: 0, goodFrames: 0 };
+    currentErrors.current.clear();
+    sustainedClean.current = false;
   }, [currentExercise]);
+
+  const handleErrorStateChange = useCallback(
+    (errorKey: string, isActive: boolean) => {
+      if (isActive) {
+        currentErrors.current.add(errorKey);
+        sustainedClean.current = false;
+      } else {
+        currentErrors.current.delete(errorKey);
+      }
+    },
+    []
+  );
 
   const navigateToPostWorkout = useCallback(() => {
     if (!workoutId || hasNavigatedToPostWorkout.current) {
@@ -567,7 +583,10 @@ function LiveWorkout({ route, navigation }: Props) {
     canvasRef,
     Platform.OS === 'web' ? currentExercise : 'none',
     formData,
-    workoutStarted
+    workoutStarted,
+    currentErrors,
+    handleErrorStateChange,
+    sustainedClean
   );
 
   if (!workout) {
@@ -606,6 +625,7 @@ function LiveWorkout({ route, navigation }: Props) {
                   width: '100%',
                   height: '100%',
                   objectFit: 'cover',
+                  transform: 'scaleX(-1)',
                 },
                 autoPlay: true,
                 playsInline: true,

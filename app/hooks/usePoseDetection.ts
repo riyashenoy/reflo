@@ -31,12 +31,20 @@ export type SessionLogEntry = {
   type: 'correction' | 'positive' | 'motivation';
 };
 
+export type ErrorStateChangeHandler = (
+  errorKey: string,
+  isActive: boolean
+) => void;
+
 export function usePoseDetection(
   _videoRef: RefObject<HTMLVideoElement | null>,
   _canvasRef: RefObject<HTMLCanvasElement | null>,
   _currentExercise: PoseExercise,
   _formDataRef: RefObject<FormAssessmentData>,
-  _workoutStarted = false
+  _workoutStarted = false,
+  _currentErrorsRef?: RefObject<Set<string>>,
+  _onErrorStateChange?: ErrorStateChangeHandler,
+  _sustainedCleanRef?: RefObject<boolean>
 ) {
   return { isDetecting: false, poses: [] as DetectedPose[] };
 }

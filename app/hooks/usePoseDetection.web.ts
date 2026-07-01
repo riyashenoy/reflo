@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react';
 import { clearSkeleton, drawSkeleton } from '../lib/poseSkeleton.web';
 import type {
   DetectedPose,
+  ErrorStateChangeHandler,
   FormAssessmentData,
   PoseExercise,
 } from './usePoseDetection';
@@ -29,6 +30,8 @@ const LANDMARK_ORDER = [
 ] as const;
 
 const MIN_SCORE = 0.6;
+const ERROR_COOLDOWN_MS = 4000;
+const SUSTAINED_CLEAN_MS = 2000;
 
 function getAngle(
   A: { x: number; y: number },
@@ -125,20 +128,78 @@ export function usePoseDetection(
   canvasRef: RefObject<HTMLCanvasElement | null>,
   currentExercise: PoseExercise,
   formDataRef: RefObject<FormAssessmentData>,
-  workoutStarted: boolean
+  workoutStarted: boolean,
+  currentErrorsRef?: RefObject<Set<string>>,
+  onErrorStateChange?: ErrorStateChangeHandler,
+  sustainedCleanRef?: RefObject<boolean>
 ) {
   const [isDetecting, setIsDetecting] = useState(false);
   const landmarkHistory = useRef<Landmark[][]>([]);
   const ankleBaselineY = useRef<number | null>(null);
   const currentExerciseRef = useRef(currentExercise);
   const formDataRefStable = useRef(formDataRef);
+  const currentErrorsRefStable = useRef(currentErrorsRef);
+  const onErrorStateChangeRef = useRef(onErrorStateChange);
+  const sustainedCleanRefStable = useRef(sustainedCleanRef);
+  const errorCooldownTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map()
+  );
+  const cleanStreakStart = useRef<number | null>(null);
   const rafId = useRef(0);
 
   currentExerciseRef.current = currentExercise;
   formDataRefStable.current = formDataRef;
+  currentErrorsRefStable.current = currentErrorsRef;
+  onErrorStateChangeRef.current = onErrorStateChange;
+  sustainedCleanRefStable.current = sustainedCleanRef;
+
+  const clearErrorCooldowns = () => {
+    errorCooldownTimers.current.forEach((timeoutId) => {
+      clearTimeout(timeoutId);
+    });
+    errorCooldownTimers.current.clear();
+  };
+
+  const updateSustainedClean = () => {
+    const sustainedCleanTarget = sustainedCleanRefStable.current;
+    if (!sustainedCleanTarget) {
+      return;
+    }
+
+    const hasActiveErrors =
+      (currentErrorsRefStable.current?.current.size ?? 0) > 0;
+    const cleanDuration =
+      cleanStreakStart.current === null
+        ? 0
+        : performance.now() - cleanStreakStart.current;
+
+    sustainedCleanTarget.current =
+      !hasActiveErrors && cleanDuration >= SUSTAINED_CLEAN_MS;
+  };
+
+  const activateError = (errorKey: string) => {
+    if (errorCooldownTimers.current.has(errorKey)) {
+      return;
+    }
+
+    onErrorStateChangeRef.current?.(errorKey, true);
+
+    const timeoutId = setTimeout(() => {
+      errorCooldownTimers.current.delete(errorKey);
+      onErrorStateChangeRef.current?.(errorKey, false);
+      updateSustainedClean();
+    }, ERROR_COOLDOWN_MS);
+
+    errorCooldownTimers.current.set(errorKey, timeoutId);
+  };
 
   useEffect(() => {
     ankleBaselineY.current = null;
+    cleanStreakStart.current = null;
+    clearErrorCooldowns();
+    if (sustainedCleanRefStable.current) {
+      sustainedCleanRefStable.current.current = false;
+    }
   }, [currentExercise]);
 
   function getSmoothed(raw: Landmark[]): Landmark[] {
@@ -186,10 +247,19 @@ export function usePoseDetection(
 
     formData.frameCount += 1;
     if (errorKey) {
+      cleanStreakStart.current = null;
+      if (sustainedCleanRefStable.current) {
+        sustainedCleanRefStable.current.current = false;
+      }
       formData.errorCount[errorKey] =
         (formData.errorCount[errorKey] ?? 0) + 1;
+      activateError(errorKey);
     } else {
       formData.goodFrames += 1;
+      if (cleanStreakStart.current === null) {
+        cleanStreakStart.current = performance.now();
+      }
+      updateSustainedClean();
     }
   }
 
@@ -271,16 +341,22 @@ export function usePoseDetection(
                 video
               )) as DetectedPose[];
 
-              if (canvas) {
-                drawSkeleton(detectedPoses, canvas, video);
-              }
-
               if (detectedPoses.length > 0) {
                 const raw = extractLandmarks(detectedPoses[0].keypoints);
                 if (raw) {
                   const smoothed = getSmoothed(raw);
                   recordFrameAssessment(smoothed);
                 }
+              }
+
+              if (canvas) {
+                drawSkeleton(
+                  detectedPoses,
+                  canvas,
+                  video,
+                  currentErrorsRefStable.current?.current ?? new Set(),
+                  sustainedCleanRefStable.current?.current ?? false
+                );
               }
             } catch (error) {
               console.warn('[usePoseDetection] frame failed:', error);
@@ -311,6 +387,11 @@ export function usePoseDetection(
       stopLoop();
       landmarkHistory.current = [];
       ankleBaselineY.current = null;
+      cleanStreakStart.current = null;
+      clearErrorCooldowns();
+      if (sustainedCleanRefStable.current) {
+        sustainedCleanRefStable.current.current = false;
+      }
       detector?.dispose();
       detector = null;
       setIsDetecting(false);

@@ -1,10 +1,9 @@
 import type { DetectedPose } from '../hooks/usePoseDetection';
 
-const SKELETON_DOT_COLOR = '#CC1D1D';
-const SKELETON_LINE_COLOR = 'rgba(255, 255, 255, 0.45)';
 const SKELETON_DRAW_THRESHOLD = 0.3;
 const DOT_RADIUS = 6;
 const LINE_WIDTH = 2;
+const COLOR_LERP_FACTOR = 0.1;
 
 const SKELETON_CONNECTIONS: [number, number][] = [
   [5, 7],
@@ -21,11 +20,55 @@ const SKELETON_CONNECTIONS: [number, number][] = [
   [14, 16],
 ];
 
+type Rgba = { r: number; g: number; b: number; a: number };
+
+const COLOR_RED_DOT: Rgba = { r: 204, g: 29, b: 29, a: 1 };
+const COLOR_TEAL_DOT: Rgba = { r: 121, g: 203, b: 208, a: 1 };
+const COLOR_NEUTRAL_DOT: Rgba = { r: 255, g: 255, b: 255, a: 0.5 };
+
+const COLOR_RED_LINE: Rgba = { r: 204, g: 29, b: 29, a: 0.4 };
+const COLOR_TEAL_LINE: Rgba = { r: 121, g: 203, b: 208, a: 0.4 };
+const COLOR_NEUTRAL_LINE: Rgba = { r: 255, g: 255, b: 255, a: 0.25 };
+
+let currentDotColor: Rgba = { ...COLOR_NEUTRAL_DOT };
+let currentLineColor: Rgba = { ...COLOR_NEUTRAL_LINE };
+
 type CoverTransform = {
   scale: number;
   offsetX: number;
   offsetY: number;
 };
+
+function lerpChannel(current: number, target: number, factor: number) {
+  return current + (target - current) * factor;
+}
+
+function lerpRgba(current: Rgba, target: Rgba, factor = COLOR_LERP_FACTOR): Rgba {
+  return {
+    r: lerpChannel(current.r, target.r, factor),
+    g: lerpChannel(current.g, target.g, factor),
+    b: lerpChannel(current.b, target.b, factor),
+    a: lerpChannel(current.a, target.a, factor),
+  };
+}
+
+function rgbaToCss(color: Rgba) {
+  return `rgba(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)}, ${color.a.toFixed(3)})`;
+}
+
+function getTargetColors(errors: Set<string>, sustainedClean: boolean) {
+  const hasError = errors.size > 0;
+
+  if (hasError) {
+    return { dot: COLOR_RED_DOT, line: COLOR_RED_LINE };
+  }
+
+  if (sustainedClean) {
+    return { dot: COLOR_TEAL_DOT, line: COLOR_TEAL_LINE };
+  }
+
+  return { dot: COLOR_NEUTRAL_DOT, line: COLOR_NEUTRAL_LINE };
+}
 
 function getCoverTransform(
   videoWidth: number,
@@ -48,11 +91,15 @@ function getCoverTransform(
 function mapPoint(
   x: number,
   y: number,
-  transform: CoverTransform
+  transform: CoverTransform,
+  displayWidth: number
 ): { x: number; y: number } {
+  const mappedX = x * transform.scale - transform.offsetX;
+  const mappedY = y * transform.scale - transform.offsetY;
+
   return {
-    x: x * transform.scale - transform.offsetX,
-    y: y * transform.scale - transform.offsetY,
+    x: displayWidth - mappedX,
+    y: mappedY,
   };
 }
 
@@ -102,10 +149,17 @@ function prepareCanvas(
   };
 }
 
+export function resetSkeletonColors() {
+  currentDotColor = { ...COLOR_NEUTRAL_DOT };
+  currentLineColor = { ...COLOR_NEUTRAL_LINE };
+}
+
 export function drawSkeleton(
   poses: DetectedPose[],
   canvas: HTMLCanvasElement,
-  video: HTMLVideoElement
+  video: HTMLVideoElement,
+  errors: Set<string> = new Set(),
+  sustainedClean = false
 ) {
   try {
     const prepared = prepareCanvas(canvas, video);
@@ -125,7 +179,14 @@ export function drawSkeleton(
       return;
     }
 
-    ctx.strokeStyle = SKELETON_LINE_COLOR;
+    const targets = getTargetColors(errors, sustainedClean);
+    currentDotColor = lerpRgba(currentDotColor, targets.dot);
+    currentLineColor = lerpRgba(currentLineColor, targets.line);
+
+    const dotColor = rgbaToCss(currentDotColor);
+    const lineColor = rgbaToCss(currentLineColor);
+
+    ctx.strokeStyle = lineColor;
     ctx.lineWidth = LINE_WIDTH;
     SKELETON_CONNECTIONS.forEach(([i, j]) => {
       const a = keypoints[i];
@@ -136,8 +197,8 @@ export function drawSkeleton(
         (a.score ?? 0) > SKELETON_DRAW_THRESHOLD &&
         (b.score ?? 0) > SKELETON_DRAW_THRESHOLD
       ) {
-        const start = mapPoint(a.x, a.y, transform);
-        const end = mapPoint(b.x, b.y, transform);
+        const start = mapPoint(a.x, a.y, transform, displayWidth);
+        const end = mapPoint(b.x, b.y, transform, displayWidth);
         ctx.beginPath();
         ctx.moveTo(start.x, start.y);
         ctx.lineTo(end.x, end.y);
@@ -147,10 +208,10 @@ export function drawSkeleton(
 
     keypoints.forEach((kp) => {
       if ((kp.score ?? 0) > SKELETON_DRAW_THRESHOLD) {
-        const point = mapPoint(kp.x, kp.y, transform);
+        const point = mapPoint(kp.x, kp.y, transform, displayWidth);
         ctx.beginPath();
         ctx.arc(point.x, point.y, DOT_RADIUS, 0, 2 * Math.PI);
-        ctx.fillStyle = SKELETON_DOT_COLOR;
+        ctx.fillStyle = dotColor;
         ctx.fill();
       }
     });
@@ -163,6 +224,8 @@ export function clearSkeleton(canvas: HTMLCanvasElement | null) {
   if (!canvas) {
     return;
   }
+
+  resetSkeletonColors();
 
   const ctx = canvas.getContext('2d');
   if (!ctx) {
