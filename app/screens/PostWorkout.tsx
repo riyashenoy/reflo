@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -9,6 +9,7 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { getWorkoutById } from '../data/workouts';
+import { recordWorkoutCompletion } from '../lib/workoutHistory';
 import type { AppStackParamList } from '../navigation';
 import type { SessionLogEntry } from '../hooks/usePoseDetection';
 import theme, { scale } from '../theme';
@@ -116,6 +117,16 @@ export default function PostWorkout({ route, navigation }: Props) {
   const { workoutId, sessionLog } = route.params ?? {};
   const workout = workoutId ? getWorkoutById(workoutId) : undefined;
   const reportItems = buildReportItems(sessionLog);
+  const hasRecordedCompletion = useRef(false);
+
+  useEffect(() => {
+    if (!workoutId || hasRecordedCompletion.current) {
+      return;
+    }
+
+    hasRecordedCompletion.current = true;
+    void recordWorkoutCompletion(workoutId, sessionLog);
+  }, [workoutId, sessionLog]);
 
   const [stage, setStage] = useState<Stage>('report');
   const [ratingIndex, setRatingIndex] = useState(0);

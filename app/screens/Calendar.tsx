@@ -9,56 +9,16 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { workouts } from '../data/workouts';
+import { useWorkoutHistory } from '../hooks/useWorkoutHistory';
+import type { WeeklyPlanDay } from '../lib/workoutHistory';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
 
 type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
 
-type DayStatus = 'completed' | 'today' | 'future';
-
-type WeekDayPlan = {
-  dayIndex: number;
-  dayName: string;
-  status: DayStatus;
-  workoutId: string;
-  workoutTitle: string;
-  duration: number;
-};
-
-const DAY_NAMES = [
-  'SUNDAY',
-  'MONDAY',
-  'TUESDAY',
-  'WEDNESDAY',
-  'THURSDAY',
-  'FRIDAY',
-  'SATURDAY',
-];
-
-const workout = workouts[0];
-
-const WEEK_PLAN: WeekDayPlan[] = DAY_NAMES.map((dayName, dayIndex) => {
-  let status: DayStatus = 'future';
-  if (dayIndex <= 2) {
-    status = 'completed';
-  } else if (dayIndex === 3) {
-    status = 'today';
-  }
-
-  return {
-    dayIndex,
-    dayName,
-    status,
-    workoutId: workout.id,
-    workoutTitle: workout.title,
-    duration: workout.duration,
-  };
-});
-
-function StatusIcon({ status }: { status: DayStatus }) {
-  if (status === 'completed') {
+function StatusIcon({ day }: { day: WeeklyPlanDay }) {
+  if (day.status === 'completed') {
     return (
       <View style={styles.statusCircleCompleted}>
         <Text style={styles.statusCheckmark}>✓</Text>
@@ -66,18 +26,26 @@ function StatusIcon({ status }: { status: DayStatus }) {
     );
   }
 
-  return <View style={styles.statusCircleEmpty} />;
+  return (
+    <View
+      style={[
+        styles.statusCircleEmpty,
+        day.status === 'today' && styles.statusCircleToday,
+      ]}
+    />
+  );
 }
 
 export default function Calendar() {
   const navigation = useNavigation<NavigationProp>();
   const tabTopPadding = useTabScreenTopPadding();
+  const { weeklyPlan } = useWorkoutHistory();
 
   const handleGenerateSchedule = () => {
     Alert.alert('Coming soon', 'Schedule generation is not available yet.');
   };
 
-  const handleDayPress = (day: WeekDayPlan) => {
+  const handleDayPress = (day: WeeklyPlanDay) => {
     if (day.status === 'completed') {
       navigation.navigate('PostWorkout', { workoutId: day.workoutId });
       return;
@@ -86,12 +54,15 @@ export default function Calendar() {
     navigation.navigate('ClassDetail', { workoutId: day.workoutId });
   };
 
-  const getStatusLine = (day: WeekDayPlan) => {
+  const getStatusLine = (day: WeeklyPlanDay) => {
     if (day.status === 'completed') {
-      return `Done · ${day.duration} min · Form Score 82`;
+      return `Done · ${day.duration} min · Form Score ${day.formScore ?? 82}`;
     }
     if (day.status === 'today') {
       return `Up Next · ${day.duration} minutes`;
+    }
+    if (day.status === 'missed') {
+      return `Missed · ${day.duration} min`;
     }
     return `Scheduled · ${day.duration} min`;
   };
@@ -116,7 +87,7 @@ export default function Calendar() {
       </Pressable>
 
       <View style={styles.dayList}>
-        {WEEK_PLAN.map((day, index) => {
+        {weeklyPlan.map((day, index) => {
           const isToday = day.status === 'today';
           const statusLine = getStatusLine(day);
           const dayLabel = isToday
@@ -124,7 +95,7 @@ export default function Calendar() {
             : day.dayName;
 
           return (
-            <View key={day.dayName}>
+            <View key={day.dateKey}>
               {index > 0 ? <View style={styles.divider} /> : null}
               <Pressable
                 style={[styles.dayRow, isToday && styles.dayRowToday]}
@@ -151,7 +122,7 @@ export default function Calendar() {
                     {statusLine}
                   </Text>
                 </View>
-                <StatusIcon status={day.status} />
+                <StatusIcon day={day} />
               </Pressable>
             </View>
           );
@@ -264,5 +235,10 @@ const styles = StyleSheet.create({
     height: scale(28),
     borderRadius: scale(14),
     backgroundColor: theme.colors.grey200,
+  },
+  statusCircleToday: {
+    borderWidth: scale(2),
+    borderColor: theme.colors.red,
+    backgroundColor: theme.colors.white,
   },
 });

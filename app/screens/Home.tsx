@@ -17,6 +17,8 @@ import {
   type LibraryWorkout,
 } from '../data/workoutLibrary';
 import { useSavedWorkouts } from '../context/SavedWorkoutsContext';
+import { useWorkoutHistory } from '../hooks/useWorkoutHistory';
+import { getStreakHeading } from '../lib/workoutHistory';
 import { useLayoutWidth } from '../hooks/useLayoutWidth';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
 import type { AppStackParamList } from '../navigation';
@@ -24,8 +26,6 @@ import theme, { scale } from '../theme';
 
 const FILTERS = ['Saved', 'Full Body', 'Upper Body', 'Lower Body', 'Core'] as const;
 const SAVED_FILTER = 'Saved';
-const DAY_LABELS = ['S', 'M', 'T', 'W', 'Th', 'F', 'Sa'] as const;
-const COMPLETED_DAY_COUNT = 3;
 const HORIZONTAL_PADDING = scale(20);
 const CARD_GAP = scale(12);
 const GRID_MIN_ITEMS = 4;
@@ -77,13 +77,6 @@ function buildGridWorkouts(
   }
 
   return result;
-}
-
-function getStreakDayStatus(dayIndex: number) {
-  if (dayIndex < COMPLETED_DAY_COUNT) {
-    return 'completed';
-  }
-  return 'incomplete';
 }
 
 function WorkoutGrid({
@@ -227,6 +220,7 @@ function WorkoutCard({
 export default function Home() {
   const navigation = useNavigation<NavigationProp>();
   const { savedIds } = useSavedWorkouts();
+  const { streak, weekStreakDays } = useWorkoutHistory();
   const tabTopPadding = useTabScreenTopPadding();
   const layoutWidth = useLayoutWidth();
   const [selectedFilter, setSelectedFilter] = useState<string>('Full Body');
@@ -304,29 +298,34 @@ export default function Home() {
           style={styles.logo}
         />
 
-        <Text style={styles.heading}>Keep it Going</Text>
+        <Text style={styles.heading}>{getStreakHeading(streak)}</Text>
 
         <View style={styles.streakRow}>
-          {DAY_LABELS.map((label, index) => {
-            const status = getStreakDayStatus(index);
-            return (
-              <View key={label} style={styles.streakDay}>
-                <Text style={styles.streakLabel}>{label}</Text>
-                <View
-                  style={[
-                    styles.streakCircle,
-                    status === 'completed'
-                      ? styles.streakCircleCompleted
-                      : styles.streakCircleIncomplete,
-                  ]}
-                >
-                  {status === 'completed' ? (
-                    <Text style={styles.streakCheckmark}>✓</Text>
-                  ) : null}
-                </View>
+          {weekStreakDays.map((day) => (
+            <View key={day.dateKey} style={styles.streakDay}>
+              <Text
+                style={[
+                  styles.streakLabel,
+                  day.isToday && styles.streakLabelToday,
+                ]}
+              >
+                {day.label}
+              </Text>
+              <View
+                style={[
+                  styles.streakCircle,
+                  day.isCompleted
+                    ? styles.streakCircleCompleted
+                    : styles.streakCircleIncomplete,
+                  day.isToday && !day.isCompleted && styles.streakCircleToday,
+                ]}
+              >
+                {day.isCompleted ? (
+                  <Text style={styles.streakCheckmark}>✓</Text>
+                ) : null}
               </View>
-            );
-          })}
+            </View>
+          ))}
         </View>
 
         <Text style={styles.sectionHeading}>Workout Library</Text>
@@ -350,7 +349,7 @@ export default function Home() {
         </View>
       </View>
     ),
-    [handleFilterPress, selectedFilter, tabTopPadding]
+    [handleFilterPress, selectedFilter, streak, tabTopPadding, weekStreakDays]
   );
 
   return (
@@ -458,6 +457,9 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginBottom: scale(8),
   },
+  streakLabelToday: {
+    color: theme.colors.red,
+  },
   streakCircle: {
     width: scale(28),
     height: scale(28),
@@ -470,6 +472,10 @@ const styles = StyleSheet.create({
   },
   streakCircleIncomplete: {
     backgroundColor: theme.colors.grey200,
+  },
+  streakCircleToday: {
+    borderWidth: scale(2),
+    borderColor: theme.colors.red,
   },
   streakCheckmark: {
     color: theme.colors.white,
