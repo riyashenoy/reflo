@@ -422,19 +422,42 @@ function LiveWorkout({ route, navigation }: Props) {
       return;
     }
 
-    const trackDuration = getTrackDurationSeconds(workout);
-    const skipSeconds = Math.floor(trackDuration - 15.22);
+    const skipSeconds = Math.max(
+      0,
+      Math.floor(getTrackDurationSeconds(workout) - 15.22)
+    );
+
+    setShowOnboarding(false);
 
     if (!workoutStarted) {
-      setShowOnboarding(false);
       setWorkoutStarted(true);
+    }
+
+    if (!baseTrackRef.current) {
       await loadAndPlayBaseTrack();
     }
 
-    await baseTrackRef.current?.setPositionAsync(skipSeconds * 1000);
+    const sound = baseTrackRef.current;
+    if (!sound) {
+      return;
+    }
+
+    try {
+      await configureWorkoutAudioMode();
+      await sound.setPositionAsync(skipSeconds * 1000);
+
+      const status = await sound.getStatusAsync();
+      if (status.isLoaded && !status.isPlaying) {
+        await sound.playAsync();
+      }
+    } catch (error) {
+      console.warn('[LiveWorkout] skip seek failed:', error);
+      return;
+    }
+
     timerSecondsRef.current = skipSeconds;
     setTimerSeconds(skipSeconds);
-    prevProcessedSecondRef.current = skipSeconds;
+    prevProcessedSecondRef.current = skipSeconds - 1;
     setCurrentExercise('footwork_toes');
   }, [workout, workoutStarted, loadAndPlayBaseTrack]);
 
@@ -607,6 +630,12 @@ function LiveWorkout({ route, navigation }: Props) {
     );
   }
 
+  const trackDurationSeconds = getTrackDurationSeconds(workout);
+  const remainingSeconds = Math.max(
+    0,
+    Math.floor(trackDurationSeconds - timerSeconds)
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.cameraSection}>
@@ -655,29 +684,6 @@ function LiveWorkout({ route, navigation }: Props) {
 
         <DashedBorderOverlay />
 
-        <View
-          style={[styles.topBar, { paddingTop: insets.top + scale(8) }]}
-          pointerEvents="box-none"
-        >
-          <PressableScale
-            style={[styles.pillButton, styles.backButton]}
-            onPress={handleBack}
-          >
-            <Text style={styles.pillButtonText}>←</Text>
-          </PressableScale>
-
-          <View style={[styles.pillButton, styles.timerPill]}>
-            <WorkoutTimer seconds={timerSeconds} />
-          </View>
-
-          <PressableScale
-            style={[styles.pillButton, styles.skipButton]}
-            onPress={() => void skipToEnd()}
-          >
-            <Text style={styles.skipButtonText}>Skip</Text>
-          </PressableScale>
-        </View>
-
         <FadeSlideOverlay visible={showOnboarding}>
           <View style={styles.onboardingCard}>
             <View style={styles.onboardingGifPlaceholder}>
@@ -694,6 +700,29 @@ function LiveWorkout({ route, navigation }: Props) {
             </PressableScale>
           </View>
         </FadeSlideOverlay>
+
+        <View
+          style={[styles.topBar, { paddingTop: insets.top + scale(8) }]}
+          pointerEvents="box-none"
+        >
+          <PressableScale
+            style={[styles.pillButton, styles.backButton]}
+            onPress={handleBack}
+          >
+            <Text style={styles.pillButtonText}>←</Text>
+          </PressableScale>
+
+          <View style={[styles.pillButton, styles.timerPill]}>
+            <WorkoutTimer seconds={remainingSeconds} />
+          </View>
+
+          <PressableScale
+            style={[styles.pillButton, styles.skipButton]}
+            onPress={() => void skipToEnd()}
+          >
+            <Text style={styles.skipButtonText}>Skip</Text>
+          </PressableScale>
+        </View>
       </View>
 
       <View style={styles.bottomPanel}>
@@ -747,7 +776,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: scale(16),
     paddingBottom: scale(8),
-    zIndex: 15,
+    zIndex: 20,
+    elevation: 20,
   },
   skipButton: {
     minWidth: scale(56),

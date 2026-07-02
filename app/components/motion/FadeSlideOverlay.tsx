@@ -70,9 +70,10 @@ export function FadeSlideOverlay({ visible, children }: FadeSlideOverlayProps) {
   return (
     <Animated.View
       style={[styles.overlay, { opacity }]}
-      pointerEvents={visible ? 'auto' : 'none'}
+      pointerEvents={visible ? 'box-none' : 'none'}
     >
       <Animated.View
+        pointerEvents="auto"
         style={{
           transform: [{ translateY }, { scale: cardScale }],
         }}
