@@ -33,6 +33,11 @@ module.exports = async function(env, argv) {
       'process.env.EXPO_PUBLIC_FIREBASE_APP_ID': JSON.stringify(process.env.EXPO_PUBLIC_FIREBASE_APP_ID),
     })
   );
+
+  config.devServer = {
+    ...(config.devServer ?? {}),
+    historyApiFallback: true,
+  };
   
   return config;
 };

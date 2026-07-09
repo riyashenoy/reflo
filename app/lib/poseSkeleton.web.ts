@@ -26,12 +26,9 @@ const COLOR_RED_DOT: Rgba = { r: 204, g: 29, b: 29, a: 1 };
 const COLOR_TEAL_DOT: Rgba = { r: 121, g: 203, b: 208, a: 1 };
 const COLOR_NEUTRAL_DOT: Rgba = { r: 255, g: 255, b: 255, a: 0.5 };
 
-const COLOR_RED_LINE: Rgba = { r: 204, g: 29, b: 29, a: 0.4 };
-const COLOR_TEAL_LINE: Rgba = { r: 121, g: 203, b: 208, a: 0.4 };
 const COLOR_NEUTRAL_LINE: Rgba = { r: 255, g: 255, b: 255, a: 0.25 };
 
 let currentDotColor: Rgba = { ...COLOR_NEUTRAL_DOT };
-let currentLineColor: Rgba = { ...COLOR_NEUTRAL_LINE };
 
 type CoverTransform = {
   scale: number;
@@ -56,18 +53,16 @@ function rgbaToCss(color: Rgba) {
   return `rgba(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)}, ${color.a.toFixed(3)})`;
 }
 
-function getTargetColors(errors: Set<string>, sustainedClean: boolean) {
-  const hasError = errors.size > 0;
-
-  if (hasError) {
-    return { dot: COLOR_RED_DOT, line: COLOR_RED_LINE };
+function getTargetDotColor(errors: Set<string>, sustainedClean: boolean): Rgba {
+  if (errors.size > 0) {
+    return COLOR_RED_DOT;
   }
 
   if (sustainedClean) {
-    return { dot: COLOR_TEAL_DOT, line: COLOR_TEAL_LINE };
+    return COLOR_TEAL_DOT;
   }
 
-  return { dot: COLOR_NEUTRAL_DOT, line: COLOR_NEUTRAL_LINE };
+  return COLOR_NEUTRAL_DOT;
 }
 
 function getCoverTransform(
@@ -92,13 +87,14 @@ function mapPoint(
   x: number,
   y: number,
   transform: CoverTransform,
-  displayWidth: number
+  displayWidth: number,
+  mirrorX: boolean
 ): { x: number; y: number } {
   const mappedX = x * transform.scale - transform.offsetX;
   const mappedY = y * transform.scale - transform.offsetY;
 
   return {
-    x: displayWidth - mappedX,
+    x: mirrorX ? displayWidth - mappedX : mappedX,
     y: mappedY,
   };
 }
@@ -151,7 +147,6 @@ function prepareCanvas(
 
 export function resetSkeletonColors() {
   currentDotColor = { ...COLOR_NEUTRAL_DOT };
-  currentLineColor = { ...COLOR_NEUTRAL_LINE };
 }
 
 export function drawSkeleton(
@@ -159,7 +154,8 @@ export function drawSkeleton(
   canvas: HTMLCanvasElement,
   video: HTMLVideoElement,
   errors: Set<string> = new Set(),
-  sustainedClean = false
+  sustainedClean = false,
+  mirrorX = true
 ) {
   try {
     const prepared = prepareCanvas(canvas, video);
@@ -179,12 +175,11 @@ export function drawSkeleton(
       return;
     }
 
-    const targets = getTargetColors(errors, sustainedClean);
-    currentDotColor = lerpRgba(currentDotColor, targets.dot);
-    currentLineColor = lerpRgba(currentLineColor, targets.line);
+    const targetDot = getTargetDotColor(errors, sustainedClean);
+    currentDotColor = lerpRgba(currentDotColor, targetDot);
 
     const dotColor = rgbaToCss(currentDotColor);
-    const lineColor = rgbaToCss(currentLineColor);
+    const lineColor = rgbaToCss(COLOR_NEUTRAL_LINE);
 
     ctx.strokeStyle = lineColor;
     ctx.lineWidth = LINE_WIDTH;
@@ -197,8 +192,8 @@ export function drawSkeleton(
         (a.score ?? 0) > SKELETON_DRAW_THRESHOLD &&
         (b.score ?? 0) > SKELETON_DRAW_THRESHOLD
       ) {
-        const start = mapPoint(a.x, a.y, transform, displayWidth);
-        const end = mapPoint(b.x, b.y, transform, displayWidth);
+        const start = mapPoint(a.x, a.y, transform, displayWidth, mirrorX);
+        const end = mapPoint(b.x, b.y, transform, displayWidth, mirrorX);
         ctx.beginPath();
         ctx.moveTo(start.x, start.y);
         ctx.lineTo(end.x, end.y);
@@ -208,7 +203,7 @@ export function drawSkeleton(
 
     keypoints.forEach((kp) => {
       if ((kp.score ?? 0) > SKELETON_DRAW_THRESHOLD) {
-        const point = mapPoint(kp.x, kp.y, transform, displayWidth);
+        const point = mapPoint(kp.x, kp.y, transform, displayWidth, mirrorX);
         ctx.beginPath();
         ctx.arc(point.x, point.y, DOT_RADIUS, 0, 2 * Math.PI);
         ctx.fillStyle = dotColor;

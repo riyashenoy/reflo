@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { Animated, Platform, StyleSheet, View } from 'react-native';
+import {
+  NavigationContainer,
+  type LinkingOptions,
+} from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { onAuthStateChanged, type User } from 'firebase/auth';
@@ -8,6 +11,7 @@ import { onAuthStateChanged, type User } from 'firebase/auth';
 import { AuthFlowContext, type AppEntryRoute } from '../context/AuthFlowContext';
 import Calendar from '../screens/Calendar';
 import ClassDetail from '../screens/ClassDetail';
+import DemoWorkout from '../screens/DemoWorkout';
 import ExercisePreview from '../screens/ExercisePreview';
 import EmailAuth from '../screens/EmailAuth';
 import Home from '../screens/Home';
@@ -43,6 +47,7 @@ export type AppStackParamList = {
     sessionLog?: SessionLogEntry[];
   };
   ProfileEdit: { section?: 'about' | 'body' | 'mindful' | 'focus' };
+  DemoWorkout: undefined;
 };
 
 export type MainTabParamList = {
@@ -55,6 +60,49 @@ export type MainTabParamList = {
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const AppStack = createNativeStackNavigator<AppStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
+
+const DEMO_WORKOUT_PATH = '/demo-reflo-x7k2';
+
+function isDemoWorkoutPath(): boolean {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') {
+    return false;
+  }
+
+  return window.location.pathname.replace(/\/$/, '') === DEMO_WORKOUT_PATH;
+}
+
+function getLinkingPrefixes(): string[] {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    return [window.location.origin];
+  }
+
+  return [];
+}
+
+const linking: LinkingOptions<AppStackParamList> = {
+  prefixes: getLinkingPrefixes(),
+  config: {
+    screens: {
+      Main: '',
+      DemoWorkout: 'demo-reflo-x7k2',
+    },
+  },
+};
+
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  linking.getInitialURL = async () => window.location.href;
+  linking.subscribe = (listener) => {
+    const onPopState = () => {
+      listener(window.location.href);
+    };
+
+    window.addEventListener('popstate', onPopState);
+
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+    };
+  };
+}
 
 function MainTabs() {
   return (
@@ -82,7 +130,11 @@ function AuthNavigator() {
   );
 }
 
-function AppNavigator({ initialRouteName }: { initialRouteName: AppEntryRoute }) {
+function AppNavigator({
+  initialRouteName,
+}: {
+  initialRouteName: AppEntryRoute | 'DemoWorkout';
+}) {
   return (
     <AppStack.Navigator
       initialRouteName={initialRouteName}
@@ -127,6 +179,11 @@ function AppNavigator({ initialRouteName }: { initialRouteName: AppEntryRoute })
         component={ProfileEdit}
         options={{ headerShown: false }}
       />
+      <AppStack.Screen
+        name="DemoWorkout"
+        component={DemoWorkout}
+        options={{ headerShown: false }}
+      />
     </AppStack.Navigator>
   );
 }
@@ -135,6 +192,7 @@ export default function RootNavigation() {
   const [user, setUser] = useState<User | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [appEntryRoute, setAppEntryRoute] = useState<AppEntryRoute>('Main');
+  const demoPath = isDemoWorkoutPath();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -152,14 +210,22 @@ export default function RootNavigation() {
     return <AppLoadingScreen />;
   }
 
+  const showAppNavigator = Boolean(user) || demoPath;
+  const navigatorInitialRoute = demoPath ? 'DemoWorkout' : appEntryRoute;
+  const navigatorKey = demoPath
+    ? 'demo-workout'
+    : user
+      ? `${user.uid}-${appEntryRoute}`
+      : 'guest';
+
   return (
     <AuthFlowContext.Provider value={{ setAppEntryRoute }}>
       <View style={styles.root}>
-        <NavigationContainer>
-          {user ? (
+        <NavigationContainer linking={showAppNavigator ? linking : undefined}>
+          {showAppNavigator ? (
             <AppNavigator
-              key={`${user.uid}-${appEntryRoute}`}
-              initialRouteName={appEntryRoute}
+              key={navigatorKey}
+              initialRouteName={navigatorInitialRoute}
             />
           ) : (
             <AuthNavigator />

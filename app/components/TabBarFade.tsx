@@ -1,17 +1,21 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet } from 'react-native';
 
+import theme, { scale } from '../theme';
+
 type TabBarFadeProps = {
-  height: number;
+  height?: number;
 };
 
 const FADE_COLORS = [
   'transparent',
-  'rgba(243,243,243,0.7)',
-  'rgba(243,243,243,0.95)',
+  'rgba(243,243,243,0.85)',
+  theme.colors.background,
 ] as const;
 
-export default function TabBarFade({ height }: TabBarFadeProps) {
+const FADE_HEIGHT = scale(100);
+
+export default function TabBarFade({ height = FADE_HEIGHT }: TabBarFadeProps) {
   return (
     <LinearGradient
       colors={[...FADE_COLORS]}
@@ -27,6 +31,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 0,
+    width: '100%',
+    zIndex: 1,
   },
 });

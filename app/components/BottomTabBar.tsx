@@ -77,17 +77,19 @@ function TabButton({
       accessibilityRole="button"
       accessibilityState={{ selected: isFocused }}
     >
-      <Animated.View
-        style={[styles.iconCircle, { transform: [{ scale: iconScale }] }]}
-      >
-        <Ionicons name={iconName} size={22} color={theme.colors.white} />
+      <Animated.View style={{ transform: [{ scale: iconScale }] }}>
+        <Ionicons
+          name={iconName}
+          size={scale(22)}
+          color={isFocused ? theme.colors.textPrimary : theme.colors.grey400}
+        />
       </Animated.View>
       <Animated.View
         style={[
           styles.activeIndicator,
           {
             opacity: indicatorOpacity,
-            transform: [{ scaleX: indicatorScale }],
+            transform: [{ scale: indicatorScale }],
           },
         ]}
       />
@@ -148,7 +150,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
     backgroundColor: 'transparent',
-    zIndex: 10,
+    zIndex: 100,
+    elevation: 100,
   },
   tabRow: {
     flexDirection: 'row',
@@ -156,24 +159,17 @@ const styles = StyleSheet.create({
     gap: scale(20),
     paddingHorizontal: scale(24),
     paddingTop: scale(8),
-    zIndex: 1,
+    zIndex: 2,
   },
   tab: {
     alignItems: 'center',
-  },
-  iconCircle: {
-    width: scale(56),
-    height: scale(56),
-    borderRadius: scale(28),
-    backgroundColor: theme.colors.dark,
-    justifyContent: 'center',
-    alignItems: 'center',
+    minWidth: scale(44),
   },
   activeIndicator: {
-    width: scale(24),
-    height: scale(3),
+    width: scale(4),
+    height: scale(4),
     borderRadius: scale(2),
     backgroundColor: theme.colors.red,
-    marginTop: scale(8),
+    marginTop: scale(6),
   },
 });

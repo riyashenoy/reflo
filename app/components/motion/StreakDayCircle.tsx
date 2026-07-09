@@ -9,6 +9,7 @@ type StreakDayCircleProps = {
   label: string;
   isCompleted: boolean;
   isToday: boolean;
+  isFuture: boolean;
   index?: number;
 };
 
@@ -16,18 +17,19 @@ export function StreakDayCircle({
   label,
   isCompleted,
   isToday,
+  isFuture,
   index = 0,
 }: StreakDayCircleProps) {
   const reduceMotion = useReducedMotion();
   const fill = useRef(new Animated.Value(isCompleted ? 1 : 0)).current;
   const checkScale = useRef(new Animated.Value(isCompleted ? 1 : 0)).current;
-  const labelOpacity = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (reduceMotion) {
       fill.setValue(isCompleted ? 1 : 0);
       checkScale.setValue(isCompleted ? 1 : 0);
-      labelOpacity.setValue(1);
+      opacity.setValue(1);
       return;
     }
 
@@ -50,39 +52,36 @@ export function StreakDayCircle({
 
   useEffect(() => {
     if (reduceMotion) {
-      labelOpacity.setValue(1);
+      opacity.setValue(1);
       return;
     }
 
-    Animated.timing(labelOpacity, {
+    Animated.timing(opacity, {
       toValue: 1,
       duration: motion.duration.normal,
       delay: index * 40,
       easing: motion.easing.out,
       useNativeDriver: true,
     }).start();
-  }, [index, labelOpacity, reduceMotion]);
+  }, [index, opacity, reduceMotion]);
 
   const backgroundColor = fill.interpolate({
     inputRange: [0, 1],
-    outputRange: [theme.colors.grey200, theme.colors.red],
+    outputRange: [
+      isToday ? theme.colors.white : theme.colors.grey200,
+      theme.colors.red,
+    ],
   });
 
+  const circleOpacity = isFuture && !isCompleted && !isToday ? 0.4 : 1;
+
   return (
-    <View style={styles.day}>
-      <Animated.Text
-        style={[
-          styles.label,
-          isToday && styles.labelToday,
-          { opacity: labelOpacity },
-        ]}
-      >
-        {label}
-      </Animated.Text>
+    <Animated.View style={[styles.day, { opacity }]}>
+      <Text style={styles.label}>{label}</Text>
       <Animated.View
         style={[
           styles.circle,
-          { backgroundColor },
+          { backgroundColor, opacity: circleOpacity },
           isToday && !isCompleted && styles.circleToday,
         ]}
       >
@@ -94,9 +93,11 @@ export function StreakDayCircle({
           </Animated.Text>
         ) : null}
       </Animated.View>
-    </View>
+    </Animated.View>
   );
 }
+
+const CIRCLE_SIZE = scale(30);
 
 const styles = StyleSheet.create({
   day: {
@@ -104,30 +105,27 @@ const styles = StyleSheet.create({
     minWidth: scale(28),
   },
   label: {
-    ...theme.typography.label,
     fontFamily: theme.fonts.label,
     fontSize: scale(9),
-    color: theme.colors.textSecondary,
-    marginBottom: scale(8),
-  },
-  labelToday: {
-    color: theme.colors.red,
+    color: theme.colors.grey400,
+    marginBottom: theme.spacing.sm,
+    textAlign: 'center',
   },
   circle: {
-    width: scale(28),
-    height: scale(28),
-    borderRadius: scale(14),
+    width: CIRCLE_SIZE,
+    height: CIRCLE_SIZE,
+    borderRadius: CIRCLE_SIZE / 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
   circleToday: {
     borderWidth: scale(2),
     borderColor: theme.colors.red,
-    backgroundColor: theme.colors.grey200,
+    backgroundColor: theme.colors.white,
   },
   checkmark: {
     color: theme.colors.white,
-    fontSize: scale(14),
+    fontSize: scale(10),
     fontWeight: '700',
   },
 });

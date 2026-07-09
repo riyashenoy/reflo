@@ -10,23 +10,21 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import {
   getLibraryWorkoutsForFilter,
+  libraryWorkouts,
   type LibraryWorkout,
 } from '../data/workoutLibrary';
-import {
-  CrossfadeText,
-  FadeInView,
-  PressableScale,
-  SegmentPill,
-  StreakDayCircle,
-} from '../components/motion';
+import { getWorkoutById, type Intensity, type Workout } from '../data/workouts';
+import { FadeInView, PressableScale, StreakDayCircle } from '../components/motion';
 import { useSavedWorkouts } from '../context/SavedWorkoutsContext';
 import { useWorkoutHistory } from '../hooks/useWorkoutHistory';
-import { getStreakHeading } from '../lib/workoutHistory';
+import { auth } from '../lib/firebase';
+import { fetchUserProfile } from '../lib/userProfile';
 import { useLayoutWidth } from '../hooks/useLayoutWidth';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
@@ -35,10 +33,55 @@ import theme, { scale } from '../theme';
 
 const FILTERS = ['Saved', 'Full Body', 'Upper Body', 'Lower Body', 'Core'] as const;
 const SAVED_FILTER = 'Saved';
-const HORIZONTAL_PADDING = scale(20);
+const HORIZONTAL_PADDING = theme.component.screenPaddingHorizontal;
+const SECTION_GAP = theme.spacing.xxxl;
+const WITHIN_SECTION_GAP = theme.spacing.lg;
 const CARD_GAP = scale(12);
 const GRID_MIN_ITEMS = 4;
 const SLIDE_MS = 320;
+const HERO_WORKOUT = libraryWorkouts[0];
+const SCROLL_BOTTOM_PADDING = scale(140);
+
+const STREAK_DAY_LABELS = ['S', 'M', 'T', 'W', 'TH', 'F', 'SA'] as const;
+const STREAK_DAY_KEYS = [
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+] as const;
+
+/** Hardcoded for now — wire to Firestore later. */
+const streakData = {
+  completedDays: ['sunday', 'monday', 'tuesday'],
+  today: 'wednesday',
+  streakCount: 3,
+};
+
+type StreakDisplayDay = {
+  key: string;
+  label: string;
+  isCompleted: boolean;
+  isToday: boolean;
+  isFuture: boolean;
+};
+
+function getStreakDaysFromData(data: typeof streakData): StreakDisplayDay[] {
+  return STREAK_DAY_KEYS.map((key, index) => {
+    const isCompleted = data.completedDays.includes(key);
+    const isToday = data.today === key;
+
+    return {
+      key,
+      label: STREAK_DAY_LABELS[index],
+      isCompleted,
+      isToday,
+      isFuture: !isCompleted && !isToday,
+    };
+  });
+}
 
 function getFilterIndex(filter: string): number {
   return FILTERS.indexOf(filter as (typeof FILTERS)[number]);
@@ -51,6 +94,28 @@ function getFilterDirection(from: string, to: string): 1 | -1 {
     return 1;
   }
   return toIndex > fromIndex ? 1 : -1;
+}
+
+function getTimeOfDayGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) {
+    return 'morning';
+  }
+  if (hour < 17) {
+    return 'afternoon';
+  }
+  return 'evening';
+}
+
+function formatIntensity(intensity: Intensity): string {
+  return intensity.charAt(0).toUpperCase() + intensity.slice(1);
+}
+
+function formatCategoryLabel(category: string): string {
+  return category
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
 }
 
 type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
@@ -85,6 +150,154 @@ function buildGridWorkouts(
   }
 
   return result;
+}
+
+function FilterPill({
+  label,
+  isActive,
+  onPress,
+}: {
+  label: string;
+  isActive: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.filterPill, isActive ? styles.filterPillActive : styles.filterPillInactive]}
+      accessibilityRole="button"
+      accessibilityState={{ selected: isActive }}
+    >
+      <Text
+        style={[
+          styles.filterPillText,
+          isActive ? styles.filterPillTextActive : styles.filterPillTextInactive,
+        ]}
+      >
+        {label.toUpperCase()}
+      </Text>
+    </Pressable>
+  );
+}
+
+function UpNextHeroCard({
+  workout,
+  workoutMeta,
+  onPress,
+}: {
+  workout: LibraryWorkout;
+  workoutMeta: Workout;
+  onPress: () => void;
+}) {
+  return (
+    <PressableScale style={styles.heroCard} onPress={onPress} scaleTo={0.98}>
+      <Image source={workout.coverImage} style={styles.heroImage} resizeMode="cover" />
+      <LinearGradient
+        colors={['rgba(20,18,18,0.1)', 'rgba(20,18,18,0.55)', 'rgba(20,18,18,0.92)']}
+        locations={[0, 0.55, 1]}
+        style={styles.heroGradient}
+      />
+      <LinearGradient
+        colors={['rgba(20,18,18,0.5)', 'transparent']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.heroLeftGradient}
+      />
+      <View style={styles.heroBadge}>
+        <Text style={styles.heroBadgeText}>UP NEXT · TODAY</Text>
+      </View>
+      <View style={styles.heroBottomRow}>
+        <View style={styles.heroTextBlock}>
+          <Text style={styles.heroTitle}>{workout.title.toUpperCase()}</Text>
+          <Text style={styles.heroMeta}>
+            {workoutMeta.duration} min · {formatIntensity(workoutMeta.intensity)} ·{' '}
+            {workoutMeta.aiTracked ? (
+              <Text style={styles.heroMetaAi}>✦ AI tracked</Text>
+            ) : (
+              'Guided'
+            )}
+          </Text>
+        </View>
+        <PressableScale
+          style={styles.heroPlayButton}
+          onPress={onPress}
+          accessibilityRole="button"
+          accessibilityLabel="Open workout"
+        >
+          <Ionicons
+            name="play"
+            size={scale(18)}
+            color={theme.colors.textPrimary}
+            style={styles.heroPlayIcon}
+          />
+        </PressableScale>
+      </View>
+    </PressableScale>
+  );
+}
+
+function WorkoutCard({
+  workout,
+  width,
+  onPress,
+  showSavedStar = false,
+  onToggleSaved,
+}: {
+  workout: LibraryWorkout;
+  width: number;
+  onPress: () => void;
+  showSavedStar?: boolean;
+  onToggleSaved?: () => void;
+}) {
+  const workoutMeta = getWorkoutById(workout.workoutId);
+
+  return (
+    <View style={[styles.workoutCard, { width }]}>
+      <View style={styles.cardImageWrap} pointerEvents="box-none">
+        <PressableScale style={styles.cardImagePressable} onPress={onPress}>
+          <View style={styles.cardImageFrame}>
+            <Image
+              source={workout.coverImage}
+              style={styles.cardImage}
+              resizeMode="cover"
+            />
+          </View>
+          {workoutMeta ? (
+            <View style={styles.durationPill}>
+              <Text style={styles.durationPillText}>
+                {workoutMeta.duration} MIN
+              </Text>
+            </View>
+          ) : null}
+        </PressableScale>
+        {showSavedStar ? (
+          <Pressable
+            style={styles.cardStarButton}
+            onPress={() => onToggleSaved?.()}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel="Remove from saved"
+          >
+            <Ionicons name="star" size={scale(12)} color={theme.colors.teal} />
+          </Pressable>
+        ) : null}
+      </View>
+      <PressableScale onPress={onPress}>
+        <Text style={styles.cardTitle}>
+          {workoutMeta?.aiTracked ? (
+            <Text style={styles.cardAiMark}>✦ </Text>
+          ) : null}
+          {workout.title.toUpperCase()}
+        </Text>
+        {workoutMeta ? (
+          <Text style={styles.cardMeta}>
+            {formatIntensity(workoutMeta.intensity)} ·{' '}
+            {formatCategoryLabel(workout.category)}
+          </Text>
+        ) : null}
+      </PressableScale>
+    </View>
+  );
 }
 
 function WorkoutGrid({
@@ -145,66 +358,10 @@ function WorkoutGrid({
   );
 }
 
-function FilterPill({
-  label,
-  isActive,
-  onPress,
-}: {
-  label: string;
-  isActive: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <SegmentPill label={label} isActive={isActive} onPress={onPress} />
-  );
-}
-
-function WorkoutCard({
-  workout,
-  width,
-  onPress,
-  showSavedStar = false,
-  onToggleSaved,
-}: {
-  workout: LibraryWorkout;
-  width: number;
-  onPress: () => void;
-  showSavedStar?: boolean;
-  onToggleSaved?: () => void;
-}) {
-  return (
-    <View style={[styles.workoutCard, { width }]}>
-      <View style={styles.cardImageWrap} pointerEvents="box-none">
-        <PressableScale style={styles.cardImagePressable} onPress={onPress}>
-          <Image
-            source={workout.coverImage}
-            style={styles.cardImage}
-            resizeMode="cover"
-          />
-        </PressableScale>
-        {showSavedStar ? (
-          <Pressable
-            style={styles.cardStarButton}
-            onPress={() => onToggleSaved?.()}
-            hitSlop={6}
-            accessibilityRole="button"
-            accessibilityLabel="Remove from saved"
-          >
-            <Ionicons name="star" size={scale(12)} color={theme.colors.teal} />
-          </Pressable>
-        ) : null}
-      </View>
-      <PressableScale onPress={onPress}>
-        <Text style={styles.cardTitle}>{workout.title.toUpperCase()}</Text>
-      </PressableScale>
-    </View>
-  );
-}
-
 export default function Home() {
   const navigation = useNavigation<NavigationProp>();
   const { savedIds, toggleSaved } = useSavedWorkouts();
-  const { streak, weekStreakDays } = useWorkoutHistory();
+  const { weekStreakDays } = useWorkoutHistory();
   const tabTopPadding = useTabScreenTopPadding();
   const layoutWidth = useLayoutWidth();
   const reduceMotion = useReducedMotion();
@@ -213,11 +370,51 @@ export default function Home() {
   const [outgoingFilter, setOutgoingFilter] = useState<string | null>(null);
   const [incomingFilter, setIncomingFilter] = useState<string | null>(null);
   const [transitionDirection, setTransitionDirection] = useState<1 | -1>(1);
+  const [firstName, setFirstName] = useState<string | null>(null);
   const transitionProgress = useRef(new Animated.Value(1)).current;
   const isAnimatingFilter = useRef(false);
 
+  const streakDays = useMemo(() => getStreakDaysFromData(streakData), []);
+  const todayWorkoutDone = weekStreakDays.some(
+    (day) => day.isToday && day.isCompleted
+  );
+
+  const heroWorkoutMeta = getWorkoutById(HERO_WORKOUT.workoutId);
+
   const contentWidth = layoutWidth - HORIZONTAL_PADDING * 2;
   const cardWidth = (contentWidth - CARD_GAP) / 2;
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+
+      const loadProfile = async () => {
+        const uid = auth.currentUser?.uid;
+        if (!uid) {
+          return;
+        }
+
+        try {
+          const profile = await fetchUserProfile(uid);
+          if (!cancelled) {
+            const name = profile?.name?.split(' ')[0]?.trim();
+            setFirstName(name || null);
+          }
+        } catch {
+          if (!cancelled) {
+            const name = auth.currentUser?.displayName?.split(' ')[0]?.trim();
+            setFirstName(name || null);
+          }
+        }
+      };
+
+      void loadProfile();
+
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
 
   const handleWorkoutPress = useCallback(
     (libraryId: string) => {
@@ -290,6 +487,8 @@ export default function Home() {
       })
     : 0;
 
+  const timeGreeting = getTimeOfDayGreeting();
+
   const listHeader = useMemo(
     () => (
       <View style={[styles.headerContent, { paddingTop: tabTopPadding }]}>
@@ -298,29 +497,49 @@ export default function Home() {
           style={styles.logo}
         />
 
-        <FadeInView delay={80}>
-          <CrossfadeText
-            text={getStreakHeading(streak)}
-            style={styles.heading}
-          />
+        <FadeInView delay={80} style={styles.greetingBlock}>
+          <Text style={styles.greetingLine}>
+            {firstName
+              ? `Good ${timeGreeting}, ${firstName}`
+              : `Good ${timeGreeting}.`}
+          </Text>
+          <Text style={styles.greetingHeadline}>
+            {todayWorkoutDone ? 'You showed up.' : 'Keep it going.'}
+          </Text>
         </FadeInView>
 
-        <View style={styles.streakRow}>
-          {weekStreakDays.map((day, index) => (
-            <StreakDayCircle
-              key={day.dateKey}
-              label={day.label}
-              isCompleted={day.isCompleted}
-              isToday={day.isToday}
-              index={index}
-            />
-          ))}
+        <View style={styles.streakSection}>
+          <View style={styles.streakRow}>
+            {streakDays.map((day, index) => (
+              <StreakDayCircle
+                key={day.key}
+                label={day.label}
+                isCompleted={day.isCompleted}
+                isToday={day.isToday}
+                isFuture={day.isFuture}
+                index={index}
+              />
+            ))}
+          </View>
+          <Text style={styles.streakCaption}>
+            {streakData.streakCount} day streak 🔥
+          </Text>
         </View>
 
-        <Text style={styles.sectionHeading}>Workout Library</Text>
+        {heroWorkoutMeta ? (
+          <UpNextHeroCard
+            workout={HERO_WORKOUT}
+            workoutMeta={heroWorkoutMeta}
+            onPress={() => handleWorkoutPress(HERO_WORKOUT.id)}
+          />
+        ) : null}
 
-        <View style={styles.filterSection}>
-          <Text style={styles.sectionSubtitle}>PICK YOUR WORKOUT</Text>
+        <View style={styles.librarySection}>
+          <View style={styles.libraryHeaderRow}>
+            <Text style={styles.sectionHeading}>Workout Library</Text>
+            <Text style={styles.seeAll}>See all</Text>
+          </View>
+
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -338,7 +557,17 @@ export default function Home() {
         </View>
       </View>
     ),
-    [handleFilterPress, selectedFilter, streak, tabTopPadding, weekStreakDays]
+    [
+      firstName,
+      handleFilterPress,
+      handleWorkoutPress,
+      heroWorkoutMeta,
+      selectedFilter,
+      streakDays,
+      tabTopPadding,
+      timeGreeting,
+      todayWorkoutDone,
+    ]
   );
 
   return (
@@ -385,66 +614,177 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: HORIZONTAL_PADDING,
-    paddingBottom: scale(120),
+    paddingBottom: SCROLL_BOTTOM_PADDING,
   },
   headerContent: {
-    paddingBottom: scale(8),
+    gap: SECTION_GAP,
+  },
+  logo: {
+    width: scale(64),
+    height: scale(32),
+    resizeMode: 'contain',
+  },
+  greetingBlock: {
+    gap: scale(4),
+  },
+  greetingLine: {
+    fontFamily: theme.fonts.body,
+    fontSize: scale(13),
+    color: theme.colors.textSecondary,
+  },
+  greetingHeadline: {
+    fontFamily: theme.fonts.header,
+    fontSize: scale(34),
+    letterSpacing: scale(-0.5),
+    color: theme.colors.textPrimary,
+  },
+  streakSection: {
+    gap: WITHIN_SECTION_GAP,
+  },
+  streakRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: scale(2),
+  },
+  streakCaption: {
+    fontFamily: theme.fonts.bodyMedium,
+    fontSize: scale(12),
+    color: theme.colors.textPrimary,
+  },
+  heroCard: {
+    height: scale(200),
+    borderRadius: theme.radius.xl,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+  },
+  heroImage: {
+    ...StyleSheet.absoluteFill,
+    width: '100%',
+    height: '100%',
+  },
+  heroGradient: {
+    ...StyleSheet.absoluteFill,
+  },
+  heroLeftGradient: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: '60%',
+  },
+  heroBadge: {
+    position: 'absolute',
+    top: theme.spacing.lg,
+    left: theme.spacing.lg,
+    paddingHorizontal: scale(10),
+    paddingVertical: scale(6),
+    borderRadius: theme.radius.full,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderWidth: scale(0.5),
+    borderColor: theme.colors.white,
+  },
+  heroBadgeText: {
+    fontFamily: theme.fonts.label,
+    fontSize: scale(9),
+    letterSpacing: scale(1.5),
+    color: theme.colors.white,
+    textTransform: 'uppercase',
+  },
+  heroBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    padding: theme.spacing.lg,
+    gap: theme.spacing.md,
+  },
+  heroTextBlock: {
+    flex: 1,
+    gap: scale(4),
+  },
+  heroTitle: {
+    fontFamily: theme.fonts.header,
+    fontSize: scale(22),
+    color: theme.colors.white,
+  },
+  heroMeta: {
+    fontFamily: theme.fonts.body,
+    fontSize: scale(12),
+    color: 'rgba(255,255,255,0.7)',
+  },
+  heroMetaAi: {
+    color: theme.colors.teal,
+  },
+  heroPlayButton: {
+    width: scale(48),
+    height: scale(48),
+    borderRadius: scale(24),
+    backgroundColor: theme.colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroPlayIcon: {
+    marginLeft: scale(2),
+  },
+  librarySection: {
+    gap: WITHIN_SECTION_GAP,
+  },
+  libraryHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  sectionHeading: {
+    flex: 1,
+    flexShrink: 1,
+    fontFamily: theme.fonts.header,
+    fontSize: scale(20),
+    color: theme.colors.textPrimary,
+  },
+  seeAll: {
+    flexShrink: 0,
+    fontFamily: theme.fonts.body,
+    fontSize: scale(12),
+    color: theme.colors.red,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+    paddingRight: scale(4),
+  },
+  filterPill: {
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(8),
+    borderRadius: theme.radius.full,
+  },
+  filterPillActive: {
+    backgroundColor: theme.colors.textPrimary,
+  },
+  filterPillInactive: {
+    backgroundColor: 'transparent',
+    borderWidth: scale(1),
+    borderColor: theme.colors.border,
+  },
+  filterPillText: {
+    fontFamily: theme.fonts.label,
+    fontSize: scale(10),
+    letterSpacing: scale(0.88),
+    textTransform: 'uppercase',
+  },
+  filterPillTextActive: {
+    color: theme.colors.white,
+  },
+  filterPillTextInactive: {
+    color: theme.colors.textSecondary,
   },
   gridContainer: {
     minHeight: scale(200),
     overflow: 'hidden',
     alignSelf: 'center',
+    marginTop: WITHIN_SECTION_GAP,
   },
   gridStrip: {
     flexDirection: 'row',
-  },
-  logo: {
-    width: scale(72),
-    height: scale(36),
-    resizeMode: 'contain',
-    marginBottom: scale(20),
-  },
-  heading: {
-    ...theme.typography.header,
-    fontFamily: theme.fonts.header,
-    color: theme.colors.textPrimary,
-    marginBottom: scale(24),
-  },
-  streakRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: scale(36),
-    paddingHorizontal: scale(2),
-  },
-  sectionHeading: {
-    ...theme.typography.mediumHeader,
-    fontFamily: theme.fonts.header,
-    color: theme.colors.textPrimary,
-    marginBottom: scale(20),
-  },
-  filterSection: {
-    marginBottom: scale(20),
-  },
-  sectionSubtitle: {
-    ...theme.typography.label,
-    fontFamily: theme.fonts.label,
-    color: theme.colors.textSecondary,
-    marginBottom: scale(10),
-  },
-  filterRow: {
-    flexDirection: 'row',
-    gap: scale(10),
-    paddingRight: scale(4),
-  },
-  filterPill: {
-    paddingHorizontal: scale(18),
-    paddingVertical: scale(10),
-    borderRadius: theme.radius.full,
-  },
-  filterPillText: {
-    ...theme.typography.label,
-    fontFamily: theme.fonts.label,
-    color: theme.colors.white,
   },
   cardRow: {
     flexDirection: 'row',
@@ -455,26 +795,49 @@ const styles = StyleSheet.create({
     marginBottom: scale(4),
     flexGrow: 0,
     flexShrink: 0,
+    gap: scale(6),
   },
   cardImageWrap: {
     position: 'relative',
     width: '100%',
-    marginBottom: scale(10),
-    borderRadius: theme.radius.sm,
+    borderRadius: scale(14),
     overflow: 'hidden',
   },
   cardImagePressable: {
     width: '100%',
   },
-  cardImage: {
+  cardImageFrame: {
     width: '100%',
-    aspectRatio: 1,
+    aspectRatio: 4 / 5,
+    overflow: 'hidden',
     backgroundColor: theme.colors.grey200,
+  },
+  cardImage: {
+    ...StyleSheet.absoluteFill,
+    width: '100%',
+    height: '100%',
+  },
+  durationPill: {
+    position: 'absolute',
+    top: theme.spacing.sm,
+    right: theme.spacing.sm,
+    paddingHorizontal: scale(6),
+    paddingVertical: scale(3),
+    borderRadius: theme.radius.sm,
+    backgroundColor: 'rgba(20,18,18,0.6)',
+    borderWidth: scale(1),
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  durationPillText: {
+    fontFamily: theme.fonts.label,
+    fontSize: scale(9),
+    color: theme.colors.white,
+    textTransform: 'uppercase',
   },
   cardStarButton: {
     position: 'absolute',
     top: theme.spacing.sm,
-    right: theme.spacing.sm,
+    left: theme.spacing.sm,
     width: scale(24),
     height: scale(24),
     borderRadius: scale(12),
@@ -485,9 +848,18 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   cardTitle: {
-    ...theme.typography.label,
     fontFamily: theme.fonts.label,
+    fontSize: scale(11),
     color: theme.colors.textPrimary,
+    paddingHorizontal: scale(2),
+  },
+  cardAiMark: {
+    color: theme.colors.teal,
+  },
+  cardMeta: {
+    fontFamily: theme.fonts.body,
+    fontSize: scale(10),
+    color: theme.colors.grey400,
     paddingHorizontal: scale(2),
   },
   emptySavedState: {

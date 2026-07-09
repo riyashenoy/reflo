@@ -7,7 +7,6 @@ import {
   useState,
 } from 'react';
 import {
-  Animated,
   Platform,
   StyleSheet,
   Text,
@@ -16,11 +15,18 @@ import {
 import { Audio, type AVPlaybackStatus } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import Svg, { Circle } from 'react-native-svg';
 
-import DashedBorderOverlay from '../components/DashedBorderOverlay';
 import LiveWorkoutNativeCamera from '../components/LiveWorkoutNativeCamera';
 import { FadeSlideOverlay, PressableScale } from '../components/motion';
+import {
+  ExerciseProgressRingFromExercise,
+  getWorkoutMainContentPadding,
+  WORKOUT_TOP_BAR_TOP,
+  WorkoutBackButton,
+  WorkoutTopBar,
+  WorkoutVideoFrame,
+  workoutBottomPanelStyles,
+} from '../components/workout/WorkoutChrome';
 import { getWorkoutById } from '../data/workouts';
 import {
   configureWorkoutAudioMode,
@@ -33,8 +39,6 @@ import {
   type PoseExercise,
   type SessionLogEntry,
 } from '../hooks/usePoseDetection';
-import { useReducedMotion } from '../hooks/useReducedMotion';
-import { motion } from '../lib/motion';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
 
@@ -93,15 +97,6 @@ const CLIP_MAP: Record<string, number> = {
   '13': require('../../assets/audio/13.mp3'),
 };
 
-function formatTimer(seconds: number) {
-  const total = Math.max(0, Math.floor(seconds));
-  return (
-    Math.floor(total / 60) +
-    ':' +
-    (total % 60).toString().padStart(2, '0')
-  );
-}
-
 function getTrackDurationSeconds(
   workout: NonNullable<ReturnType<typeof getWorkoutById>>
 ) {
@@ -122,91 +117,6 @@ function getClipForError(errorKey: string): string {
   };
   return map[errorKey] ?? '01';
 }
-
-const WorkoutTimer = memo(function WorkoutTimer({
-  seconds,
-}: {
-  seconds: number;
-}) {
-  return <Text style={styles.timerText}>{formatTimer(seconds)}</Text>;
-});
-
-const PROGRESS_RADIUS = 20;
-const PROGRESS_CIRCUMFERENCE = 2 * Math.PI * PROGRESS_RADIUS;
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
-const ExerciseProgressCircle = memo(function ExerciseProgressCircle({
-  currentExercise,
-}: {
-  currentExercise: PoseExercise;
-}) {
-  const reduceMotion = useReducedMotion();
-  const exerciseNumber =
-    currentExercise === 'hundred'
-      ? 1
-      : currentExercise === 'long_stretch'
-        ? 2
-        : currentExercise === 'footwork_toes'
-          ? 3
-          : 0;
-  const progress = exerciseNumber / 3;
-  const animatedProgress = useRef(new Animated.Value(progress)).current;
-  const numberScale = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    Animated.timing(animatedProgress, {
-      toValue: progress,
-      duration: reduceMotion ? 0 : motion.duration.slow,
-      easing: motion.easing.out,
-      useNativeDriver: false,
-    }).start();
-
-    if (!reduceMotion && exerciseNumber > 0) {
-      numberScale.setValue(0.92);
-      Animated.spring(numberScale, {
-        toValue: 1,
-        ...motion.spring.gentle,
-      }).start();
-    }
-  }, [animatedProgress, exerciseNumber, numberScale, progress, reduceMotion]);
-
-  const strokeDashoffset = animatedProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [PROGRESS_CIRCUMFERENCE, 0],
-  });
-
-  return (
-    <View style={styles.progressCircle}>
-      <Svg width={52} height={52} style={styles.progressSvg}>
-        <Circle
-          cx={26}
-          cy={26}
-          r={PROGRESS_RADIUS}
-          fill="none"
-          stroke="#ffffff22"
-          strokeWidth={3}
-        />
-        <AnimatedCircle
-          cx={26}
-          cy={26}
-          r={PROGRESS_RADIUS}
-          fill="none"
-          stroke="#CC1D1D"
-          strokeWidth={3}
-          strokeDasharray={PROGRESS_CIRCUMFERENCE}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
-          transform="rotate(-90 26 26)"
-        />
-      </Svg>
-      <Animated.Text
-        style={[styles.progressNumber, { transform: [{ scale: numberScale }] }]}
-      >
-        {exerciseNumber || '–'}
-      </Animated.Text>
-    </View>
-  );
-});
 
 function LiveWorkout({ route, navigation }: Props) {
   const { workoutId, libraryId, dateKey } = route.params ?? {};
@@ -615,16 +525,9 @@ function LiveWorkout({ route, navigation }: Props) {
   if (!workout) {
     return (
       <View style={styles.container}>
-        <PressableScale
-          style={[
-            styles.pillButton,
-            styles.backButton,
-            { top: insets.top + scale(12) },
-          ]}
-          onPress={handleBack}
-        >
-          <Text style={styles.pillButtonText}>←</Text>
-        </PressableScale>
+        <View style={{ paddingTop: insets.top + WORKOUT_TOP_BAR_TOP, paddingLeft: scale(20) }}>
+          <WorkoutBackButton onPress={handleBack} />
+        </View>
         <Text style={styles.notFound}>Workout not found</Text>
       </View>
     );
@@ -638,117 +541,130 @@ function LiveWorkout({ route, navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.cameraSection}>
-        {workoutStarted ? (
-          Platform.OS === 'web' ? (
-            <>
-              {createElement('video', {
-                key: 'camera-feed',
-                ref: setVideoNode,
-                style: {
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  transform: 'scaleX(-1)',
-                },
-                autoPlay: true,
-                playsInline: true,
-                muted: true,
-              })}
-              {createElement('canvas', {
-                key: 'skeleton-overlay',
-                ref: setCanvasNode,
-                style: {
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  pointerEvents: 'none',
-                  zIndex: 2,
-                },
-              })}
-            </>
-          ) : (
-            <LiveWorkoutNativeCamera />
-          )
-        ) : (
-          <View style={styles.cameraPlaceholder} />
-        )}
+      <WorkoutTopBar
+        top={insets.top + WORKOUT_TOP_BAR_TOP}
+        onBack={handleBack}
+        timerSeconds={remainingSeconds}
+        rightSlot={
+          <PressableScale onPress={() => void skipToEnd()}>
+            <Text style={workoutBottomPanelStyles.skipText}>Skip</Text>
+          </PressableScale>
+        }
+      />
 
-        <DashedBorderOverlay />
-
-        <FadeSlideOverlay visible={showOnboarding}>
-          <View style={styles.onboardingCard}>
-            <View style={styles.onboardingGifPlaceholder}>
-              <Text style={styles.onboardingGifLabel}>
-                Place your device where your full body is visible from the side
-              </Text>
-            </View>
-            <Text style={styles.onboardingHint}>
-              AI corrections will be announced with a ding so you know when to
-              listen
-            </Text>
-            <PressableScale style={styles.readyButton} onPress={handleReady}>
-              <Text style={styles.readyButtonText}>I&apos;m Ready</Text>
-            </PressableScale>
-          </View>
-        </FadeSlideOverlay>
-
-        <View
-          style={[styles.topBar, { paddingTop: insets.top + scale(8) }]}
-          pointerEvents="box-none"
+      <View
+        style={[
+          styles.mainContent,
+          { paddingTop: getWorkoutMainContentPadding(insets.top) },
+        ]}
+      >
+        <WorkoutVideoFrame
+          overlay={
+            <FadeSlideOverlay visible={showOnboarding}>
+              <View style={styles.onboardingCard}>
+                <View style={styles.onboardingGifPlaceholder}>
+                  <Text style={styles.onboardingGifLabel}>
+                    Place your device where your full body is visible from the
+                    side
+                  </Text>
+                </View>
+                <Text style={styles.onboardingHint}>
+                  AI corrections will be announced with a ding so you know when
+                  to listen
+                </Text>
+                <PressableScale style={styles.readyButton} onPress={handleReady}>
+                  <Text style={styles.readyButtonText}>I&apos;m Ready</Text>
+                </PressableScale>
+              </View>
+            </FadeSlideOverlay>
+          }
         >
-          <PressableScale
-            style={[styles.pillButton, styles.backButton]}
-            onPress={handleBack}
-          >
-            <Text style={styles.pillButtonText}>←</Text>
-          </PressableScale>
-
-          <View style={[styles.pillButton, styles.timerPill]}>
-            <WorkoutTimer seconds={remainingSeconds} />
-          </View>
-
-          <PressableScale
-            style={[styles.pillButton, styles.skipButton]}
-            onPress={() => void skipToEnd()}
-          >
-            <Text style={styles.skipButtonText}>Skip</Text>
-          </PressableScale>
-        </View>
+          {workoutStarted ? (
+            Platform.OS === 'web' ? (
+              <>
+                {createElement('video', {
+                  key: 'camera-feed',
+                  ref: setVideoNode,
+                  style: {
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    transform: 'scaleX(-1)',
+                  },
+                  autoPlay: true,
+                  playsInline: true,
+                  muted: true,
+                })}
+                {createElement('canvas', {
+                  key: 'skeleton-overlay',
+                  ref: setCanvasNode,
+                  style: {
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    pointerEvents: 'none',
+                    zIndex: 2,
+                  },
+                })}
+              </>
+            ) : (
+              <LiveWorkoutNativeCamera />
+            )
+          ) : (
+            <View style={styles.cameraPlaceholder} />
+          )}
+        </WorkoutVideoFrame>
       </View>
 
-      <View style={styles.bottomPanel}>
-        <View style={styles.bottomPanelMain}>
-          <Text style={styles.exerciseName}>
-            {EXERCISE_LABELS[currentExercise]}
-          </Text>
-          <Text style={styles.currentExerciseLabel}>CURRENT EXERCISE</Text>
-
-          <View style={styles.statsRow}>
-            <View style={styles.statColumn}>
-              <Text style={styles.statText}>{workout.duration} min</Text>
-            </View>
-            <View style={[styles.statColumn, styles.statColumnDivider]}>
-              <Text style={styles.statText}>
-                {workout.intensity.charAt(0).toUpperCase() +
-                  workout.intensity.slice(1)}
-              </Text>
-            </View>
-            <View style={[styles.statColumn, styles.statColumnDivider]}>
-              <Text style={styles.statText}>AI Tracked</Text>
-            </View>
+      <View style={workoutBottomPanelStyles.panel}>
+        <View style={workoutBottomPanelStyles.titleRow}>
+          <View style={workoutBottomPanelStyles.titleBlock}>
+            <Text style={workoutBottomPanelStyles.exerciseName}>
+              {EXERCISE_LABELS[currentExercise]}
+            </Text>
+            <Text style={workoutBottomPanelStyles.currentExerciseLabel}>
+              CURRENT EXERCISE
+            </Text>
           </View>
+          <ExerciseProgressRingFromExercise
+            currentExercise={currentExercise}
+          />
         </View>
 
-        <ExerciseProgressCircle currentExercise={currentExercise} />
+        <View style={workoutBottomPanelStyles.statsRow}>
+          <View style={workoutBottomPanelStyles.statItem}>
+            <Text style={workoutBottomPanelStyles.statText}>
+              {workout.duration} min
+            </Text>
+          </View>
+          <View
+            style={[
+              workoutBottomPanelStyles.statItem,
+              workoutBottomPanelStyles.statItemDivider,
+            ]}
+          >
+            <Text style={workoutBottomPanelStyles.statText}>
+              {workout.intensity.charAt(0).toUpperCase() +
+                workout.intensity.slice(1)}
+            </Text>
+          </View>
+          <View
+            style={[
+              workoutBottomPanelStyles.statItem,
+              workoutBottomPanelStyles.statItemDivider,
+            ]}
+          >
+            <Text style={workoutBottomPanelStyles.statText}>AI Tracked</Text>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -759,59 +675,14 @@ export default memo(LiveWorkout);
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.workoutBg,
-  },
-  cameraSection: {
-    flex: 1,
     backgroundColor: theme.colors.dark,
-    overflow: 'hidden',
   },
-  topBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: scale(16),
-    paddingBottom: scale(8),
-    zIndex: 20,
-    elevation: 20,
-  },
-  skipButton: {
-    minWidth: scale(56),
-    height: scale(40),
-    paddingHorizontal: scale(14),
-  },
-  skipButtonText: {
-    ...theme.typography.body,
-    color: theme.colors.white,
-    fontSize: scale(13),
-    fontFamily: theme.fonts.bodyMedium,
+  mainContent: {
+    flex: 1,
   },
   cameraPlaceholder: {
     ...StyleSheet.absoluteFill,
     backgroundColor: theme.colors.dark,
-  },
-  progressCircle: {
-    width: scale(52),
-    height: scale(52),
-    borderRadius: scale(26),
-    backgroundColor: theme.colors.dark,
-    borderWidth: scale(1),
-    borderColor: `${theme.colors.white}22`,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  progressSvg: {
-    position: 'absolute',
-  },
-  progressNumber: {
-    color: theme.colors.white,
-    fontSize: scale(16),
-    fontFamily: theme.fonts.bodyMedium,
-    fontWeight: '500',
   },
   onboardingOverlay: {
     ...StyleSheet.absoluteFill,
@@ -867,69 +738,6 @@ const styles = StyleSheet.create({
   readyButtonText: {
     ...theme.typography.label,
     fontFamily: theme.fonts.label,
-    color: theme.colors.white,
-  },
-  pillButton: {
-    backgroundColor: '#00000066',
-    borderRadius: theme.radius.xl,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minWidth: scale(40),
-    height: scale(40),
-    paddingHorizontal: scale(12),
-  },
-  backButton: {
-    width: scale(40),
-  },
-  timerPill: {
-    minWidth: scale(72),
-  },
-  pillButtonText: {
-    ...theme.typography.body,
-    color: theme.colors.white,
-    fontSize: scale(16),
-  },
-  timerText: {
-    ...theme.typography.body,
-    fontFamily: theme.fonts.bodyMedium,
-    color: theme.colors.white,
-    fontSize: scale(16),
-  },
-  bottomPanel: {
-    backgroundColor: theme.colors.workoutBg,
-    padding: scale(20),
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-  },
-  bottomPanelMain: {
-    flex: 1,
-    paddingRight: scale(16),
-  },
-  exerciseName: {
-    ...theme.typography.mediumHeader,
-    fontFamily: theme.fonts.header,
-    color: theme.colors.white,
-    marginBottom: scale(4),
-  },
-  currentExerciseLabel: {
-    ...theme.typography.label,
-    fontFamily: theme.fonts.label,
-    color: `${theme.colors.white}66`,
-    marginBottom: scale(12),
-  },
-  statsRow: {
-    flexDirection: 'row',
-  },
-  statColumn: {
-    paddingHorizontal: scale(8),
-  },
-  statColumnDivider: {
-    borderLeftWidth: scale(1),
-    borderLeftColor: `${theme.colors.white}33`,
-  },
-  statText: {
-    ...theme.typography.body,
     color: theme.colors.white,
   },
   notFound: {

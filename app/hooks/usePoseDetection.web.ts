@@ -131,7 +131,8 @@ export function usePoseDetection(
   workoutStarted: boolean,
   currentErrorsRef?: RefObject<Set<string>>,
   onErrorStateChange?: ErrorStateChangeHandler,
-  sustainedCleanRef?: RefObject<boolean>
+  sustainedCleanRef?: RefObject<boolean>,
+  mirrorOverlay = true
 ) {
   const [isDetecting, setIsDetecting] = useState(false);
   const landmarkHistory = useRef<Landmark[][]>([]);
@@ -141,6 +142,7 @@ export function usePoseDetection(
   const currentErrorsRefStable = useRef(currentErrorsRef);
   const onErrorStateChangeRef = useRef(onErrorStateChange);
   const sustainedCleanRefStable = useRef(sustainedCleanRef);
+  const mirrorOverlayRef = useRef(mirrorOverlay);
   const errorCooldownTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map()
   );
@@ -152,6 +154,7 @@ export function usePoseDetection(
   currentErrorsRefStable.current = currentErrorsRef;
   onErrorStateChangeRef.current = onErrorStateChange;
   sustainedCleanRefStable.current = sustainedCleanRef;
+  mirrorOverlayRef.current = mirrorOverlay;
 
   const clearErrorCooldowns = () => {
     errorCooldownTimers.current.forEach((timeoutId) => {
@@ -355,7 +358,8 @@ export function usePoseDetection(
                   canvas,
                   video,
                   currentErrorsRefStable.current?.current ?? new Set(),
-                  sustainedCleanRefStable.current?.current ?? false
+                  sustainedCleanRefStable.current?.current ?? false,
+                  mirrorOverlayRef.current
                 );
               }
             } catch (error) {
