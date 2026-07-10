@@ -20,7 +20,7 @@ import {
   type LibraryWorkout,
 } from '../data/workoutLibrary';
 import { getWorkoutById, type Intensity, type Workout } from '../data/workouts';
-import { FadeInView, PressableScale, StreakDayCircle } from '../components/motion';
+import { FadeInView, PressableScale } from '../components/motion';
 import { useSavedWorkouts } from '../context/SavedWorkoutsContext';
 import { useWorkoutHistory } from '../hooks/useWorkoutHistory';
 import { auth } from '../lib/firebase';
@@ -33,14 +33,15 @@ import theme, { scale } from '../theme';
 
 const FILTERS = ['Saved', 'Full Body', 'Upper Body', 'Lower Body', 'Core'] as const;
 const SAVED_FILTER = 'Saved';
-const HORIZONTAL_PADDING = theme.component.screenPaddingHorizontal;
-const SECTION_GAP = theme.spacing.xxxl;
-const WITHIN_SECTION_GAP = theme.spacing.lg;
+const HORIZONTAL_PADDING = scale(20);
+const SECTION_GAP = scale(32);
 const CARD_GAP = scale(12);
 const GRID_MIN_ITEMS = 4;
 const SLIDE_MS = 320;
 const HERO_WORKOUT = libraryWorkouts[0];
 const SCROLL_BOTTOM_PADDING = scale(140);
+/** Darker than theme.grey400 (#BABABA) for readable muted labels on #F3F3F3. */
+const MUTED_TEXT = '#6B6B6B';
 
 const STREAK_DAY_LABELS = ['S', 'M', 'T', 'W', 'TH', 'F', 'SA'] as const;
 const STREAK_DAY_KEYS = [
@@ -118,6 +119,15 @@ function formatCategoryLabel(category: string): string {
     .join(' ');
 }
 
+function toSentenceCase(value: string): string {
+  const lower = value.toLowerCase();
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
+}
+
+function formatIndex(index: number): string {
+  return String(index + 1).padStart(2, '0');
+}
+
 type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
 
 type GridLibraryWorkout = LibraryWorkout & { gridKey: string };
@@ -152,6 +162,52 @@ function buildGridWorkouts(
   return result;
 }
 
+function StreakSquare({ day }: { day: StreakDisplayDay }) {
+  if (day.isToday) {
+    return (
+      <View style={styles.streakSquareTodayRing}>
+        <View style={styles.streakSquareToday} />
+      </View>
+    );
+  }
+
+  return (
+    <View
+      style={[
+        styles.streakSquare,
+        day.isCompleted ? styles.streakSquareCompleted : styles.streakSquareFuture,
+      ]}
+    />
+  );
+}
+
+function StreakRail({
+  days,
+  streakCount,
+}: {
+  days: StreakDisplayDay[];
+  streakCount: number;
+}) {
+  return (
+    <View style={styles.streakRail}>
+      <View style={styles.streakCountBlock}>
+        <Text style={styles.streakCountNumber}>
+          {String(streakCount).padStart(2, '0')}
+        </Text>
+        <Text style={styles.streakCountLabel}>DAY STREAK</Text>
+      </View>
+      <View style={styles.streakRailColumns}>
+        {days.map((day) => (
+          <View key={day.key} style={styles.streakColumn}>
+            <Text style={styles.streakDayLabel}>{day.label}</Text>
+            <StreakSquare day={day} />
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 function FilterPill({
   label,
   isActive,
@@ -164,18 +220,20 @@ function FilterPill({
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.filterPill, isActive ? styles.filterPillActive : styles.filterPillInactive]}
+      style={styles.filterTab}
       accessibilityRole="button"
       accessibilityState={{ selected: isActive }}
     >
-      <Text
-        style={[
-          styles.filterPillText,
-          isActive ? styles.filterPillTextActive : styles.filterPillTextInactive,
-        ]}
-      >
-        {label.toUpperCase()}
-      </Text>
+      <View style={isActive ? styles.filterTabActive : undefined}>
+        <Text
+          style={[
+            styles.filterTabText,
+            isActive ? styles.filterTabTextActive : styles.filterTabTextInactive,
+          ]}
+        >
+          {label.toUpperCase()}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -193,43 +251,40 @@ function UpNextHeroCard({
     <PressableScale style={styles.heroCard} onPress={onPress} scaleTo={0.98}>
       <Image source={workout.coverImage} style={styles.heroImage} resizeMode="cover" />
       <LinearGradient
-        colors={['rgba(20,18,18,0.1)', 'rgba(20,18,18,0.55)', 'rgba(20,18,18,0.92)']}
-        locations={[0, 0.55, 1]}
+        colors={['transparent', 'rgba(20,18,18,0.95)']}
+        locations={[0.35, 1]}
         style={styles.heroGradient}
       />
-      <LinearGradient
-        colors={['rgba(20,18,18,0.5)', 'transparent']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.heroLeftGradient}
-      />
-      <View style={styles.heroBadge}>
-        <Text style={styles.heroBadgeText}>UP NEXT · TODAY</Text>
+      <View style={styles.heroEyebrow}>
+        <Text style={styles.heroEyebrowNum}>01</Text>
+        <Text style={styles.heroEyebrowLabel}> / TODAY</Text>
       </View>
       <View style={styles.heroBottomRow}>
         <View style={styles.heroTextBlock}>
-          <Text style={styles.heroTitle}>{workout.title.toUpperCase()}</Text>
-          <Text style={styles.heroMeta}>
-            {workoutMeta.duration} min · {formatIntensity(workoutMeta.intensity)} ·{' '}
+          <Text style={styles.heroTitle}>{toSentenceCase(workout.title)}</Text>
+          <View style={styles.heroMetaRow}>
+            <Text style={styles.heroMetaPrimary}>
+              {workoutMeta.duration} MIN / {formatIntensity(workoutMeta.intensity).toUpperCase()}
+            </Text>
+            <Text style={styles.heroMetaSeparator}> · </Text>
             {workoutMeta.aiTracked ? (
-              <Text style={styles.heroMetaAi}>✦ AI tracked</Text>
+              <View style={styles.heroMetaAiRow}>
+                <View style={styles.metaSquare} />
+                <Text style={styles.heroMetaAi}>AI TRACKED</Text>
+              </View>
             ) : (
-              'Guided'
+              <Text style={styles.heroMetaPrimary}>GUIDED</Text>
             )}
-          </Text>
+          </View>
         </View>
         <PressableScale
-          style={styles.heroPlayButton}
           onPress={onPress}
+          style={styles.heroBeginWrap}
           accessibilityRole="button"
-          accessibilityLabel="Open workout"
+          accessibilityLabel="Begin workout"
         >
-          <Ionicons
-            name="play"
-            size={scale(18)}
-            color={theme.colors.textPrimary}
-            style={styles.heroPlayIcon}
-          />
+          <Text style={styles.heroBegin}>BEGIN</Text>
+          <View style={styles.heroBeginUnderline} />
         </PressableScale>
       </View>
     </PressableScale>
@@ -239,12 +294,14 @@ function UpNextHeroCard({
 function WorkoutCard({
   workout,
   width,
+  index,
   onPress,
   showSavedStar = false,
   onToggleSaved,
 }: {
   workout: LibraryWorkout;
   width: number;
+  index: number;
   onPress: () => void;
   showSavedStar?: boolean;
   onToggleSaved?: () => void;
@@ -262,13 +319,6 @@ function WorkoutCard({
               resizeMode="cover"
             />
           </View>
-          {workoutMeta ? (
-            <View style={styles.durationPill}>
-              <Text style={styles.durationPillText}>
-                {workoutMeta.duration} MIN
-              </Text>
-            </View>
-          ) : null}
         </PressableScale>
         {showSavedStar ? (
           <Pressable
@@ -283,18 +333,24 @@ function WorkoutCard({
         ) : null}
       </View>
       <PressableScale onPress={onPress}>
-        <Text style={styles.cardTitle}>
-          {workoutMeta?.aiTracked ? (
-            <Text style={styles.cardAiMark}>✦ </Text>
+        <View style={styles.cardTextStack}>
+          <View style={styles.cardRow1}>
+            <Text style={styles.cardIndex}>{formatIndex(index)}</Text>
+            {workoutMeta ? (
+              <Text style={styles.cardDuration}>
+                {workoutMeta.duration} MIN
+              </Text>
+            ) : null}
+            {workoutMeta?.aiTracked ? <View style={styles.cardAiSquare} /> : null}
+          </View>
+          <Text style={styles.cardTitle}>{workout.title.toUpperCase()}</Text>
+          {workoutMeta ? (
+            <Text style={styles.cardMeta}>
+              {formatIntensity(workoutMeta.intensity).toUpperCase()} /{' '}
+              {formatCategoryLabel(workout.category).toUpperCase()}
+            </Text>
           ) : null}
-          {workout.title.toUpperCase()}
-        </Text>
-        {workoutMeta ? (
-          <Text style={styles.cardMeta}>
-            {formatIntensity(workoutMeta.intensity)} ·{' '}
-            {formatCategoryLabel(workout.category)}
-          </Text>
-        ) : null}
+        </View>
       </PressableScale>
     </View>
   );
@@ -313,17 +369,18 @@ function WorkoutGrid({
   onWorkoutPress: (libraryId: string) => void;
   onUnsave: (libraryId: string) => void;
 }) {
+  const flatWorkouts = useMemo(
+    () => buildGridWorkouts(getLibraryWorkoutsForFilter(filter, savedIds), filter),
+    [filter, savedIds]
+  );
+
   const rows = useMemo(() => {
-    const filteredWorkouts = buildGridWorkouts(
-      getLibraryWorkoutsForFilter(filter, savedIds),
-      filter
-    );
     const result: GridLibraryWorkout[][] = [];
-    for (let index = 0; index < filteredWorkouts.length; index += 2) {
-      result.push(filteredWorkouts.slice(index, index + 2));
+    for (let index = 0; index < flatWorkouts.length; index += 2) {
+      result.push(flatWorkouts.slice(index, index + 2));
     }
     return result;
-  }, [filter, savedIds]);
+  }, [flatWorkouts]);
 
   if (filter === SAVED_FILTER && rows.length === 0) {
     return (
@@ -341,16 +398,23 @@ function WorkoutGrid({
     <>
       {rows.map((row, rowIndex) => (
         <View key={`${filter}-row-${rowIndex}`} style={styles.cardRow}>
-          {row.map((item) => (
-            <WorkoutCard
-              key={item.gridKey}
-              workout={item}
-              width={cardWidth}
-              onPress={() => onWorkoutPress(item.id)}
-              showSavedStar={filter === SAVED_FILTER}
-              onToggleSaved={() => onUnsave(item.id)}
-            />
-          ))}
+          {row.map((item) => {
+            const index = flatWorkouts.findIndex(
+              (workout) => workout.gridKey === item.gridKey
+            );
+
+            return (
+              <WorkoutCard
+                key={item.gridKey}
+                workout={item}
+                width={cardWidth}
+                index={index}
+                onPress={() => onWorkoutPress(item.id)}
+                showSavedStar={filter === SAVED_FILTER}
+                onToggleSaved={() => onUnsave(item.id)}
+              />
+            );
+          })}
           {row.length === 1 ? <View style={{ width: cardWidth }} /> : null}
         </View>
       ))}
@@ -370,14 +434,12 @@ export default function Home() {
   const [outgoingFilter, setOutgoingFilter] = useState<string | null>(null);
   const [incomingFilter, setIncomingFilter] = useState<string | null>(null);
   const [transitionDirection, setTransitionDirection] = useState<1 | -1>(1);
-  const [firstName, setFirstName] = useState<string | null>(null);
+  const [, setFirstName] = useState<string | null>(null);
   const transitionProgress = useRef(new Animated.Value(1)).current;
   const isAnimatingFilter = useRef(false);
 
   const streakDays = useMemo(() => getStreakDaysFromData(streakData), []);
-  const todayWorkoutDone = weekStreakDays.some(
-    (day) => day.isToday && day.isCompleted
-  );
+  void weekStreakDays;
 
   const heroWorkoutMeta = getWorkoutById(HERO_WORKOUT.workoutId);
 
@@ -499,32 +561,12 @@ export default function Home() {
 
         <FadeInView delay={80} style={styles.greetingBlock}>
           <Text style={styles.greetingLine}>
-            {firstName
-              ? `Good ${timeGreeting}, ${firstName}`
-              : `Good ${timeGreeting}.`}
+            {`GOOD ${timeGreeting.toUpperCase()}`}
           </Text>
-          <Text style={styles.greetingHeadline}>
-            {todayWorkoutDone ? 'You showed up.' : 'Keep it going.'}
-          </Text>
+          <Text style={styles.greetingHeadline}>Keep it going.</Text>
         </FadeInView>
 
-        <View style={styles.streakSection}>
-          <View style={styles.streakRow}>
-            {streakDays.map((day, index) => (
-              <StreakDayCircle
-                key={day.key}
-                label={day.label}
-                isCompleted={day.isCompleted}
-                isToday={day.isToday}
-                isFuture={day.isFuture}
-                index={index}
-              />
-            ))}
-          </View>
-          <Text style={styles.streakCaption}>
-            {streakData.streakCount} day streak 🔥
-          </Text>
-        </View>
+        <StreakRail days={streakDays} streakCount={streakData.streakCount} />
 
         {heroWorkoutMeta ? (
           <UpNextHeroCard
@@ -536,9 +578,10 @@ export default function Home() {
 
         <View style={styles.librarySection}>
           <View style={styles.libraryHeaderRow}>
-            <Text style={styles.sectionHeading}>Workout Library</Text>
-            <Text style={styles.seeAll}>See all</Text>
+            <Text style={styles.sectionHeading}>Workout library</Text>
+            <Text style={styles.seeAll}>ALL →</Text>
           </View>
+          <View style={styles.sectionRule} />
 
           <ScrollView
             horizontal
@@ -558,7 +601,6 @@ export default function Home() {
       </View>
     ),
     [
-      firstName,
       handleFilterPress,
       handleWorkoutPress,
       heroWorkoutMeta,
@@ -566,7 +608,6 @@ export default function Home() {
       streakDays,
       tabTopPadding,
       timeGreeting,
-      todayWorkoutDone,
     ]
   );
 
@@ -607,6 +648,9 @@ export default function Home() {
   );
 }
 
+const SQUARE_SIZE = scale(4);
+const TODAY_RING_SIZE = scale(10);
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -625,35 +669,90 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   greetingBlock: {
-    gap: scale(4),
+    gap: scale(6),
   },
   greetingLine: {
-    fontFamily: theme.fonts.body,
-    fontSize: scale(13),
-    color: theme.colors.textSecondary,
+    fontFamily: theme.fonts.label,
+    fontSize: scale(10),
+    letterSpacing: scale(1.6),
+    color: MUTED_TEXT,
+    textTransform: 'uppercase',
   },
   greetingHeadline: {
     fontFamily: theme.fonts.header,
-    fontSize: scale(34),
-    letterSpacing: scale(-0.5),
+    fontSize: scale(44),
+    lineHeight: scale(44),
+    letterSpacing: scale(-1.2),
     color: theme.colors.textPrimary,
   },
-  streakSection: {
-    gap: WITHIN_SECTION_GAP,
+  streakRail: {
+    height: scale(44),
+    borderTopWidth: scale(0.5),
+    borderBottomWidth: scale(0.5),
+    borderColor: theme.colors.border,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
-  streakRow: {
+  streakRailColumns: {
+    flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: scale(2),
+    paddingTop: scale(8),
   },
-  streakCaption: {
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: scale(12),
+  streakColumn: {
+    alignItems: 'center',
+    gap: scale(6),
+  },
+  streakDayLabel: {
+    fontFamily: theme.fonts.label,
+    fontSize: scale(9),
+    color: MUTED_TEXT,
+    textTransform: 'uppercase',
+  },
+  streakSquare: {
+    width: SQUARE_SIZE,
+    height: SQUARE_SIZE,
+  },
+  streakSquareCompleted: {
+    backgroundColor: theme.colors.red,
+  },
+  streakSquareFuture: {
+    backgroundColor: theme.colors.grey200,
+  },
+  streakSquareTodayRing: {
+    width: TODAY_RING_SIZE,
+    height: TODAY_RING_SIZE,
+    borderWidth: scale(1),
+    borderColor: theme.colors.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  streakSquareToday: {
+    width: SQUARE_SIZE,
+    height: SQUARE_SIZE,
+    backgroundColor: theme.colors.red,
+  },
+  streakCountBlock: {
+    marginRight: scale(16),
+    paddingTop: scale(8),
+    alignItems: 'flex-start',
+  },
+  streakCountNumber: {
+    fontFamily: theme.fonts.header,
+    fontSize: scale(20),
     color: theme.colors.textPrimary,
+    lineHeight: scale(20),
+  },
+  streakCountLabel: {
+    fontFamily: theme.fonts.label,
+    fontSize: scale(8),
+    color: MUTED_TEXT,
+    letterSpacing: scale(0.8),
+    marginTop: scale(4),
   },
   heroCard: {
-    height: scale(200),
-    borderRadius: theme.radius.xl,
+    height: scale(260),
+    borderRadius: scale(4),
     overflow: 'hidden',
     justifyContent: 'flex-end',
   },
@@ -665,74 +764,96 @@ const styles = StyleSheet.create({
   heroGradient: {
     ...StyleSheet.absoluteFill,
   },
-  heroLeftGradient: {
+  heroEyebrow: {
     position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: '60%',
+    top: scale(16),
+    left: scale(16),
+    flexDirection: 'row',
+    alignItems: 'baseline',
   },
-  heroBadge: {
-    position: 'absolute',
-    top: theme.spacing.lg,
-    left: theme.spacing.lg,
-    paddingHorizontal: scale(10),
-    paddingVertical: scale(6),
-    borderRadius: theme.radius.full,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderWidth: scale(0.5),
-    borderColor: theme.colors.white,
+  heroEyebrowNum: {
+    fontFamily: theme.fonts.header,
+    fontSize: scale(13),
+    color: theme.colors.white,
   },
-  heroBadgeText: {
+  heroEyebrowLabel: {
     fontFamily: theme.fonts.label,
     fontSize: scale(9),
-    letterSpacing: scale(1.5),
-    color: theme.colors.white,
+    letterSpacing: scale(1.4),
+    color: 'rgba(255,255,255,0.6)',
     textTransform: 'uppercase',
   },
   heroBottomRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    padding: theme.spacing.lg,
-    gap: theme.spacing.md,
+    padding: scale(16),
+    gap: scale(16),
   },
   heroTextBlock: {
     flex: 1,
-    gap: scale(4),
+    gap: scale(8),
   },
   heroTitle: {
     fontFamily: theme.fonts.header,
-    fontSize: scale(22),
+    fontSize: scale(26),
     color: theme.colors.white,
   },
-  heroMeta: {
+  heroMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  heroMetaPrimary: {
+    fontFamily: theme.fonts.label,
+    fontSize: scale(11),
+    color: 'rgba(255,255,255,0.65)',
+    textTransform: 'uppercase',
+  },
+  heroMetaSeparator: {
     fontFamily: theme.fonts.body,
-    fontSize: scale(12),
-    color: 'rgba(255,255,255,0.7)',
+    fontSize: scale(11),
+    color: 'rgba(255,255,255,0.65)',
+  },
+  heroMetaAiRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scale(6),
+  },
+  metaSquare: {
+    width: SQUARE_SIZE,
+    height: SQUARE_SIZE,
+    backgroundColor: theme.colors.teal,
   },
   heroMetaAi: {
+    fontFamily: theme.fonts.body,
+    fontSize: scale(11),
     color: theme.colors.teal,
+    textTransform: 'uppercase',
   },
-  heroPlayButton: {
-    width: scale(48),
-    height: scale(48),
-    borderRadius: scale(24),
-    backgroundColor: theme.colors.white,
-    justifyContent: 'center',
+  heroBeginWrap: {
     alignItems: 'center',
+    paddingBottom: scale(2),
   },
-  heroPlayIcon: {
-    marginLeft: scale(2),
+  heroBegin: {
+    fontFamily: theme.fonts.label,
+    fontSize: scale(10),
+    letterSpacing: scale(2),
+    color: theme.colors.white,
+    textTransform: 'uppercase',
   },
-  librarySection: {
-    gap: WITHIN_SECTION_GAP,
+  heroBeginUnderline: {
+    marginTop: scale(4),
+    height: scale(1),
+    width: '100%',
+    backgroundColor: theme.colors.white,
   },
+  librarySection: {},
   libraryHeaderRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
-    gap: theme.spacing.sm,
+    gap: scale(8),
   },
   sectionHeading: {
     flex: 1,
@@ -743,45 +864,47 @@ const styles = StyleSheet.create({
   },
   seeAll: {
     flexShrink: 0,
-    fontFamily: theme.fonts.body,
-    fontSize: scale(12),
-    color: theme.colors.red,
+    fontFamily: theme.fonts.label,
+    fontSize: scale(9),
+    letterSpacing: scale(1.4),
+    color: MUTED_TEXT,
+    textTransform: 'uppercase',
+  },
+  sectionRule: {
+    borderBottomWidth: scale(0.5),
+    borderBottomColor: theme.colors.border,
+    marginBottom: scale(14),
   },
   filterRow: {
     flexDirection: 'row',
-    gap: theme.spacing.sm,
+    gap: scale(20),
     paddingRight: scale(4),
   },
-  filterPill: {
-    paddingHorizontal: scale(16),
-    paddingVertical: scale(8),
-    borderRadius: theme.radius.full,
+  filterTab: {
+    paddingVertical: scale(6),
   },
-  filterPillActive: {
-    backgroundColor: theme.colors.textPrimary,
+  filterTabActive: {
+    borderBottomWidth: scale(2),
+    borderBottomColor: theme.colors.red,
+    alignSelf: 'flex-start',
   },
-  filterPillInactive: {
-    backgroundColor: 'transparent',
-    borderWidth: scale(1),
-    borderColor: theme.colors.border,
-  },
-  filterPillText: {
+  filterTabText: {
     fontFamily: theme.fonts.label,
     fontSize: scale(10),
-    letterSpacing: scale(0.88),
+    letterSpacing: scale(1.4),
     textTransform: 'uppercase',
   },
-  filterPillTextActive: {
-    color: theme.colors.white,
+  filterTabTextActive: {
+    color: theme.colors.textPrimary,
   },
-  filterPillTextInactive: {
-    color: theme.colors.textSecondary,
+  filterTabTextInactive: {
+    color: MUTED_TEXT,
   },
   gridContainer: {
     minHeight: scale(200),
     overflow: 'hidden',
     alignSelf: 'center',
-    marginTop: WITHIN_SECTION_GAP,
+    marginTop: scale(20),
   },
   gridStrip: {
     flexDirection: 'row',
@@ -795,12 +918,12 @@ const styles = StyleSheet.create({
     marginBottom: scale(4),
     flexGrow: 0,
     flexShrink: 0,
-    gap: scale(6),
+    gap: scale(8),
   },
   cardImageWrap: {
     position: 'relative',
     width: '100%',
-    borderRadius: scale(14),
+    borderRadius: scale(2),
     overflow: 'hidden',
   },
   cardImagePressable: {
@@ -811,33 +934,17 @@ const styles = StyleSheet.create({
     aspectRatio: 4 / 5,
     overflow: 'hidden',
     backgroundColor: theme.colors.grey200,
+    borderRadius: scale(2),
   },
   cardImage: {
     ...StyleSheet.absoluteFill,
     width: '100%',
     height: '100%',
   },
-  durationPill: {
-    position: 'absolute',
-    top: theme.spacing.sm,
-    right: theme.spacing.sm,
-    paddingHorizontal: scale(6),
-    paddingVertical: scale(3),
-    borderRadius: theme.radius.sm,
-    backgroundColor: 'rgba(20,18,18,0.6)',
-    borderWidth: scale(1),
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  durationPillText: {
-    fontFamily: theme.fonts.label,
-    fontSize: scale(9),
-    color: theme.colors.white,
-    textTransform: 'uppercase',
-  },
   cardStarButton: {
     position: 'absolute',
-    top: theme.spacing.sm,
-    left: theme.spacing.sm,
+    top: scale(8),
+    left: scale(8),
     width: scale(24),
     height: scale(24),
     borderRadius: scale(12),
@@ -847,20 +954,49 @@ const styles = StyleSheet.create({
     zIndex: 10,
     elevation: 10,
   },
+  cardTextStack: {
+    borderTopWidth: scale(0.5),
+    borderTopColor: theme.colors.border,
+    paddingTop: scale(8),
+  },
+  cardRow1: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardIndex: {
+    fontFamily: theme.fonts.header,
+    fontSize: scale(11),
+    color: MUTED_TEXT,
+  },
+  cardDuration: {
+    flex: 1,
+    fontFamily: theme.fonts.label,
+    fontSize: scale(9),
+    color: MUTED_TEXT,
+    textAlign: 'right',
+    textTransform: 'uppercase',
+  },
+  cardAiSquare: {
+    width: SQUARE_SIZE,
+    height: SQUARE_SIZE,
+    backgroundColor: theme.colors.teal,
+    marginLeft: scale(8),
+  },
   cardTitle: {
     fontFamily: theme.fonts.label,
     fontSize: scale(11),
+    letterSpacing: scale(0.8),
     color: theme.colors.textPrimary,
-    paddingHorizontal: scale(2),
-  },
-  cardAiMark: {
-    color: theme.colors.teal,
+    textTransform: 'uppercase',
+    marginTop: scale(6),
   },
   cardMeta: {
     fontFamily: theme.fonts.body,
-    fontSize: scale(10),
-    color: theme.colors.grey400,
-    paddingHorizontal: scale(2),
+    fontSize: scale(9),
+    letterSpacing: scale(0.6),
+    color: MUTED_TEXT,
+    textTransform: 'uppercase',
+    marginTop: scale(2),
   },
   emptySavedState: {
     paddingVertical: scale(32),
@@ -868,16 +1004,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptySavedTitle: {
-    ...theme.typography.body,
     fontFamily: theme.fonts.bodyMedium,
+    fontSize: scale(13),
     color: theme.colors.textPrimary,
     marginBottom: scale(8),
     textAlign: 'center',
   },
   emptySavedText: {
-    ...theme.typography.body,
+    fontFamily: theme.fonts.body,
+    fontSize: scale(11),
     color: theme.colors.textSecondary,
     textAlign: 'center',
-    lineHeight: scale(18),
+    lineHeight: scale(16),
   },
 });

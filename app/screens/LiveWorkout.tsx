@@ -23,6 +23,8 @@ import {
   getWorkoutMainContentPadding,
   WORKOUT_TOP_BAR_TOP,
   WorkoutBackButton,
+  WorkoutStat,
+  WorkoutStatDivider,
   WorkoutTopBar,
   WorkoutVideoFrame,
   workoutBottomPanelStyles,
@@ -631,7 +633,7 @@ function LiveWorkout({ route, navigation }: Props) {
               {EXERCISE_LABELS[currentExercise]}
             </Text>
             <Text style={workoutBottomPanelStyles.currentExerciseLabel}>
-              CURRENT EXERCISE
+              Current Exercise
             </Text>
           </View>
           <ExerciseProgressRingFromExercise
@@ -640,30 +642,19 @@ function LiveWorkout({ route, navigation }: Props) {
         </View>
 
         <View style={workoutBottomPanelStyles.statsRow}>
-          <View style={workoutBottomPanelStyles.statItem}>
-            <Text style={workoutBottomPanelStyles.statText}>
-              {workout.duration} min
-            </Text>
-          </View>
-          <View
-            style={[
-              workoutBottomPanelStyles.statItem,
-              workoutBottomPanelStyles.statItemDivider,
-            ]}
-          >
-            <Text style={workoutBottomPanelStyles.statText}>
-              {workout.intensity.charAt(0).toUpperCase() +
-                workout.intensity.slice(1)}
-            </Text>
-          </View>
-          <View
-            style={[
-              workoutBottomPanelStyles.statItem,
-              workoutBottomPanelStyles.statItemDivider,
-            ]}
-          >
-            <Text style={workoutBottomPanelStyles.statText}>AI Tracked</Text>
-          </View>
+          <WorkoutStat value={String(workout.duration)} label="Min" />
+          <WorkoutStatDivider />
+          <WorkoutStat
+            value={
+              workout.intensity.charAt(0).toUpperCase() +
+              workout.intensity.slice(1)
+            }
+          />
+          <WorkoutStatDivider />
+          <WorkoutStat
+            value={workout.aiTracked ? 'AI' : 'Guided'}
+            label={workout.aiTracked ? 'Tracked' : undefined}
+          />
         </View>
       </View>
     </View>

@@ -14,6 +14,8 @@ import {
   getWorkoutMainContentPadding,
   RepProgressCounter,
   WORKOUT_TOP_BAR_TOP,
+  WorkoutStat,
+  WorkoutStatDivider,
   WorkoutTopBar,
   WorkoutVideoFrame,
   WorkoutVolumeButton,
@@ -33,6 +35,7 @@ const DEMO_VIDEO_ZOOM = 1.22;
 const DEMO_VIDEO_OFFSET_X = '-3%';
 const DEMO_REP_COUNT = 2;
 const DEMO_TOTAL_REPS = 10;
+const DEMO_TIMER_SECONDS = 10 * 60;
 
 function getDemoVideoSrc(): string {
   if (typeof DEMO_VIDEO === 'string') {
@@ -49,7 +52,7 @@ const mediaTransform = `scale(${DEMO_VIDEO_ZOOM}) translateX(${DEMO_VIDEO_OFFSET
 function DemoWorkout({ navigation }: Props) {
   const insets = useSafeAreaInsets();
 
-  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [timerSeconds, setTimerSeconds] = useState(DEMO_TIMER_SECONDS);
   const [videoReady, setVideoReady] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -91,21 +94,11 @@ function DemoWorkout({ navigation }: Props) {
       return;
     }
 
-    const syncTimer = () => {
-      const video = videoRef.current;
-      if (!video || !Number.isFinite(video.duration)) {
-        return;
-      }
+    setTimerSeconds(DEMO_TIMER_SECONDS);
 
-      const remaining = Math.max(
-        0,
-        Math.floor(video.duration - video.currentTime)
-      );
-      setTimerSeconds(remaining);
-    };
-
-    syncTimer();
-    const interval = setInterval(syncTimer, 500);
+    const interval = setInterval(() => {
+      setTimerSeconds((current) => (current > 0 ? current - 1 : DEMO_TIMER_SECONDS));
+    }, 1000);
 
     return () => clearInterval(interval);
   }, [videoReady]);
@@ -119,7 +112,8 @@ function DemoWorkout({ navigation }: Props) {
     currentErrors,
     handleErrorStateChange,
     sustainedClean,
-    false
+    false,
+    true
   );
 
   if (Platform.OS !== 'web') {
@@ -152,10 +146,6 @@ function DemoWorkout({ navigation }: Props) {
             src: DEMO_VIDEO_SRC,
             onLoadedData: () => {
               setVideoReady(true);
-              const video = videoRef.current;
-              if (video && Number.isFinite(video.duration)) {
-                setTimerSeconds(Math.floor(video.duration));
-              }
             },
             style: {
               position: 'absolute',
@@ -200,32 +190,18 @@ function DemoWorkout({ navigation }: Props) {
               Pike to Plank
             </Text>
             <Text style={workoutBottomPanelStyles.currentExerciseLabel}>
-              CURRENT EXERCISE
+              Current Exercise
             </Text>
           </View>
           <RepProgressCounter rep={DEMO_REP_COUNT} totalReps={DEMO_TOTAL_REPS} />
         </View>
 
         <View style={workoutBottomPanelStyles.statsRow}>
-          <View style={workoutBottomPanelStyles.statItem}>
-            <Text style={workoutBottomPanelStyles.statText}>10 Reps</Text>
-          </View>
-          <View
-            style={[
-              workoutBottomPanelStyles.statItem,
-              workoutBottomPanelStyles.statItemDivider,
-            ]}
-          >
-            <Text style={workoutBottomPanelStyles.statText}>3 Sets</Text>
-          </View>
-          <View
-            style={[
-              workoutBottomPanelStyles.statItem,
-              workoutBottomPanelStyles.statItemDivider,
-            ]}
-          >
-            <Text style={workoutBottomPanelStyles.statText}>1 Spring</Text>
-          </View>
+          <WorkoutStat value="10" label="Reps" />
+          <WorkoutStatDivider />
+          <WorkoutStat value="3" label="Sets" />
+          <WorkoutStatDivider />
+          <WorkoutStat value="1" label="Spring" />
         </View>
       </View>
     </View>

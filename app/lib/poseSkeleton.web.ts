@@ -2,8 +2,10 @@ import type { DetectedPose } from '../hooks/usePoseDetection';
 
 const SKELETON_DRAW_THRESHOLD = 0.3;
 const DOT_RADIUS = 6;
+const DEMO_DOT_RADIUS = 4;
 const LINE_WIDTH = 2;
 const COLOR_LERP_FACTOR = 0.1;
+const DEMO_COLOR_LERP_FACTOR = 0.16;
 
 const SKELETON_CONNECTIONS: [number, number][] = [
   [5, 7],
@@ -23,12 +25,72 @@ const SKELETON_CONNECTIONS: [number, number][] = [
 type Rgba = { r: number; g: number; b: number; a: number };
 
 const COLOR_RED_DOT: Rgba = { r: 204, g: 29, b: 29, a: 1 };
+const COLOR_RED_DOT_DEMO: Rgba = { r: 204, g: 29, b: 29, a: 0.5 };
 const COLOR_TEAL_DOT: Rgba = { r: 121, g: 203, b: 208, a: 1 };
+const COLOR_TEAL_DOT_DEMO: Rgba = { r: 121, g: 203, b: 208, a: 0.95 };
 const COLOR_NEUTRAL_DOT: Rgba = { r: 255, g: 255, b: 255, a: 0.5 };
 
 const COLOR_NEUTRAL_LINE: Rgba = { r: 255, g: 255, b: 255, a: 0.25 };
 
 let currentDotColor: Rgba = { ...COLOR_NEUTRAL_DOT };
+const demoTealFlashByKeypoint = new Map<number, number>();
+const demoDotColorsByKeypoint = new Map<number, Rgba>();
+
+const DEMO_TEAL_FLASH_MS = 1500;
+
+/** MoveNet indices affected by each form error. */
+const ERROR_KEYPOINT_INDICES: Record<string, number[]> = {
+  head_drop: [0],
+  arms_sinking: [7, 9],
+  hip_pike: [5, 11, 13],
+  hip_sag: [5, 11, 13],
+  hip_break: [11, 13],
+  heels_drop: [15],
+  knee_cave: [13, 15],
+  rushing: [11, 13],
+  momentum: [11, 13],
+};
+
+export function triggerDemoErrorFlash(
+  errorKey: string,
+  durationMs = DEMO_TEAL_FLASH_MS
+) {
+  const keypointIndices = ERROR_KEYPOINT_INDICES[errorKey];
+  if (!keypointIndices?.length) {
+    return;
+  }
+
+  const flashUntil = performance.now() + durationMs;
+  keypointIndices.forEach((index) => {
+    demoTealFlashByKeypoint.set(index, flashUntil);
+  });
+}
+
+function isDemoKeypointFlashing(index: number) {
+  const flashUntil = demoTealFlashByKeypoint.get(index);
+  if (!flashUntil) {
+    return false;
+  }
+
+  if (performance.now() >= flashUntil) {
+    demoTealFlashByKeypoint.delete(index);
+    return false;
+  }
+
+  return true;
+}
+
+function getDemoDotTargetColor(index: number): Rgba {
+  return isDemoKeypointFlashing(index) ? COLOR_TEAL_DOT_DEMO : COLOR_RED_DOT_DEMO;
+}
+
+function getDemoDotColor(index: number): Rgba {
+  const target = getDemoDotTargetColor(index);
+  const current = demoDotColorsByKeypoint.get(index) ?? { ...COLOR_RED_DOT_DEMO };
+  const next = lerpRgba(current, target, DEMO_COLOR_LERP_FACTOR);
+  demoDotColorsByKeypoint.set(index, next);
+  return next;
+}
 
 type CoverTransform = {
   scale: number;
@@ -53,7 +115,10 @@ function rgbaToCss(color: Rgba) {
   return `rgba(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)}, ${color.a.toFixed(3)})`;
 }
 
-function getTargetDotColor(errors: Set<string>, sustainedClean: boolean): Rgba {
+function getTargetDotColor(
+  errors: Set<string>,
+  sustainedClean: boolean
+): Rgba {
   if (errors.size > 0) {
     return COLOR_RED_DOT;
   }
@@ -145,8 +210,12 @@ function prepareCanvas(
   };
 }
 
-export function resetSkeletonColors() {
-  currentDotColor = { ...COLOR_NEUTRAL_DOT };
+export function resetSkeletonColors(demoMode = false) {
+  if (demoMode) {
+    demoTealFlashByKeypoint.clear();
+    demoDotColorsByKeypoint.clear();
+  }
+  currentDotColor = demoMode ? { ...COLOR_RED_DOT_DEMO } : { ...COLOR_NEUTRAL_DOT };
 }
 
 export function drawSkeleton(
@@ -155,7 +224,8 @@ export function drawSkeleton(
   video: HTMLVideoElement,
   errors: Set<string> = new Set(),
   sustainedClean = false,
-  mirrorX = true
+  mirrorX = true,
+  demoMode = false
 ) {
   try {
     const prepared = prepareCanvas(canvas, video);
@@ -176,9 +246,11 @@ export function drawSkeleton(
     }
 
     const targetDot = getTargetDotColor(errors, sustainedClean);
-    currentDotColor = lerpRgba(currentDotColor, targetDot);
+    if (!demoMode) {
+      currentDotColor = lerpRgba(currentDotColor, targetDot);
+    }
 
-    const dotColor = rgbaToCss(currentDotColor);
+    const defaultDotColor = rgbaToCss(currentDotColor);
     const lineColor = rgbaToCss(COLOR_NEUTRAL_LINE);
 
     ctx.strokeStyle = lineColor;
@@ -201,12 +273,17 @@ export function drawSkeleton(
       }
     });
 
-    keypoints.forEach((kp) => {
+    keypoints.forEach((kp, index) => {
       if ((kp.score ?? 0) > SKELETON_DRAW_THRESHOLD) {
         const point = mapPoint(kp.x, kp.y, transform, displayWidth, mirrorX);
+        const radius = demoMode ? DEMO_DOT_RADIUS : DOT_RADIUS;
+        const fillColor = demoMode
+          ? rgbaToCss(getDemoDotColor(index))
+          : defaultDotColor;
+
         ctx.beginPath();
-        ctx.arc(point.x, point.y, DOT_RADIUS, 0, 2 * Math.PI);
-        ctx.fillStyle = dotColor;
+        ctx.arc(point.x, point.y, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = fillColor;
         ctx.fill();
       }
     });
@@ -220,7 +297,7 @@ export function clearSkeleton(canvas: HTMLCanvasElement | null) {
     return;
   }
 
-  resetSkeletonColors();
+  resetSkeletonColors(false);
 
   const ctx = canvas.getContext('2d');
   if (!ctx) {

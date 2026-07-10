@@ -80,8 +80,8 @@ function TabButton({
       <Animated.View style={{ transform: [{ scale: iconScale }] }}>
         <Ionicons
           name={iconName}
-          size={scale(22)}
-          color={isFocused ? theme.colors.textPrimary : theme.colors.grey400}
+          size={scale(21)}
+          color={isFocused ? theme.colors.textPrimary : '#6B6B6B'}
         />
       </Animated.View>
       <Animated.View
@@ -89,7 +89,7 @@ function TabButton({
           styles.activeIndicator,
           {
             opacity: indicatorOpacity,
-            transform: [{ scale: indicatorScale }],
+            transform: [{ scaleX: indicatorScale }],
           },
         ]}
       />
@@ -166,9 +166,8 @@ const styles = StyleSheet.create({
     minWidth: scale(44),
   },
   activeIndicator: {
-    width: scale(4),
-    height: scale(4),
-    borderRadius: scale(2),
+    width: scale(16),
+    height: scale(2),
     backgroundColor: theme.colors.red,
     marginTop: scale(6),
   },

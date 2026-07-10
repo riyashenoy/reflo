@@ -504,12 +504,33 @@ export function RepCounterCircle({ rep }: { rep: number }) {
   );
 }
 
+export function WorkoutStat({
+  value,
+  label,
+}: {
+  value: string;
+  label?: string;
+}) {
+  return (
+    <View style={workoutBottomPanelStyles.statItem}>
+      <Text style={workoutBottomPanelStyles.statValue}>{value}</Text>
+      {label ? (
+        <Text style={workoutBottomPanelStyles.statLabel}>{label}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+export function WorkoutStatDivider() {
+  return <View style={workoutBottomPanelStyles.statDivider} />;
+}
+
 export const workoutBottomPanelStyles = StyleSheet.create({
   panel: {
     backgroundColor: theme.colors.dark,
     paddingHorizontal: scale(24),
-    paddingTop: scale(20),
-    paddingBottom: scale(32),
+    paddingTop: scale(22),
+    paddingBottom: scale(40),
   },
   titleRow: {
     flexDirection: 'row',
@@ -528,32 +549,41 @@ export const workoutBottomPanelStyles = StyleSheet.create({
   currentExerciseLabel: {
     fontFamily: theme.fonts.label,
     fontSize: scale(9),
-    letterSpacing: scale(1),
+    letterSpacing: scale(1.2),
     color: theme.colors.textSecondary,
-    marginTop: scale(2),
+    marginTop: scale(3),
     textTransform: 'uppercase',
   },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: scale(16),
+    borderTopWidth: scale(0.5),
+    borderTopColor: 'rgba(255,255,255,0.12)',
+    marginTop: scale(18),
+    paddingTop: scale(16),
   },
   statItem: {
-    paddingRight: scale(16),
-    minHeight: scale(20),
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scale(4),
   },
-  statItemDivider: {
-    paddingLeft: scale(16),
-    borderLeftWidth: scale(1),
-    borderLeftColor: 'rgba(255,255,255,0.15)',
-    minHeight: scale(20),
-    justifyContent: 'center',
-  },
-  statText: {
-    fontFamily: theme.fonts.body,
-    fontSize: scale(14),
+  statValue: {
+    fontFamily: theme.fonts.bodyMedium,
+    fontSize: scale(15),
     color: theme.colors.white,
+  },
+  statLabel: {
+    fontFamily: theme.fonts.label,
+    fontSize: scale(9),
+    letterSpacing: scale(1),
+    color: theme.colors.textSecondary,
+    textTransform: 'uppercase',
+  },
+  statDivider: {
+    width: scale(1),
+    height: scale(14),
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    marginHorizontal: scale(16),
   },
   skipText: {
     fontFamily: theme.fonts.bodyMedium,

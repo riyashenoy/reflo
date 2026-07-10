@@ -45,7 +45,8 @@ export function usePoseDetection(
   _currentErrorsRef?: RefObject<Set<string>>,
   _onErrorStateChange?: ErrorStateChangeHandler,
   _sustainedCleanRef?: RefObject<boolean>,
-  _mirrorOverlay = true
+  _mirrorOverlay = true,
+  _demoVisualMode = false
 ) {
   return { isDetecting: false, poses: [] as DetectedPose[] };
 }

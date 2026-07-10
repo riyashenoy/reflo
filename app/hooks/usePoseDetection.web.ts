@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 
-import { clearSkeleton, drawSkeleton } from '../lib/poseSkeleton.web';
+import {
+  clearSkeleton,
+  drawSkeleton,
+  resetSkeletonColors,
+  triggerDemoErrorFlash,
+} from '../lib/poseSkeleton.web';
 import type {
   DetectedPose,
   ErrorStateChangeHandler,
@@ -132,7 +137,8 @@ export function usePoseDetection(
   currentErrorsRef?: RefObject<Set<string>>,
   onErrorStateChange?: ErrorStateChangeHandler,
   sustainedCleanRef?: RefObject<boolean>,
-  mirrorOverlay = true
+  mirrorOverlay = true,
+  demoVisualMode = false
 ) {
   const [isDetecting, setIsDetecting] = useState(false);
   const landmarkHistory = useRef<Landmark[][]>([]);
@@ -143,6 +149,7 @@ export function usePoseDetection(
   const onErrorStateChangeRef = useRef(onErrorStateChange);
   const sustainedCleanRefStable = useRef(sustainedCleanRef);
   const mirrorOverlayRef = useRef(mirrorOverlay);
+  const demoVisualModeRef = useRef(demoVisualMode);
   const errorCooldownTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map()
   );
@@ -155,6 +162,7 @@ export function usePoseDetection(
   onErrorStateChangeRef.current = onErrorStateChange;
   sustainedCleanRefStable.current = sustainedCleanRef;
   mirrorOverlayRef.current = mirrorOverlay;
+  demoVisualModeRef.current = demoVisualMode;
 
   const clearErrorCooldowns = () => {
     errorCooldownTimers.current.forEach((timeoutId) => {
@@ -186,6 +194,10 @@ export function usePoseDetection(
     }
 
     onErrorStateChangeRef.current?.(errorKey, true);
+
+    if (demoVisualModeRef.current) {
+      triggerDemoErrorFlash(errorKey);
+    }
 
     const timeoutId = setTimeout(() => {
       errorCooldownTimers.current.delete(errorKey);
@@ -271,6 +283,7 @@ export function usePoseDetection(
       setIsDetecting(false);
       landmarkHistory.current = [];
       clearSkeleton(canvasRef.current);
+      resetSkeletonColors(demoVisualModeRef.current);
       return;
     }
 
@@ -320,6 +333,11 @@ export function usePoseDetection(
         }
 
         setIsDetecting(true);
+        if (demoVisualModeRef.current) {
+          resetSkeletonColors(true);
+        }
+
+        let lastDetectedPoses: DetectedPose[] = [];
 
         const loop = async () => {
           if (disposed) {
@@ -345,28 +363,30 @@ export function usePoseDetection(
               )) as DetectedPose[];
 
               if (detectedPoses.length > 0) {
+                lastDetectedPoses = detectedPoses;
                 const raw = extractLandmarks(detectedPoses[0].keypoints);
                 if (raw) {
                   const smoothed = getSmoothed(raw);
                   recordFrameAssessment(smoothed);
                 }
               }
-
-              if (canvas) {
-                drawSkeleton(
-                  detectedPoses,
-                  canvas,
-                  video,
-                  currentErrorsRefStable.current?.current ?? new Set(),
-                  sustainedCleanRefStable.current?.current ?? false,
-                  mirrorOverlayRef.current
-                );
-              }
             } catch (error) {
               console.warn('[usePoseDetection] frame failed:', error);
             } finally {
               inFlight = false;
             }
+          }
+
+          if (canvas && video && video.readyState >= 2 && lastDetectedPoses.length > 0) {
+            drawSkeleton(
+              lastDetectedPoses,
+              canvas,
+              video,
+              currentErrorsRefStable.current?.current ?? new Set(),
+              sustainedCleanRefStable.current?.current ?? false,
+              mirrorOverlayRef.current,
+              demoVisualModeRef.current
+            );
           }
 
           rafId.current = requestAnimationFrame(() => {
@@ -400,6 +420,7 @@ export function usePoseDetection(
       detector = null;
       setIsDetecting(false);
       clearSkeleton(canvasRef.current);
+      resetSkeletonColors(demoVisualModeRef.current);
     };
   }, [canvasRef, currentExercise, videoRef, workoutStarted]);
 
