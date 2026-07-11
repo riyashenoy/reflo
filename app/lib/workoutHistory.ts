@@ -248,7 +248,7 @@ export function getHomeStreakDays(
     return {
       label: DAY_LABELS[day.getDay()],
       dateKey,
-      isToday: index === 0 && dateKey === todayKey,
+      isToday: dateKey === todayKey,
       isCompleted: completedDateKeys.has(dateKey),
     };
   });

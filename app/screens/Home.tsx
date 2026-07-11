@@ -25,6 +25,7 @@ import { useSavedWorkouts } from '../context/SavedWorkoutsContext';
 import { useWorkoutHistory } from '../hooks/useWorkoutHistory';
 import { auth } from '../lib/firebase';
 import { fetchUserProfile } from '../lib/userProfile';
+import type { HomeStreakDay } from '../lib/workoutHistory';
 import { useLayoutWidth } from '../hooks/useLayoutWidth';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
@@ -42,47 +43,6 @@ const HERO_WORKOUT = libraryWorkouts[0];
 /** Hero uses cover1; Full Body Burn card uses cover6 so they don’t match. */
 const HERO_COVER = require('../../assets/images/cover/cover1.jpg');
 const SCROLL_BOTTOM_PADDING = scale(140);
-
-const STREAK_DAY_LABELS = ['S', 'M', 'T', 'W', 'TH', 'F', 'SA'] as const;
-const STREAK_DAY_KEYS = [
-  'sunday',
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-] as const;
-
-/** Hardcoded for now — wire to Firestore later. */
-const streakData = {
-  completedDays: ['sunday', 'monday', 'tuesday'],
-  today: 'wednesday',
-  streakCount: 3,
-};
-
-type StreakDisplayDay = {
-  key: string;
-  label: string;
-  isCompleted: boolean;
-  isToday: boolean;
-  isFuture: boolean;
-};
-
-function getStreakDaysFromData(data: typeof streakData): StreakDisplayDay[] {
-  return STREAK_DAY_KEYS.map((key, index) => {
-    const isCompleted = data.completedDays.includes(key);
-    const isToday = data.today === key;
-
-    return {
-      key,
-      label: STREAK_DAY_LABELS[index],
-      isCompleted,
-      isToday,
-      isFuture: !isCompleted && !isToday,
-    };
-  });
-}
 
 function getFilterIndex(filter: string): number {
   return FILTERS.indexOf(filter as (typeof FILTERS)[number]);
@@ -142,7 +102,7 @@ function buildGridWorkouts(
   return result;
 }
 
-function StreakSquare({ day }: { day: StreakDisplayDay }) {
+function StreakSquare({ day }: { day: HomeStreakDay }) {
   if (day.isToday) {
     return <View style={styles.streakSquareToday} />;
   }
@@ -161,7 +121,7 @@ function StreakRail({
   days,
   streakCount,
 }: {
-  days: StreakDisplayDay[];
+  days: HomeStreakDay[];
   streakCount: number;
 }) {
   return (
@@ -174,7 +134,7 @@ function StreakRail({
       </View>
       <View style={styles.streakRailColumns}>
         {days.map((day) => (
-          <View key={day.key} style={styles.streakColumn}>
+          <View key={day.dateKey} style={styles.streakColumn}>
             <Text
               style={[
                 styles.streakDayLabel,
@@ -412,7 +372,7 @@ function WorkoutGrid({
 export default function Home() {
   const navigation = useNavigation<NavigationProp>();
   const { savedIds, toggleSaved } = useSavedWorkouts();
-  const { weekStreakDays } = useWorkoutHistory();
+  const { weekStreakDays, streak } = useWorkoutHistory();
   const tabTopPadding = useTabScreenTopPadding();
   const layoutWidth = useLayoutWidth();
   const reduceMotion = useReducedMotion();
@@ -424,9 +384,6 @@ export default function Home() {
   const [, setFirstName] = useState<string | null>(null);
   const transitionProgress = useRef(new Animated.Value(1)).current;
   const isAnimatingFilter = useRef(false);
-
-  const streakDays = useMemo(() => getStreakDaysFromData(streakData), []);
-  void weekStreakDays;
 
   const heroWorkoutMeta = getWorkoutById(HERO_WORKOUT.workoutId);
 
@@ -553,7 +510,7 @@ export default function Home() {
           <Text style={styles.greetingHeadline}>Keep it going.</Text>
         </FadeInView>
 
-        <StreakRail days={streakDays} streakCount={streakData.streakCount} />
+        <StreakRail days={weekStreakDays} streakCount={streak} />
 
         {heroWorkoutMeta ? (
           <UpNextHeroCard
@@ -591,9 +548,10 @@ export default function Home() {
       handleWorkoutPress,
       heroWorkoutMeta,
       selectedFilter,
-      streakDays,
+      streak,
       tabTopPadding,
       timeGreeting,
+      weekStreakDays,
     ]
   );
 
