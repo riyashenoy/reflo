@@ -497,10 +497,6 @@ function LiveWorkout({ route, navigation }: Props) {
   }, []);
 
   useEffect(() => {
-    if (!workoutStarted) {
-      return;
-    }
-
     startCamera();
 
     return () => {
@@ -512,7 +508,7 @@ function LiveWorkout({ route, navigation }: Props) {
         videoRef.current.srcObject = null;
       }
     };
-  }, [workoutStarted, startCamera]);
+  }, [startCamera]);
 
   usePoseDetection(
     videoRef,
@@ -563,7 +559,10 @@ function LiveWorkout({ route, navigation }: Props) {
       >
         <WorkoutVideoFrame
           overlay={
-            <FadeSlideOverlay visible={showOnboarding}>
+            <FadeSlideOverlay
+              visible={showOnboarding}
+              backdropColor="rgba(0,0,0,0.35)"
+            >
               <View style={styles.onboardingCard}>
                 <View style={styles.onboardingGifPlaceholder}>
                   <Image
@@ -583,47 +582,45 @@ function LiveWorkout({ route, navigation }: Props) {
             </FadeSlideOverlay>
           }
         >
-          {workoutStarted ? (
-            Platform.OS === 'web' ? (
-              <>
-                {createElement('video', {
-                  key: 'camera-feed',
-                  ref: setVideoNode,
-                  style: {
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    transform: 'scaleX(-1)',
-                  },
-                  autoPlay: true,
-                  playsInline: true,
-                  muted: true,
-                })}
-                {createElement('canvas', {
-                  key: 'skeleton-overlay',
-                  ref: setCanvasNode,
-                  style: {
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    pointerEvents: 'none',
-                    zIndex: 2,
-                  },
-                })}
-              </>
-            ) : (
-              <LiveWorkoutNativeCamera />
-            )
+          {Platform.OS === 'web' ? (
+            <>
+              {createElement('video', {
+                key: 'camera-feed',
+                ref: setVideoNode,
+                style: {
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  transform: 'scaleX(-1)',
+                },
+                autoPlay: true,
+                playsInline: true,
+                muted: true,
+              })}
+              {workoutStarted
+                ? createElement('canvas', {
+                    key: 'skeleton-overlay',
+                    ref: setCanvasNode,
+                    style: {
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      pointerEvents: 'none',
+                      zIndex: 2,
+                    },
+                  })
+                : null}
+            </>
           ) : (
-            <View style={styles.cameraPlaceholder} />
+            <LiveWorkoutNativeCamera />
           )}
         </WorkoutVideoFrame>
       </View>
@@ -673,25 +670,15 @@ const styles = StyleSheet.create({
   mainContent: {
     flex: 1,
   },
-  cameraPlaceholder: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: theme.colors.dark,
-  },
-  onboardingOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: '#000000cc',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: scale(24),
-    zIndex: 10,
-  },
   onboardingCard: {
     width: '100%',
     maxWidth: theme.component.dialogMaxWidth,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: 'rgba(36, 33, 33, 0.72)',
     borderRadius: theme.radius.xl,
     padding: theme.component.dialogPadding,
     alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   onboardingGifPlaceholder: {
     width: scale(280),
@@ -707,7 +694,7 @@ const styles = StyleSheet.create({
   },
   onboardingHint: {
     ...theme.typography.body,
-    color: `${theme.colors.white}99`,
+    color: `${theme.colors.white}cc`,
     fontSize: scale(13),
     textAlign: 'center',
     lineHeight: scale(18),
@@ -716,17 +703,18 @@ const styles = StyleSheet.create({
   readyButton: {
     width: '100%',
     backgroundColor: theme.colors.red,
-    borderRadius: theme.radius.full,
-    paddingVertical: theme.component.buttonPaddingVertical,
-    paddingHorizontal: theme.component.buttonPaddingHorizontal,
+    borderRadius: scale(4),
+    paddingVertical: scale(10),
+    paddingHorizontal: scale(14),
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: theme.component.buttonMinHeight,
   },
   readyButtonText: {
-    ...theme.typography.label,
     fontFamily: theme.fonts.label,
+    fontSize: scale(9),
+    letterSpacing: scale(1.2),
     color: theme.colors.white,
+    textTransform: 'uppercase',
   },
   notFound: {
     ...theme.typography.body,

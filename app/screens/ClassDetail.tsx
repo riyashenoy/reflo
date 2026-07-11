@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -24,10 +25,18 @@ import theme, { scale } from '../theme';
 type Props = NativeStackScreenProps<AppStackParamList, 'ClassDetail'>;
 
 const HORIZONTAL_PADDING = scale(20);
-const HERO_HEIGHT_RATIO = 0.4;
+const HERO_HEIGHT_RATIO = 0.34;
+const RULE = 'rgba(255,255,255,0.12)';
+const MUTED = 'rgba(255,255,255,0.55)';
 
 function formatIntensity(intensity: Intensity) {
-  return intensity.charAt(0).toUpperCase() + intensity.slice(1);
+  if (intensity === 'medium') {
+    return 'Med';
+  }
+  if (intensity === 'high') {
+    return 'High';
+  }
+  return 'Low';
 }
 
 function formatExerciseMeta(
@@ -44,10 +53,6 @@ function formatExerciseMeta(
   return `${sets} sets · ${reps} reps`;
 }
 
-function getIntensityColor(intensity: Intensity) {
-  return intensity === 'high' ? theme.colors.red : theme.colors.white;
-}
-
 export default function ClassDetail({ route, navigation }: Props) {
   const { libraryId, workoutId: routeWorkoutId } = route.params ?? {};
   const libraryWorkout = getLibraryWorkoutForDemo(libraryId, routeWorkoutId);
@@ -60,6 +65,9 @@ export default function ClassDetail({ route, navigation }: Props) {
   const bookmarkId = libraryWorkout?.id ?? routeWorkoutId;
   const saved = bookmarkId ? isSaved(bookmarkId) : false;
   const displayTitle = libraryWorkout?.title ?? workout?.title;
+  const description =
+    libraryWorkout?.description ?? workout?.description ?? '';
+  const difficulty = libraryWorkout?.difficulty ?? 2;
 
   if (!workout) {
     return (
@@ -78,23 +86,15 @@ export default function ClassDetail({ route, navigation }: Props) {
   const stats = [
     {
       value: String(workout.duration),
-      label: 'Minutes',
-      color: theme.colors.white,
+      label: 'MIN',
     },
     {
       value: formatIntensity(workout.intensity),
-      label: 'Intensity',
-      color: getIntensityColor(workout.intensity),
+      label: 'LEVEL',
     },
     {
       value: String(workout.exercises.length),
-      label: 'Exercises',
-      color: theme.colors.white,
-    },
-    {
-      value: workout.aiTracked ? '✦ AI' : 'No',
-      label: 'Corrections',
-      color: workout.aiTracked ? theme.colors.teal : theme.colors.white,
+      label: 'MOVES',
     },
   ];
 
@@ -134,8 +134,7 @@ export default function ClassDetail({ route, navigation }: Props) {
           </PressableScale>
           <PressableScale
             style={[
-              styles.iconButton,
-              saved && styles.iconButtonSaved,
+              styles.favoriteButton,
               { top: insets.top + scale(12), right: scale(20) },
             ]}
             onPress={() => {
@@ -146,54 +145,59 @@ export default function ClassDetail({ route, navigation }: Props) {
             accessibilityRole="button"
             accessibilityLabel={saved ? 'Remove bookmark' : 'Bookmark workout'}
           >
-            <Text
-              style={[
-                styles.iconButtonText,
-                saved && styles.iconButtonTextSaved,
-              ]}
-            >
-              {saved ? '★' : '☆'}
-            </Text>
+            <Ionicons
+              name={saved ? 'star' : 'star-outline'}
+              size={scale(16)}
+              color={theme.colors.teal}
+            />
           </PressableScale>
         </View>
 
         <FadeInView style={styles.content} delay={100}>
-          <Text style={styles.title}>{displayTitle}</Text>
-          <Text style={styles.description}>{workout.description}</Text>
-
-          <View style={styles.tagRow}>
-            {workout.tags.map((tag) => (
-              <View key={tag} style={styles.tagPill}>
-                <Text style={styles.tagPillText}>{tag.toUpperCase()}</Text>
-              </View>
+          <View style={styles.difficultyRow}>
+            {Array.from({ length: difficulty }, (_, index) => (
+              <View key={`difficulty-${index}`} style={styles.difficultyDot} />
             ))}
           </View>
+          <Text style={styles.title}>{displayTitle}</Text>
+          {description ? (
+            <Text style={styles.description}>{description}</Text>
+          ) : null}
 
           <View style={styles.statsRow}>
             {stats.map((stat, index) => (
-              <View
-                key={stat.label}
-                style={[
-                  styles.statColumn,
-                  index > 0 && styles.statColumnDivider,
-                ]}
-              >
-                <Text style={[styles.statValue, { color: stat.color }]}>
-                  {stat.value}
-                </Text>
-                <Text style={styles.statLabel}>{stat.label}</Text>
+              <View key={stat.label} style={styles.statSlot}>
+                {index > 0 ? <View style={styles.statDivider} /> : null}
+                <View style={styles.statColumn}>
+                  <Text style={styles.statValue}>{stat.value}</Text>
+                  <Text style={styles.statLabel}>{stat.label}</Text>
+                </View>
               </View>
             ))}
+            {workout.aiTracked ? (
+              <View style={styles.statSlot}>
+                <View style={styles.statDivider} />
+                <View style={styles.statColumn}>
+                  <View style={styles.aiRow}>
+                    <Text style={styles.starMotif}>✦</Text>
+                    <Text style={styles.statValueAi}>AI</Text>
+                  </View>
+                  <Text style={styles.statLabel}>TRACKED</Text>
+                </View>
+              </View>
+            ) : null}
           </View>
 
-          <View style={styles.sectionDivider} />
-          <Text style={styles.sectionLabel}>CLASS BREAKDOWN</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>CLASS BREAKDOWN</Text>
+          </View>
 
           {workout.exercises.map((exercise, index) => (
             <PressableScale
               key={`${exercise.name}-${index}`}
               style={[
                 styles.exerciseRow,
+                index === 0 && styles.exerciseRowFirst,
                 index < workout.exercises.length - 1 &&
                   styles.exerciseRowBorder,
               ]}
@@ -207,7 +211,6 @@ export default function ClassDetail({ route, navigation }: Props) {
               <Text style={styles.exerciseNumber}>
                 {String(index + 1).padStart(2, '0')}
               </Text>
-              <View style={styles.exerciseThumbnail} />
               <View style={styles.exerciseInfo}>
                 <Text style={styles.exerciseName}>{exercise.name}</Text>
                 <Text style={styles.exerciseMeta}>
@@ -219,8 +222,9 @@ export default function ClassDetail({ route, navigation }: Props) {
                 </Text>
               </View>
               {exercise.tracked ? (
-                <View style={styles.trackedBadge}>
-                  <Text style={styles.trackedBadgeText}>✦ Tracked</Text>
+                <View style={styles.trackedDots}>
+                  <Text style={styles.starMotif}>✦</Text>
+                  <Text style={styles.trackedLabel}>TRACKED</Text>
                 </View>
               ) : null}
             </PressableScale>
@@ -230,18 +234,25 @@ export default function ClassDetail({ route, navigation }: Props) {
         </FadeInView>
       </ScrollView>
 
-      <PressableScale
-        style={[styles.beginButton, { bottom: insets.bottom + scale(24) }]}
-        onPress={() =>
-          navigation.navigate('LiveWorkout', {
-            workoutId: workout.id,
-            libraryId: libraryWorkout?.id,
-            dateKey: toDateKey(new Date()),
-          })
-        }
+      <View
+        style={[
+          styles.beginBar,
+          { paddingBottom: Math.max(insets.bottom, scale(16)) + scale(8) },
+        ]}
       >
-        <Text style={styles.beginButtonText}>BEGIN</Text>
-      </PressableScale>
+        <PressableScale
+          style={styles.beginButton}
+          onPress={() =>
+            navigation.navigate('LiveWorkout', {
+              workoutId: workout.id,
+              libraryId: libraryWorkout?.id,
+              dateKey: toDateKey(new Date()),
+            })
+          }
+        >
+          <Text style={styles.beginButtonText}>BEGIN</Text>
+        </PressableScale>
+      </View>
     </View>
   );
 }
@@ -255,7 +266,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: scale(100),
+    paddingBottom: scale(110),
   },
   hero: {
     width: '100%',
@@ -289,163 +300,202 @@ const styles = StyleSheet.create({
     color: theme.colors.white,
     fontSize: scale(18),
   },
-  iconButtonSaved: {
+  favoriteButton: {
+    position: 'absolute',
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(20),
     backgroundColor: 'rgba(121, 203, 208, 0.25)',
-  },
-  iconButtonTextSaved: {
-    color: theme.colors.teal,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
   },
   content: {
     paddingHorizontal: HORIZONTAL_PADDING,
     paddingTop: scale(20),
   },
-  title: {
-    ...theme.typography.header,
-    fontFamily: theme.fonts.header,
-    fontSize: scale(28),
-    color: theme.colors.white,
-    marginBottom: scale(8),
-  },
-  description: {
-    ...theme.typography.body,
-    fontSize: scale(14),
-    color: `${theme.colors.white}99`,
-    lineHeight: scale(20),
+  difficultyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scale(5),
     marginBottom: scale(16),
   },
-  tagRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: scale(8),
-    marginBottom: scale(20),
+  difficultyDot: {
+    width: scale(8),
+    height: scale(8),
+    borderRadius: scale(4),
+    backgroundColor: theme.colors.teal,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
-  tagPill: {
-    borderWidth: scale(1),
-    borderColor: `${theme.colors.white}55`,
-    borderRadius: theme.radius.full,
-    paddingHorizontal: scale(14),
-    paddingVertical: scale(6),
-  },
-  tagPillText: {
-    ...theme.typography.label,
-    fontFamily: theme.fonts.label,
-    fontSize: scale(10),
+  title: {
+    fontFamily: theme.fonts.header,
+    fontSize: scale(32),
+    letterSpacing: scale(-1),
+    lineHeight: scale(34),
     color: theme.colors.white,
-    letterSpacing: scale(0.6),
+    marginBottom: scale(10),
+  },
+  description: {
+    fontFamily: theme.fonts.body,
+    fontSize: scale(13),
+    lineHeight: scale(20),
+    color: MUTED,
+    marginBottom: scale(4),
   },
   statsRow: {
     flexDirection: 'row',
-    marginBottom: scale(20),
+    alignItems: 'center',
+    borderTopWidth: scale(0.5),
+    borderBottomWidth: scale(0.5),
+    borderColor: RULE,
+    marginTop: scale(20),
+    marginBottom: scale(28),
+    paddingVertical: scale(16),
+  },
+  statSlot: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statDivider: {
+    width: scale(1),
+    height: scale(28),
+    backgroundColor: RULE,
   },
   statColumn: {
     flex: 1,
-    alignItems: 'flex-start',
-    paddingHorizontal: scale(4),
-  },
-  statColumnDivider: {
-    borderLeftWidth: scale(1),
-    borderLeftColor: `${theme.colors.white}22`,
-    paddingLeft: scale(10),
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statValue: {
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: scale(20),
-    marginBottom: scale(4),
+    fontFamily: theme.fonts.header,
+    fontSize: scale(22),
+    letterSpacing: scale(-0.5),
+    color: theme.colors.white,
+    lineHeight: scale(24),
+    textAlign: 'center',
+  },
+  statValueAi: {
+    fontFamily: theme.fonts.header,
+    fontSize: scale(22),
+    letterSpacing: scale(-0.5),
+    color: theme.colors.teal,
+    lineHeight: scale(24),
   },
   statLabel: {
-    ...theme.typography.label,
     fontFamily: theme.fonts.label,
     fontSize: scale(9),
-    color: `${theme.colors.white}66`,
-    letterSpacing: scale(0.4),
-    textTransform: 'none',
+    letterSpacing: scale(1.4),
+    color: MUTED,
+    textTransform: 'uppercase',
+    marginTop: scale(6),
+    textAlign: 'center',
   },
-  sectionDivider: {
-    height: scale(1),
-    backgroundColor: `${theme.colors.white}22`,
-    marginBottom: scale(12),
+  aiRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scale(6),
+  },
+  starMotif: {
+    fontFamily: theme.fonts.label,
+    fontSize: scale(11),
+    color: theme.colors.teal,
+    lineHeight: scale(14),
+  },
+  sectionHeader: {
+    marginBottom: scale(4),
   },
   sectionLabel: {
-    ...theme.typography.label,
     fontFamily: theme.fonts.label,
-    color: `${theme.colors.white}66`,
-    marginBottom: scale(12),
+    fontSize: scale(9),
+    letterSpacing: scale(1.4),
+    color: MUTED,
+    textTransform: 'uppercase',
   },
   exerciseRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: scale(14),
+    paddingVertical: scale(16),
+  },
+  exerciseRowFirst: {
+    borderTopWidth: scale(0.5),
+    borderTopColor: RULE,
+    marginTop: scale(10),
   },
   exerciseRowBorder: {
-    borderBottomWidth: scale(1),
-    borderBottomColor: `${theme.colors.white}0a`,
+    borderBottomWidth: scale(0.5),
+    borderBottomColor: RULE,
   },
   exerciseNumber: {
-    width: scale(28),
-    ...theme.typography.body,
-    fontSize: scale(14),
-    color: `${theme.colors.white}66`,
-  },
-  exerciseThumbnail: {
-    width: scale(44),
-    height: scale(44),
-    backgroundColor: `${theme.colors.white}18`,
-    borderRadius: scale(6),
-    marginRight: scale(12),
+    width: scale(32),
+    fontFamily: theme.fonts.header,
+    fontSize: scale(13),
+    color: MUTED,
   },
   exerciseInfo: {
     flex: 1,
     paddingRight: scale(8),
   },
   exerciseName: {
-    ...theme.typography.body,
     fontFamily: theme.fonts.bodyMedium,
-    fontSize: scale(15),
+    fontSize: scale(14),
+    letterSpacing: 0,
     color: theme.colors.white,
+    textTransform: 'none',
     marginBottom: scale(4),
   },
-  trackedBadge: {
-    borderWidth: scale(1),
-    borderColor: theme.colors.teal,
-    borderRadius: theme.radius.md,
-    paddingHorizontal: scale(8),
-    paddingVertical: scale(3),
-    alignSelf: 'center',
+  exerciseMeta: {
+    fontFamily: theme.fonts.body,
+    fontSize: scale(11),
+    color: MUTED,
   },
-  trackedBadgeText: {
-    ...theme.typography.label,
+  trackedDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scale(6),
+  },
+  trackedLabel: {
     fontFamily: theme.fonts.label,
     fontSize: scale(9),
+    letterSpacing: scale(1.2),
     color: theme.colors.teal,
-    letterSpacing: scale(0.3),
-    textTransform: 'none',
-  },
-  exerciseMeta: {
-    ...theme.typography.body,
-    fontSize: scale(12),
-    color: `${theme.colors.white}66`,
+    textTransform: 'uppercase',
   },
   bottomSpacer: {
-    height: scale(24),
+    height: scale(16),
   },
-  beginButton: {
+  beginBar: {
     position: 'absolute',
-    right: scale(24),
-    backgroundColor: theme.colors.red,
-    paddingHorizontal: scale(32),
-    paddingVertical: scale(14),
-    borderRadius: theme.radius.full,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: HORIZONTAL_PADDING,
+    paddingTop: scale(12),
+    backgroundColor: theme.colors.dark,
+    borderTopWidth: scale(0.5),
+    borderTopColor: RULE,
     zIndex: 5,
   },
+  beginButton: {
+    width: '100%',
+    backgroundColor: theme.colors.red,
+    paddingHorizontal: scale(14),
+    paddingVertical: scale(14),
+    borderRadius: scale(4),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   beginButtonText: {
-    ...theme.typography.label,
     fontFamily: theme.fonts.label,
-    fontSize: scale(12),
+    fontSize: scale(11),
+    letterSpacing: scale(1.6),
     color: theme.colors.white,
-    letterSpacing: scale(0.8),
+    textTransform: 'uppercase',
   },
   notFound: {
-    ...theme.typography.body,
+    fontFamily: theme.fonts.body,
+    fontSize: scale(13),
     color: theme.colors.white,
     textAlign: 'center',
     marginTop: scale(100),

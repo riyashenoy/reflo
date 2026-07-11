@@ -7,9 +7,15 @@ import { motion } from '../../lib/motion';
 type FadeSlideOverlayProps = {
   visible: boolean;
   children: ReactNode;
+  /** Backdrop behind the card. Defaults to a heavy dim. */
+  backdropColor?: string;
 };
 
-export function FadeSlideOverlay({ visible, children }: FadeSlideOverlayProps) {
+export function FadeSlideOverlay({
+  visible,
+  children,
+  backdropColor = '#000000cc',
+}: FadeSlideOverlayProps) {
   const reduceMotion = useReducedMotion();
   const opacity = useRef(new Animated.Value(visible ? 1 : 0)).current;
   const translateY = useRef(
@@ -69,7 +75,7 @@ export function FadeSlideOverlay({ visible, children }: FadeSlideOverlayProps) {
 
   return (
     <Animated.View
-      style={[styles.overlay, { opacity }]}
+      style={[styles.overlay, { opacity, backgroundColor: backdropColor }]}
       pointerEvents={visible ? 'box-none' : 'none'}
     >
       <Animated.View
@@ -87,7 +93,6 @@ export function FadeSlideOverlay({ visible, children }: FadeSlideOverlayProps) {
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#000000cc',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,

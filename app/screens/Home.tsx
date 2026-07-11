@@ -39,6 +39,8 @@ const CARD_GAP = scale(12);
 const GRID_MIN_ITEMS = 4;
 const SLIDE_MS = 320;
 const HERO_WORKOUT = libraryWorkouts[0];
+/** Hero uses cover1; Full Body Burn card uses cover6 so they don’t match. */
+const HERO_COVER = require('../../assets/images/cover/cover1.jpg');
 const SCROLL_BOTTOM_PADDING = scale(140);
 
 const STREAK_DAY_LABELS = ['S', 'M', 'T', 'W', 'TH', 'F', 'SA'] as const;
@@ -198,6 +200,8 @@ function FilterPill({
   isActive: boolean;
   onPress: () => void;
 }) {
+  const isSaved = label === SAVED_FILTER;
+
   return (
     <Pressable
       onPress={onPress}
@@ -205,7 +209,16 @@ function FilterPill({
       accessibilityRole="button"
       accessibilityState={{ selected: isActive }}
     >
-      <View style={isActive ? styles.filterTabActive : undefined}>
+      <View
+        style={
+          isActive
+            ? [
+                styles.filterTabActive,
+                isSaved && styles.filterTabActiveSaved,
+              ]
+            : undefined
+        }
+      >
         <Text
           style={[
             styles.filterTabText,
@@ -230,7 +243,7 @@ function UpNextHeroCard({
 }) {
   return (
     <PressableScale style={styles.heroCard} onPress={onPress} scaleTo={0.98}>
-      <Image source={workout.coverImage} style={styles.heroImage} resizeMode="cover" />
+      <Image source={HERO_COVER} style={styles.heroImage} resizeMode="cover" />
       <LinearGradient
         colors={['transparent', 'rgba(20,18,18,0.95)']}
         locations={[0.35, 1]}
@@ -363,6 +376,9 @@ function WorkoutGrid({
   if (filter === SAVED_FILTER && rows.length === 0) {
     return (
       <FadeInView style={styles.emptySavedState}>
+        <View style={styles.emptySavedStar}>
+          <Ionicons name="star" size={scale(16)} color={theme.colors.teal} />
+        </View>
         <Text style={styles.emptySavedTitle}>No saved workouts yet</Text>
         <Text style={styles.emptySavedText}>
           Tap the star on any class page to bookmark it here. Tap the star on a
@@ -550,7 +566,6 @@ export default function Home() {
         <View style={styles.librarySection}>
           <View style={styles.libraryHeaderRow}>
             <Text style={styles.sectionHeading}>Workout library</Text>
-            <Text style={styles.seeAll}>ALL →</Text>
           </View>
           <View style={styles.sectionRule} />
 
@@ -820,14 +835,6 @@ const styles = StyleSheet.create({
     fontSize: scale(20),
     color: theme.colors.textPrimary,
   },
-  seeAll: {
-    flexShrink: 0,
-    fontFamily: theme.fonts.label,
-    fontSize: scale(9),
-    letterSpacing: scale(1.4),
-    color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-  },
   sectionRule: {
     borderBottomWidth: scale(0.5),
     borderBottomColor: theme.colors.border,
@@ -846,6 +853,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: scale(2),
     borderBottomColor: theme.colors.red,
     alignSelf: 'flex-start',
+  },
+  filterTabActiveSaved: {
+    borderBottomColor: theme.colors.teal,
   },
   filterTabText: {
     fontFamily: theme.fonts.label,
@@ -903,7 +913,7 @@ const styles = StyleSheet.create({
   cardStarButton: {
     position: 'absolute',
     top: scale(8),
-    left: scale(8),
+    right: scale(8),
     width: scale(24),
     height: scale(24),
     borderRadius: scale(12),
@@ -959,6 +969,15 @@ const styles = StyleSheet.create({
     paddingVertical: scale(32),
     paddingHorizontal: scale(8),
     alignItems: 'center',
+  },
+  emptySavedStar: {
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(20),
+    backgroundColor: 'rgba(121, 203, 208, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: scale(16),
   },
   emptySavedTitle: {
     fontFamily: theme.fonts.bodyMedium,

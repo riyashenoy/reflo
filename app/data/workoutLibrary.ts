@@ -28,7 +28,7 @@ export const libraryWorkouts: LibraryWorkout[] = [
     id: 'lib-full-body-burn',
     title: 'Full Body Burn',
     category: 'Full Body',
-    coverImage: covers.cover1,
+    coverImage: covers.cover6,
     workoutId: DEMO_WORKOUT_ID,
     description:
       'Lengthen and tone with a balanced pilates reformer flow focused on flexibility and control.',
