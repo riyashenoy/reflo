@@ -80,8 +80,8 @@ function TabButton({
       <Animated.View style={{ transform: [{ scale: iconScale }] }}>
         <Ionicons
           name={iconName}
-          size={scale(21)}
-          color={isFocused ? theme.colors.textPrimary : '#6B6B6B'}
+          size={scale(22)}
+          color={isFocused ? theme.colors.textPrimary : theme.colors.textMuted}
         />
       </Animated.View>
       <Animated.View

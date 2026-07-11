@@ -23,6 +23,8 @@ import theme, { scale } from '../theme';
 
 type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
 
+const MOTIF_SIZE = scale(4);
+
 export default function Calendar() {
   const navigation = useNavigation<NavigationProp>();
   const tabTopPadding = useTabScreenTopPadding();
@@ -95,7 +97,10 @@ export default function Calendar() {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.headerRow}>
-        <Text style={styles.heading}>Your Weekly Plan.</Text>
+        <View style={styles.headerText}>
+          <Text style={styles.eyebrow}>THIS WEEK</Text>
+          <Text style={styles.heading}>Your weekly plan.</Text>
+        </View>
         <PressableScale style={styles.editButton} hitSlop={8} onPress={handleEditFocus}>
           <EditPencilIcon />
         </PressableScale>
@@ -109,7 +114,10 @@ export default function Calendar() {
         {regenerating ? (
           <ActivityIndicator color={theme.colors.white} size="small" />
         ) : (
-          <Text style={styles.generateButtonText}>✦ GENERATE NEW SCHEDULE</Text>
+          <View style={styles.generateContent}>
+            <View style={styles.generateMotif} />
+            <Text style={styles.generateButtonText}>GENERATE NEW SCHEDULE</Text>
+          </View>
         )}
       </PressableScale>
 
@@ -147,20 +155,31 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: scale(20),
-    paddingBottom: scale(120),
+    paddingBottom: scale(140),
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: scale(16),
+    marginBottom: scale(24),
   },
-  heading: {
-    ...theme.typography.header,
-    fontFamily: theme.fonts.header,
-    color: theme.colors.textPrimary,
+  headerText: {
     flex: 1,
     paddingRight: scale(12),
+  },
+  eyebrow: {
+    fontFamily: theme.fonts.label,
+    fontSize: scale(10),
+    letterSpacing: scale(1.4),
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    marginBottom: scale(6),
+  },
+  heading: {
+    fontFamily: theme.fonts.header,
+    fontSize: scale(32),
+    letterSpacing: scale(-1),
+    color: theme.colors.textPrimary,
   },
   editButton: {
     paddingTop: scale(4),
@@ -168,18 +187,28 @@ const styles = StyleSheet.create({
   generateButton: {
     alignSelf: 'stretch',
     backgroundColor: theme.colors.dark,
-    borderRadius: theme.radius.full,
-    paddingVertical: scale(12),
-    paddingHorizontal: scale(18),
+    borderRadius: scale(4),
+    height: scale(52),
     marginBottom: scale(24),
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: scale(44),
+  },
+  generateContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scale(8),
+  },
+  generateMotif: {
+    width: MOTIF_SIZE,
+    height: MOTIF_SIZE,
+    backgroundColor: theme.colors.teal,
   },
   generateButtonText: {
-    ...theme.typography.label,
     fontFamily: theme.fonts.label,
+    fontSize: scale(10),
+    letterSpacing: scale(1.5),
     color: theme.colors.white,
+    textTransform: 'uppercase',
   },
   loadingState: {
     paddingVertical: scale(48),

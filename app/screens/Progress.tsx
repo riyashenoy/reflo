@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -7,7 +8,7 @@ import {
 } from 'react-native';
 
 import { FormScoreChart, ProgressEmptyState } from '../components/FormScoreChart';
-import { FadeInView, SegmentPillLight } from '../components/motion';
+import { FadeInView } from '../components/motion';
 import { useLayoutWidth } from '../hooks/useLayoutWidth';
 import { useWorkoutHistory } from '../hooks/useWorkoutHistory';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
@@ -18,33 +19,58 @@ import {
 import theme, { scale } from '../theme';
 
 const PERIODS: ProgressPeriod[] = ['Week', 'Month', 'All time'];
+const WARM_RULE = '#E4E2DD';
 
-function StatCard({
+function PeriodTab({
+  label,
+  isActive,
+  onPress,
+}: {
+  label: string;
+  isActive: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={styles.periodTab}
+      accessibilityRole="button"
+      accessibilityState={{ selected: isActive }}
+    >
+      <View style={isActive ? styles.periodTabActive : undefined}>
+        <Text
+          style={[
+            styles.periodTabText,
+            isActive ? styles.periodTabTextActive : styles.periodTabTextInactive,
+          ]}
+        >
+          {label.toUpperCase()}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+function StatBlock({
   value,
   label,
-  style,
-  accent,
 }: {
   value: number | string;
   label: string;
-  style?: object;
-  accent?: boolean;
 }) {
   return (
-    <View
-      style={[
-        styles.card,
-        styles.statCard,
-        accent && styles.statCardAccent,
-        style,
-      ]}
-    >
-      <Text style={[styles.statValue, accent && styles.statValueAccent]}>
-        {value}
-      </Text>
-      <Text style={[styles.statLabel, accent && styles.statLabelAccent]}>
-        {label}
-      </Text>
+    <View style={styles.statBlock}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function SectionEyebrow({ title }: { title: string }) {
+  return (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionEyebrow}>{title}</Text>
+      <View style={styles.sectionRule} />
     </View>
   );
 }
@@ -55,7 +81,7 @@ export default function Progress() {
   const { entries, streak, isLoading } = useWorkoutHistory();
   const [activePeriod, setActivePeriod] = useState<ProgressPeriod>('Week');
 
-  const chartWidth = layoutWidth - scale(40) - scale(32);
+  const chartWidth = layoutWidth - scale(40);
 
   const summary = useMemo(
     () => buildProgressSummary(entries, activePeriod, streak),
@@ -72,11 +98,14 @@ export default function Progress() {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.headerRow}>
-        <Text style={styles.heading}>Your Progress.</Text>
+        <View style={styles.headerText}>
+          <Text style={styles.eyebrow}>YOUR STATS</Text>
+          <Text style={styles.heading}>Progress.</Text>
+        </View>
 
         <View style={styles.periodToggle}>
           {PERIODS.map((period) => (
-            <SegmentPillLight
+            <PeriodTab
               key={period}
               label={period}
               isActive={activePeriod === period}
@@ -86,58 +115,40 @@ export default function Progress() {
         </View>
       </View>
 
-      <FadeInView style={styles.cards} delay={80}>
-        <View style={[styles.card, styles.chartCard]}>
-          <Text style={styles.chartTitle}>Form Score Over Time</Text>
-          {isLoading ? (
-            <View style={styles.chartLoading}>
-              <Text style={styles.chartLoadingText}>Loading workouts…</Text>
-            </View>
-          ) : summary.hasData ? (
-            <FormScoreChart points={summary.chartPoints} width={chartWidth} />
-          ) : (
-            <ProgressEmptyState />
-          )}
-        </View>
+      <FadeInView style={styles.content} delay={80}>
+        <SectionEyebrow title="FORM SCORE OVER TIME" />
+        {isLoading ? (
+          <Text style={styles.emptyMessage}>Loading workouts…</Text>
+        ) : summary.hasData ? (
+          <FormScoreChart points={summary.chartPoints} width={chartWidth} />
+        ) : (
+          <ProgressEmptyState />
+        )}
 
         {summary.hasData ? (
           <>
+            <View style={styles.statsRule} />
             <View style={styles.statRow}>
-              <StatCard
-                value={summary.sessions}
-                label="Sessions Done"
-                style={styles.halfCard}
-              />
-              <StatCard
-                value={summary.streak}
-                label="Current Streak"
-                style={styles.halfCard}
-              />
+              <StatBlock value={summary.sessions} label="SESSIONS DONE" />
+              <StatBlock value={summary.streak} label="CURRENT STREAK" />
             </View>
 
+            <View style={styles.statsRule} />
             <View style={styles.statRow}>
-              <StatCard
-                value={summary.averageScore}
-                label="Average Form Score"
-                style={styles.halfCard}
-              />
-              <StatCard
-                value={summary.bestScore}
-                label="Personal Best"
-                style={styles.halfCard}
-                accent
-              />
+              <StatBlock value={summary.averageScore} label="AVERAGE FORM SCORE" />
+              <StatBlock value={summary.bestScore} label="PERSONAL BEST" />
             </View>
           </>
         ) : !isLoading ? (
-          <View style={styles.card}>
+          <>
+            <View style={styles.statsRule} />
             <Text style={styles.motivationTitle}>Build your movement story</Text>
             <Text style={styles.motivationText}>
               Complete a class from your weekly plan or the workout library.
               Your sessions, streak, and form scores will appear here
               automatically.
             </Text>
-          </View>
+          </>
         ) : null}
       </FadeInView>
     </ScrollView>
@@ -151,102 +162,121 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: scale(20),
-    paddingBottom: scale(120),
+    paddingBottom: scale(140),
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: scale(20),
+    marginBottom: scale(28),
     gap: scale(12),
   },
-  heading: {
-    ...theme.typography.header,
-    fontFamily: theme.fonts.header,
-    color: theme.colors.textPrimary,
+  headerText: {
     flex: 1,
+  },
+  eyebrow: {
+    fontFamily: theme.fonts.label,
+    fontSize: scale(10),
+    letterSpacing: scale(1.4),
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    marginBottom: scale(6),
+  },
+  heading: {
+    fontFamily: theme.fonts.header,
+    fontSize: scale(32),
+    letterSpacing: scale(-1),
+    color: theme.colors.textPrimary,
   },
   periodToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.grey200,
-    borderRadius: theme.radius.full,
-    padding: scale(3),
-    gap: scale(2),
-  },
-  cards: {
     gap: scale(12),
+    paddingTop: scale(4),
   },
-  card: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.radius.md,
-    padding: scale(16),
-    borderWidth: scale(1),
-    borderColor: theme.colors.border,
+  periodTab: {
+    paddingVertical: scale(4),
   },
-  chartCard: {
-    minHeight: scale(240),
+  periodTabActive: {
+    borderBottomWidth: scale(2),
+    borderBottomColor: theme.colors.red,
+    alignSelf: 'flex-start',
   },
-  chartTitle: {
-    ...theme.typography.label,
+  periodTabText: {
     fontFamily: theme.fonts.label,
-    color: theme.colors.textSecondary,
-    marginBottom: scale(12),
+    fontSize: scale(10),
+    letterSpacing: scale(1.2),
+    textTransform: 'uppercase',
   },
-  chartLoading: {
-    flex: 1,
-    minHeight: scale(180),
-    justifyContent: 'center',
-    alignItems: 'center',
+  periodTabTextActive: {
+    color: theme.colors.textPrimary,
   },
-  chartLoadingText: {
-    ...theme.typography.body,
-    color: theme.colors.textSecondary,
+  periodTabTextInactive: {
+    color: theme.colors.textMuted,
+  },
+  content: {
+    gap: 0,
+  },
+  sectionHeader: {
+    marginBottom: scale(16),
+  },
+  sectionEyebrow: {
+    fontFamily: theme.fonts.label,
+    fontSize: scale(9),
+    letterSpacing: scale(1.4),
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    marginBottom: scale(10),
+  },
+  sectionRule: {
+    borderBottomWidth: scale(0.5),
+    borderBottomColor: WARM_RULE,
+  },
+  emptyMessage: {
+    fontFamily: theme.fonts.body,
+    fontSize: scale(13),
+    color: theme.colors.textMuted,
+    marginBottom: scale(8),
+  },
+  statsRule: {
+    borderBottomWidth: scale(0.5),
+    borderBottomColor: WARM_RULE,
+    marginTop: scale(28),
+    marginBottom: scale(20),
   },
   statRow: {
     flexDirection: 'row',
-    gap: scale(12),
+    gap: scale(24),
   },
-  halfCard: {
+  statBlock: {
     flex: 1,
-    minHeight: scale(100),
-    justifyContent: 'center',
-  },
-  statCard: {
-    minHeight: scale(100),
-    justifyContent: 'center',
-  },
-  statCardAccent: {
-    backgroundColor: theme.colors.dark,
-    borderColor: theme.colors.dark,
   },
   statValue: {
-    fontFamily: theme.fonts.headerMedium,
-    fontSize: scale(28),
+    fontFamily: theme.fonts.header,
+    fontSize: scale(32),
+    letterSpacing: scale(-1),
     color: theme.colors.textPrimary,
-    marginBottom: scale(4),
-  },
-  statValueAccent: {
-    color: theme.colors.white,
+    lineHeight: scale(34),
   },
   statLabel: {
-    ...theme.typography.body,
-    fontSize: scale(12),
-    color: theme.colors.textSecondary,
-  },
-  statLabelAccent: {
-    color: theme.colors.grey400,
+    fontFamily: theme.fonts.label,
+    fontSize: scale(9),
+    letterSpacing: scale(1.4),
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    marginTop: scale(6),
   },
   motivationTitle: {
-    ...theme.typography.mediumHeader,
     fontFamily: theme.fonts.header,
+    fontSize: scale(20),
+    letterSpacing: scale(-0.5),
     color: theme.colors.textPrimary,
     marginBottom: scale(8),
   },
   motivationText: {
-    ...theme.typography.body,
+    fontFamily: theme.fonts.body,
     fontSize: scale(13),
     lineHeight: scale(20),
-    color: theme.colors.textSecondary,
+    color: theme.colors.textMuted,
   },
 });

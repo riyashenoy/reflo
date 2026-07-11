@@ -40,8 +40,6 @@ const GRID_MIN_ITEMS = 4;
 const SLIDE_MS = 320;
 const HERO_WORKOUT = libraryWorkouts[0];
 const SCROLL_BOTTOM_PADDING = scale(140);
-/** Darker than theme.grey400 (#BABABA) for readable muted labels on #F3F3F3. */
-const MUTED_TEXT = '#6B6B6B';
 
 const STREAK_DAY_LABELS = ['S', 'M', 'T', 'W', 'TH', 'F', 'SA'] as const;
 const STREAK_DAY_KEYS = [
@@ -675,7 +673,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.label,
     fontSize: scale(10),
     letterSpacing: scale(1.6),
-    color: MUTED_TEXT,
+    color: theme.colors.textMuted,
     textTransform: 'uppercase',
   },
   greetingHeadline: {
@@ -706,7 +704,7 @@ const styles = StyleSheet.create({
   streakDayLabel: {
     fontFamily: theme.fonts.label,
     fontSize: scale(9),
-    color: MUTED_TEXT,
+    color: theme.colors.textMuted,
     textTransform: 'uppercase',
   },
   streakSquare: {
@@ -746,7 +744,7 @@ const styles = StyleSheet.create({
   streakCountLabel: {
     fontFamily: theme.fonts.label,
     fontSize: scale(8),
-    color: MUTED_TEXT,
+    color: theme.colors.textMuted,
     letterSpacing: scale(0.8),
     marginTop: scale(4),
   },
@@ -867,7 +865,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.label,
     fontSize: scale(9),
     letterSpacing: scale(1.4),
-    color: MUTED_TEXT,
+    color: theme.colors.textMuted,
     textTransform: 'uppercase',
   },
   sectionRule: {
@@ -898,7 +896,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
   },
   filterTabTextInactive: {
-    color: MUTED_TEXT,
+    color: theme.colors.textMuted,
   },
   gridContainer: {
     minHeight: scale(200),
@@ -966,13 +964,13 @@ const styles = StyleSheet.create({
   cardIndex: {
     fontFamily: theme.fonts.header,
     fontSize: scale(11),
-    color: MUTED_TEXT,
+    color: theme.colors.textMuted,
   },
   cardDuration: {
     flex: 1,
     fontFamily: theme.fonts.label,
     fontSize: scale(9),
-    color: MUTED_TEXT,
+    color: theme.colors.textMuted,
     textAlign: 'right',
     textTransform: 'uppercase',
   },
@@ -994,7 +992,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.body,
     fontSize: scale(9),
     letterSpacing: scale(0.6),
-    color: MUTED_TEXT,
+    color: theme.colors.textMuted,
     textTransform: 'uppercase',
     marginTop: scale(2),
   },

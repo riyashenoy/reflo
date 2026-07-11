@@ -135,7 +135,6 @@ export function FormScoreChart({
 export function ProgressEmptyState() {
   return (
     <View style={styles.emptyState}>
-      <Text style={styles.emptyTitle}>Your progress starts here</Text>
       <Text style={styles.emptyText}>
         Keep using reflo and your form scores, streak, and session stats will
         show up here after you complete workouts.
@@ -149,23 +148,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   emptyState: {
-    minHeight: scale(220),
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: scale(12),
-  },
-  emptyTitle: {
-    ...theme.typography.mediumHeader,
-    fontFamily: theme.fonts.header,
-    color: theme.colors.textPrimary,
-    marginBottom: scale(10),
-    textAlign: 'center',
+    paddingTop: scale(4),
+    paddingBottom: scale(8),
   },
   emptyText: {
-    ...theme.typography.body,
+    fontFamily: theme.fonts.body,
     fontSize: scale(13),
     lineHeight: scale(20),
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
+    color: theme.colors.textMuted,
   },
 });

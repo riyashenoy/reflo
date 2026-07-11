@@ -3,6 +3,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { toDateKey, type WeeklyPlanDay } from '../../lib/workoutHistory';
 import theme, { scale } from '../../theme';
 
+const WARM_RULE = '#E4E2DD';
+const MARKER_SIZE = scale(16);
+const MOTIF_SIZE = scale(4);
+
 export type CalendarDayVariant =
   | 'completed'
   | 'today'
@@ -31,7 +35,7 @@ function getStatusLine(day: WeeklyPlanDay, variant: CalendarDayVariant): string 
     return 'Recovery · Rest and reset';
   }
   if (variant === 'completed') {
-    return `Done · ${day.duration} min · Form Score ${day.formScore ?? 82}`;
+    return `Done · ${day.duration} min · Form ${day.formScore ?? 82}`;
   }
   if (variant === 'missed') {
     return `Missed · ${day.duration} min`;
@@ -41,17 +45,15 @@ function getStatusLine(day: WeeklyPlanDay, variant: CalendarDayVariant): string 
 
 function getWorkoutTitle(day: WeeklyPlanDay, variant: CalendarDayVariant): string {
   if (variant === 'rest') {
-    return 'REST DAY';
+    return 'Rest day';
   }
   return day.workoutTitle.toUpperCase();
 }
 
-function StatusIcon({
+function StatusMarker({
   variant,
-  isTodayRow,
 }: {
   variant: CalendarDayVariant;
-  isTodayRow: boolean;
 }) {
   if (variant === 'rest') {
     return null;
@@ -59,21 +61,17 @@ function StatusIcon({
 
   if (variant === 'completed') {
     return (
-      <View style={styles.iconCompleted}>
-        <Text style={styles.iconCheckmark}>✓</Text>
+      <View style={styles.markerCompleted}>
+        <Text style={styles.markerCheck}>✓</Text>
       </View>
     );
   }
 
   if (variant === 'missed') {
-    return <View style={styles.iconMissed} />;
+    return <View style={styles.markerMissed} />;
   }
 
-  if (isTodayRow) {
-    return <View style={styles.iconToday} />;
-  }
-
-  return <View style={styles.iconScheduled} />;
+  return <View style={styles.markerScheduled} />;
 }
 
 type CalendarDayRowProps = {
@@ -90,43 +88,35 @@ export function CalendarDayRow({
   const variant = resolveCalendarDayVariant(day);
   const todayKey = toDateKey(new Date());
   const isTodayRow = day.dateKey === todayKey;
-  const dayLabel = isTodayRow ? `${day.dayName} · TODAY` : day.dayName;
   const isPressable = variant !== 'rest';
   const isRest = variant === 'rest';
   const isMissed = variant === 'missed';
   const isPastRest = isRest && day.dateKey < todayKey;
 
-  const dayLabelColor = isTodayRow ? theme.colors.red : theme.colors.textSecondary;
-  const titleColor = isPastRest
-    ? theme.colors.grey400
-    : theme.colors.textPrimary;
-  const statusColor = isPastRest
-    ? theme.colors.grey400
-    : theme.colors.textSecondary;
+  const dayLabelColor = isTodayRow ? theme.colors.red : theme.colors.textMuted;
+  const titleColor = isRest
+    ? theme.colors.textMuted
+    : isPastRest
+      ? theme.colors.textMuted
+      : theme.colors.textPrimary;
+  const statusColor = theme.colors.textMuted;
 
   const content = (
     <>
       {showDivider ? <View style={styles.divider} /> : null}
-      <View
-        style={[
-          styles.row,
-          isTodayRow && styles.rowToday,
-          isMissed && styles.rowMissed,
-        ]}
-      >
+      <View style={[styles.row, isMissed && styles.rowMissed]}>
         <View style={styles.rowContent}>
-          <Text style={[styles.dayLabel, { color: dayLabelColor }]}>
-            {dayLabel}
-          </Text>
+          <View style={styles.dayLabelRow}>
+            {isTodayRow ? <View style={styles.todayMotif} /> : null}
+            <Text style={[styles.dayLabel, { color: dayLabelColor }]}>
+              {day.dayName.toUpperCase()}
+            </Text>
+          </View>
           <Text
             style={[
               styles.workoutTitle,
-              {
-                color: titleColor,
-                fontFamily: isPastRest
-                  ? theme.fonts.body
-                  : theme.fonts.bodyMedium,
-              },
+              isRest && styles.workoutTitleRest,
+              { color: titleColor },
             ]}
           >
             {getWorkoutTitle(day, variant)}
@@ -135,7 +125,7 @@ export function CalendarDayRow({
             {getStatusLine(day, variant)}
           </Text>
         </View>
-        <StatusIcon variant={variant} isTodayRow={isTodayRow} />
+        <StatusMarker variant={variant} />
       </View>
     </>
   );
@@ -153,19 +143,14 @@ export function CalendarDayRow({
 
 const styles = StyleSheet.create({
   divider: {
-    height: 0.5,
-    backgroundColor: theme.colors.border,
+    height: scale(0.5),
+    backgroundColor: WARM_RULE,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: scale(16),
-  },
-  rowToday: {
-    backgroundColor: `${theme.colors.red}0a`,
-    marginHorizontal: scale(-20),
-    paddingHorizontal: scale(20),
   },
   rowMissed: {
     opacity: 0.5,
@@ -174,58 +159,63 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: scale(12),
   },
+  dayLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: scale(4),
+  },
+  todayMotif: {
+    width: MOTIF_SIZE,
+    height: MOTIF_SIZE,
+    backgroundColor: theme.colors.red,
+    marginRight: scale(6),
+  },
   dayLabel: {
     fontFamily: theme.fonts.label,
-    fontSize: scale(10),
-    letterSpacing: scale(0.88),
+    fontSize: scale(9),
+    letterSpacing: scale(1.4),
+    textTransform: 'uppercase',
+  },
+  workoutTitle: {
+    fontFamily: theme.fonts.label,
+    fontSize: scale(12),
+    letterSpacing: scale(0.6),
     textTransform: 'uppercase',
     marginBottom: scale(4),
   },
-  workoutTitle: {
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: scale(15),
-    textTransform: 'uppercase',
-    marginBottom: scale(4),
+  workoutTitleRest: {
+    textTransform: 'none',
+    letterSpacing: 0,
   },
   statusLine: {
     fontFamily: theme.fonts.body,
-    fontSize: scale(12),
+    fontSize: scale(11),
   },
-  iconCompleted: {
-    width: scale(28),
-    height: scale(28),
-    borderRadius: scale(14),
+  markerCompleted: {
+    width: MARKER_SIZE,
+    height: MARKER_SIZE,
     backgroundColor: theme.colors.teal,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  iconCheckmark: {
+  markerCheck: {
     color: theme.colors.white,
-    fontSize: scale(14),
+    fontSize: scale(10),
     fontWeight: '700',
+    lineHeight: scale(12),
   },
-  iconScheduled: {
-    width: scale(28),
-    height: scale(28),
-    borderRadius: scale(14),
-    borderWidth: scale(1.5),
-    borderColor: theme.colors.border,
+  markerScheduled: {
+    width: MARKER_SIZE,
+    height: MARKER_SIZE,
+    borderWidth: scale(1),
+    borderColor: theme.colors.grey200,
     backgroundColor: 'transparent',
   },
-  iconToday: {
-    width: scale(28),
-    height: scale(28),
-    borderRadius: scale(14),
-    borderWidth: scale(2),
-    borderColor: theme.colors.red,
-    backgroundColor: theme.colors.white,
-  },
-  iconMissed: {
-    width: scale(28),
-    height: scale(28),
-    borderRadius: scale(14),
-    borderWidth: scale(1.5),
-    borderColor: theme.colors.grey400,
+  markerMissed: {
+    width: MARKER_SIZE,
+    height: MARKER_SIZE,
+    borderWidth: scale(1),
+    borderColor: theme.colors.grey200,
     backgroundColor: 'transparent',
   },
 });

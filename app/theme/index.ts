@@ -19,6 +19,8 @@ export const theme = {
     amber: '#E69639',
     textPrimary: '#242121',
     textSecondary: '#989797',
+    /** Readable muted labels on #F3F3F3 — darker than grey400 (#BABABA). */
+    textMuted: '#6B6B6B',
     textTertiary: '#D9D9D9',
     border: '#D9D9D9',
     workoutBg: '#0E0E0E',

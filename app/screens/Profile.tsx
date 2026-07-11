@@ -41,8 +41,15 @@ import {
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
 import theme, { scale } from '../theme';
 
+const WARM_RULE = '#E4E2DD';
+
 function SectionLabel({ title }: { title: string }) {
-  return <Text style={styles.sectionLabel}>{title}</Text>;
+  return (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionLabel}>{title}</Text>
+      <View style={styles.sectionRule} />
+    </View>
+  );
 }
 
 function BodyRow({
@@ -94,7 +101,7 @@ function PreferenceRow({
           onValueChange={onValueChange}
           trackColor={{
             false: theme.colors.grey200,
-            true: theme.colors.dark,
+            true: theme.colors.teal,
           }}
           thumbColor={theme.colors.white}
           ios_backgroundColor={theme.colors.grey200}
@@ -216,7 +223,10 @@ export default function Profile() {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.headerRow}>
-        <Text style={styles.heading}>Your Profile.</Text>
+        <View style={styles.headerText}>
+          <Text style={styles.eyebrow}>ACCOUNT</Text>
+          <Text style={styles.heading}>Your profile.</Text>
+        </View>
         <PressableScale
           style={styles.editButton}
           hitSlop={8}
@@ -241,7 +251,7 @@ export default function Profile() {
           onPress={() => setMindfulSheetVisible(true)}
         >
           <View style={styles.mindfulText}>
-            <Text style={styles.mindfulLabel}>Mindful Areas</Text>
+            <Text style={styles.mindfulLabel}>MINDFUL AREAS</Text>
             <Text style={styles.mindfulSubtitle}>{mindfulSubtitle}</Text>
           </View>
           <Text style={styles.mindfulChevron}>›</Text>
@@ -250,7 +260,7 @@ export default function Profile() {
 
       <FadeInView delay={140}>
         <SectionLabel title="BODY" />
-        <View style={styles.card}>
+        <View style={styles.listBlock}>
           <BodyRow
             label="Height"
             value={formatHeight(profile)}
@@ -273,7 +283,7 @@ export default function Profile() {
 
       <FadeInView delay={180}>
         <SectionLabel title="PREFERENCES" />
-        <View style={styles.card}>
+        <View style={styles.listBlock}>
           <PreferenceRow
             title="Motion Capture"
             subtitle="Real-time form corrections"
@@ -346,9 +356,10 @@ export default function Profile() {
             {accountExpanded ? '⌃' : '⌄'}
           </Text>
         </PressableScale>
+        <View style={styles.sectionRule} />
 
         {accountExpanded ? (
-          <View style={styles.card}>
+          <View style={styles.listBlock}>
             <PressableScale style={styles.listRow} onPress={handleEmailPress}>
               <Text style={styles.rowLabel}>Email</Text>
               <Text style={styles.rowValue}>{displayEmail}</Text>
@@ -400,7 +411,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: scale(20),
-    paddingBottom: scale(120),
+    paddingBottom: scale(140),
   },
   headerRow: {
     flexDirection: 'row',
@@ -408,12 +419,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: scale(28),
   },
-  heading: {
-    ...theme.typography.header,
-    fontFamily: theme.fonts.header,
-    color: theme.colors.textPrimary,
+  headerText: {
     flex: 1,
     paddingRight: scale(12),
+  },
+  eyebrow: {
+    fontFamily: theme.fonts.label,
+    fontSize: scale(10),
+    letterSpacing: scale(1.4),
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    marginBottom: scale(6),
+  },
+  heading: {
+    fontFamily: theme.fonts.header,
+    fontSize: scale(32),
+    letterSpacing: scale(-1),
+    color: theme.colors.textPrimary,
   },
   editButton: {
     paddingTop: scale(4),
@@ -423,24 +445,25 @@ const styles = StyleSheet.create({
     marginBottom: scale(28),
   },
   name: {
-    ...theme.typography.mediumHeader,
     fontFamily: theme.fonts.header,
+    fontSize: scale(22),
+    letterSpacing: scale(-0.5),
     color: theme.colors.textPrimary,
     marginTop: scale(16),
     marginBottom: scale(6),
     textAlign: 'center',
   },
   subtitle: {
-    ...theme.typography.body,
+    fontFamily: theme.fonts.body,
     fontSize: scale(13),
-    color: theme.colors.textSecondary,
+    color: theme.colors.textMuted,
     textAlign: 'center',
   },
   mindfulCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.dark,
-    borderRadius: theme.radius.md,
+    borderRadius: scale(4),
     paddingVertical: scale(16),
     paddingHorizontal: scale(18),
     marginBottom: scale(28),
@@ -450,13 +473,15 @@ const styles = StyleSheet.create({
     paddingRight: scale(12),
   },
   mindfulLabel: {
-    ...theme.typography.label,
     fontFamily: theme.fonts.label,
+    fontSize: scale(9),
+    letterSpacing: scale(1.4),
     color: theme.colors.grey400,
+    textTransform: 'uppercase',
     marginBottom: scale(6),
   },
   mindfulSubtitle: {
-    ...theme.typography.body,
+    fontFamily: theme.fonts.body,
     fontSize: scale(14),
     color: theme.colors.white,
     lineHeight: scale(20),
@@ -466,42 +491,45 @@ const styles = StyleSheet.create({
     color: theme.colors.white,
     opacity: 0.7,
   },
+  sectionHeader: {
+    marginBottom: scale(4),
+  },
   sectionLabel: {
-    ...theme.typography.label,
     fontFamily: theme.fonts.label,
-    color: theme.colors.textSecondary,
+    fontSize: scale(9),
+    letterSpacing: scale(1.4),
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
     marginBottom: scale(10),
   },
-  card: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.radius.md,
-    borderWidth: scale(1),
-    borderColor: theme.colors.border,
-    marginBottom: scale(24),
-    overflow: 'hidden',
+  sectionRule: {
+    borderBottomWidth: scale(0.5),
+    borderBottomColor: WARM_RULE,
+  },
+  listBlock: {
+    marginBottom: scale(28),
   },
   listRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: scale(16),
     paddingVertical: scale(16),
   },
   rowLabel: {
     flex: 1,
-    ...theme.typography.body,
-    fontSize: scale(15),
+    fontFamily: theme.fonts.body,
+    fontSize: scale(14),
     color: theme.colors.textPrimary,
   },
   rowValue: {
-    ...theme.typography.body,
+    fontFamily: theme.fonts.body,
     fontSize: scale(14),
-    color: theme.colors.textSecondary,
+    color: theme.colors.textMuted,
     marginRight: scale(6),
   },
   rowSubtitle: {
-    ...theme.typography.body,
+    fontFamily: theme.fonts.body,
     fontSize: scale(12),
-    color: theme.colors.textSecondary,
+    color: theme.colors.textMuted,
     marginTop: scale(2),
   },
   preferenceText: {
@@ -510,12 +538,11 @@ const styles = StyleSheet.create({
   },
   chevron: {
     fontSize: scale(20),
-    color: theme.colors.textSecondary,
+    color: theme.colors.textMuted,
   },
   rowDivider: {
-    height: scale(1),
-    backgroundColor: theme.colors.border,
-    marginLeft: scale(16),
+    height: scale(0.5),
+    backgroundColor: WARM_RULE,
   },
   accountHeader: {
     flexDirection: 'row',
@@ -524,22 +551,22 @@ const styles = StyleSheet.create({
     marginBottom: scale(10),
   },
   accountSectionLabel: {
-    ...theme.typography.label,
     fontFamily: theme.fonts.label,
-    color: theme.colors.textSecondary,
+    fontSize: scale(9),
+    letterSpacing: scale(1.4),
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
   },
   accountChevron: {
     fontSize: scale(16),
-    color: theme.colors.textSecondary,
+    color: theme.colors.textMuted,
   },
   signOutRow: {
-    paddingHorizontal: scale(16),
     paddingVertical: scale(16),
   },
   signOutText: {
-    ...theme.typography.body,
     fontFamily: theme.fonts.bodyMedium,
-    fontSize: scale(15),
+    fontSize: scale(14),
     color: theme.colors.red,
   },
 });
