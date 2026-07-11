@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   eyebrow: {
     fontFamily: theme.fonts.label,
     fontSize: scale(10),
-    letterSpacing: scale(1.4),
+    letterSpacing: scale(1.6),
     color: theme.colors.textMuted,
     textTransform: 'uppercase',
     marginBottom: scale(6),

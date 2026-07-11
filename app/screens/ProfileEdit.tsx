@@ -507,14 +507,14 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   backText: {
+    fontFamily: theme.fonts.bodyMedium,
     fontSize: scale(16),
     color: theme.colors.red,
-    fontWeight: '600',
     width: scale(72),
   },
   topBarTitle: {
+    fontFamily: theme.fonts.header,
     fontSize: scale(16),
-    fontWeight: '700',
     color: theme.colors.textPrimary,
   },
   topBarSpacer: {
@@ -528,23 +528,25 @@ const styles = StyleSheet.create({
     marginTop: scale(24),
   },
   sectionHeading: {
-    ...theme.typography.mediumHeader,
     fontFamily: theme.fonts.header,
     fontSize: scale(22),
+    letterSpacing: scale(-0.5),
     color: theme.colors.textPrimary,
     marginBottom: scale(12),
   },
   sectionHint: {
-    ...theme.typography.body,
+    fontFamily: theme.fonts.body,
     fontSize: scale(13),
-    color: theme.colors.textSecondary,
+    color: theme.colors.textMuted,
     marginBottom: scale(12),
     lineHeight: scale(18),
   },
   fieldLabel: {
-    ...theme.typography.label,
     fontFamily: theme.fonts.label,
-    color: theme.colors.textSecondary,
+    fontSize: scale(10),
+    letterSpacing: scale(1.6),
+    textTransform: 'uppercase',
+    color: theme.colors.textMuted,
     marginBottom: scale(8),
     marginTop: scale(8),
   },
@@ -554,7 +556,7 @@ const styles = StyleSheet.create({
     borderWidth: scale(1),
     borderColor: theme.colors.border,
     padding: scale(14),
-    ...theme.typography.body,
+    fontFamily: theme.fonts.body,
     fontSize: scale(15),
     color: theme.colors.textPrimary,
     marginBottom: scale(12),
@@ -576,12 +578,13 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
   },
   toggleOptionText: {
+    fontFamily: theme.fonts.body,
     fontSize: scale(13),
-    color: theme.colors.textSecondary,
+    color: theme.colors.textMuted,
   },
   toggleOptionTextActive: {
+    fontFamily: theme.fonts.bodyMedium,
     color: theme.colors.textPrimary,
-    fontWeight: '600',
   },
   equipmentCard: {
     flexDirection: 'row',
@@ -607,8 +610,8 @@ const styles = StyleSheet.create({
   },
   equipmentLabel: {
     flex: 1,
+    fontFamily: theme.fonts.bodyMedium,
     fontSize: scale(15),
-    fontWeight: '600',
     color: theme.colors.textPrimary,
   },
   radioOuter: {
@@ -646,12 +649,13 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
   },
   unitOptionText: {
+    fontFamily: theme.fonts.body,
     fontSize: scale(13),
-    color: theme.colors.textSecondary,
+    color: theme.colors.textMuted,
   },
   unitOptionTextActive: {
+    fontFamily: theme.fonts.bodyMedium,
     color: theme.colors.textPrimary,
-    fontWeight: '600',
   },
   chipWrap: {
     flexDirection: 'row',
@@ -672,12 +676,13 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.red,
   },
   chipText: {
+    fontFamily: theme.fonts.body,
     fontSize: scale(13),
-    color: theme.colors.textSecondary,
+    color: theme.colors.textMuted,
   },
   chipTextSelected: {
+    fontFamily: theme.fonts.bodyMedium,
     color: theme.colors.red,
-    fontWeight: '600',
   },
   goalsGrid: {
     gap: scale(10),
@@ -695,8 +700,8 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.red,
   },
   goalTitle: {
-    fontSize: scale(15),
     fontFamily: theme.fonts.bodyMedium,
+    fontSize: scale(15),
     color: theme.colors.textPrimary,
     marginBottom: scale(4),
   },
@@ -704,8 +709,9 @@ const styles = StyleSheet.create({
     color: theme.colors.red,
   },
   goalSubtitle: {
+    fontFamily: theme.fonts.body,
     fontSize: scale(12),
-    color: theme.colors.textSecondary,
+    color: theme.colors.textMuted,
   },
   footer: {
     paddingHorizontal: scale(20),
@@ -716,7 +722,7 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: theme.colors.dark,
-    borderRadius: theme.radius.full,
+    borderRadius: scale(4),
     paddingVertical: scale(14),
     alignItems: 'center',
   },
@@ -724,8 +730,10 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveButtonText: {
-    ...theme.typography.label,
     fontFamily: theme.fonts.label,
+    fontSize: scale(11),
+    letterSpacing: scale(1.6),
+    textTransform: 'uppercase',
     color: theme.colors.white,
   },
 });

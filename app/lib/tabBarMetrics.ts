@@ -5,7 +5,7 @@ export const TAB_BAR_CONTENT_HEIGHT =
   scale(8) + scale(22) + scale(6) + scale(4);
 
 /** Fade zone above the tab icons where scroll content softens out. */
-export const TAB_BAR_FADE_HEIGHT = scale(100);
+export const TAB_BAR_FADE_HEIGHT = scale(56);
 
 export function getTabBarFadeHeight(bottomPadding: number): number {
   return TAB_BAR_FADE_HEIGHT + TAB_BAR_CONTENT_HEIGHT + bottomPadding;

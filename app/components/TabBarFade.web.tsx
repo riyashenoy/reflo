@@ -1,14 +1,15 @@
 import { StyleSheet, View } from 'react-native';
 
-import theme, { scale } from '../theme';
+import { TAB_BAR_FADE_HEIGHT } from '../lib/tabBarMetrics';
+import theme from '../theme';
 
 type TabBarFadeProps = {
   height?: number;
 };
 
-const FADE_HEIGHT = scale(100);
-
-export default function TabBarFade({ height = FADE_HEIGHT }: TabBarFadeProps) {
+export default function TabBarFade({
+  height = TAB_BAR_FADE_HEIGHT,
+}: TabBarFadeProps) {
   return (
     <View
       pointerEvents="none"
@@ -16,7 +17,7 @@ export default function TabBarFade({ height = FADE_HEIGHT }: TabBarFadeProps) {
         styles.fade,
         {
           height,
-          backgroundImage: `linear-gradient(to bottom, transparent, rgba(243,243,243,0.85), ${theme.colors.background})`,
+          backgroundImage: `linear-gradient(to bottom, rgba(243,243,243,0) 0%, rgba(243,243,243,0.12) 22%, rgba(243,243,243,0.32) 42%, rgba(243,243,243,0.58) 62%, rgba(243,243,243,0.82) 82%, ${theme.colors.background} 100%)`,
         } as object,
       ]}
     />
