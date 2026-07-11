@@ -19,7 +19,7 @@ import {
   libraryWorkouts,
   type LibraryWorkout,
 } from '../data/workoutLibrary';
-import { getWorkoutById, type Intensity, type Workout } from '../data/workouts';
+import { getWorkoutById, type Workout } from '../data/workouts';
 import { FadeInView, PressableScale } from '../components/motion';
 import { useSavedWorkouts } from '../context/SavedWorkoutsContext';
 import { useWorkoutHistory } from '../hooks/useWorkoutHistory';
@@ -106,26 +106,6 @@ function getTimeOfDayGreeting(): string {
   return 'evening';
 }
 
-function formatIntensity(intensity: Intensity): string {
-  return intensity.charAt(0).toUpperCase() + intensity.slice(1);
-}
-
-function formatCategoryLabel(category: string): string {
-  return category
-    .split(' ')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-}
-
-function toSentenceCase(value: string): string {
-  const lower = value.toLowerCase();
-  return lower.charAt(0).toUpperCase() + lower.slice(1);
-}
-
-function formatIndex(index: number): string {
-  return String(index + 1).padStart(2, '0');
-}
-
 type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
 
 type GridLibraryWorkout = LibraryWorkout & { gridKey: string };
@@ -162,11 +142,7 @@ function buildGridWorkouts(
 
 function StreakSquare({ day }: { day: StreakDisplayDay }) {
   if (day.isToday) {
-    return (
-      <View style={styles.streakSquareTodayRing}>
-        <View style={styles.streakSquareToday} />
-      </View>
-    );
+    return <View style={styles.streakSquareToday} />;
   }
 
   return (
@@ -197,7 +173,14 @@ function StreakRail({
       <View style={styles.streakRailColumns}>
         {days.map((day) => (
           <View key={day.key} style={styles.streakColumn}>
-            <Text style={styles.streakDayLabel}>{day.label}</Text>
+            <Text
+              style={[
+                styles.streakDayLabel,
+                day.isToday && styles.streakDayLabelToday,
+              ]}
+            >
+              {day.label}
+            </Text>
             <StreakSquare day={day} />
           </View>
         ))}
@@ -253,27 +236,24 @@ function UpNextHeroCard({
         locations={[0.35, 1]}
         style={styles.heroGradient}
       />
-      <View style={styles.heroEyebrow}>
-        <Text style={styles.heroEyebrowNum}>01</Text>
-        <Text style={styles.heroEyebrowLabel}> / TODAY</Text>
+      <View style={styles.heroDifficultyRow}>
+        {Array.from({ length: workout.difficulty }, (_, index) => (
+          <View key={`hero-difficulty-${index}`} style={styles.heroDifficultySquare} />
+        ))}
       </View>
       <View style={styles.heroBottomRow}>
         <View style={styles.heroTextBlock}>
-          <Text style={styles.heroTitle}>{toSentenceCase(workout.title)}</Text>
-          <View style={styles.heroMetaRow}>
-            <Text style={styles.heroMetaPrimary}>
-              {workoutMeta.duration} MIN / {formatIntensity(workoutMeta.intensity).toUpperCase()}
-            </Text>
-            <Text style={styles.heroMetaSeparator}> · </Text>
-            {workoutMeta.aiTracked ? (
-              <View style={styles.heroMetaAiRow}>
-                <View style={styles.metaSquare} />
-                <Text style={styles.heroMetaAi}>AI TRACKED</Text>
-              </View>
-            ) : (
-              <Text style={styles.heroMetaPrimary}>GUIDED</Text>
-            )}
-          </View>
+          <Text style={styles.heroMetaPrimary}>
+            {workoutMeta.duration} MIN
+          </Text>
+          <Text style={styles.heroTitle}>{workout.title.toUpperCase()}</Text>
+          <Text
+            style={styles.heroDescription}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+          >
+            {workout.description}
+          </Text>
         </View>
         <PressableScale
           onPress={onPress}
@@ -292,14 +272,12 @@ function UpNextHeroCard({
 function WorkoutCard({
   workout,
   width,
-  index,
   onPress,
   showSavedStar = false,
   onToggleSaved,
 }: {
   workout: LibraryWorkout;
   width: number;
-  index: number;
   onPress: () => void;
   showSavedStar?: boolean;
   onToggleSaved?: () => void;
@@ -333,21 +311,23 @@ function WorkoutCard({
       <PressableScale onPress={onPress}>
         <View style={styles.cardTextStack}>
           <View style={styles.cardRow1}>
-            <Text style={styles.cardIndex}>{formatIndex(index)}</Text>
             {workoutMeta ? (
               <Text style={styles.cardDuration}>
                 {workoutMeta.duration} MIN
               </Text>
-            ) : null}
-            {workoutMeta?.aiTracked ? <View style={styles.cardAiSquare} /> : null}
+            ) : (
+              <View />
+            )}
+            <View style={styles.difficultyRow}>
+              {Array.from({ length: workout.difficulty }, (_, index) => (
+                <View key={`difficulty-${index}`} style={styles.cardAiSquare} />
+              ))}
+            </View>
           </View>
           <Text style={styles.cardTitle}>{workout.title.toUpperCase()}</Text>
-          {workoutMeta ? (
-            <Text style={styles.cardMeta}>
-              {formatIntensity(workoutMeta.intensity).toUpperCase()} /{' '}
-              {formatCategoryLabel(workout.category).toUpperCase()}
-            </Text>
-          ) : null}
+          <Text style={styles.cardMeta} numberOfLines={1} ellipsizeMode="tail">
+            {workout.description}
+          </Text>
         </View>
       </PressableScale>
     </View>
@@ -396,23 +376,16 @@ function WorkoutGrid({
     <>
       {rows.map((row, rowIndex) => (
         <View key={`${filter}-row-${rowIndex}`} style={styles.cardRow}>
-          {row.map((item) => {
-            const index = flatWorkouts.findIndex(
-              (workout) => workout.gridKey === item.gridKey
-            );
-
-            return (
-              <WorkoutCard
-                key={item.gridKey}
-                workout={item}
-                width={cardWidth}
-                index={index}
-                onPress={() => onWorkoutPress(item.id)}
-                showSavedStar={filter === SAVED_FILTER}
-                onToggleSaved={() => onUnsave(item.id)}
-              />
-            );
-          })}
+          {row.map((item) => (
+            <WorkoutCard
+              key={item.gridKey}
+              workout={item}
+              width={cardWidth}
+              onPress={() => onWorkoutPress(item.id)}
+              showSavedStar={filter === SAVED_FILTER}
+              onToggleSaved={() => onUnsave(item.id)}
+            />
+          ))}
           {row.length === 1 ? <View style={{ width: cardWidth }} /> : null}
         </View>
       ))}
@@ -646,8 +619,9 @@ export default function Home() {
   );
 }
 
-const SQUARE_SIZE = scale(4);
-const TODAY_RING_SIZE = scale(10);
+const DOT_SIZE = scale(7);
+const TODAY_DOT_SIZE = scale(9);
+const MOTIF_SIZE = scale(4);
 
 const styles = StyleSheet.create({
   container: {
@@ -684,18 +658,18 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
   },
   streakRail: {
-    height: scale(44),
     borderTopWidth: scale(0.5),
     borderBottomWidth: scale(0.5),
     borderColor: theme.colors.border,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    paddingVertical: scale(14),
   },
   streakRailColumns: {
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: scale(8),
+    alignItems: 'center',
   },
   streakColumn: {
     alignItems: 'center',
@@ -707,9 +681,18 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     textTransform: 'uppercase',
   },
+  streakDayLabelToday: {
+    color: theme.colors.textPrimary,
+  },
   streakSquare: {
-    width: SQUARE_SIZE,
-    height: SQUARE_SIZE,
+    width: DOT_SIZE,
+    height: DOT_SIZE,
+    minWidth: DOT_SIZE,
+    minHeight: DOT_SIZE,
+    borderRadius: 999,
+    aspectRatio: 1,
+    flexShrink: 0,
+    alignSelf: 'center',
   },
   streakSquareCompleted: {
     backgroundColor: theme.colors.red,
@@ -717,23 +700,21 @@ const styles = StyleSheet.create({
   streakSquareFuture: {
     backgroundColor: theme.colors.grey200,
   },
-  streakSquareTodayRing: {
-    width: TODAY_RING_SIZE,
-    height: TODAY_RING_SIZE,
-    borderWidth: scale(1),
-    borderColor: theme.colors.red,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   streakSquareToday: {
-    width: SQUARE_SIZE,
-    height: SQUARE_SIZE,
+    width: TODAY_DOT_SIZE,
+    height: TODAY_DOT_SIZE,
+    minWidth: TODAY_DOT_SIZE,
+    minHeight: TODAY_DOT_SIZE,
+    borderRadius: 999,
+    aspectRatio: 1,
+    flexShrink: 0,
+    alignSelf: 'center',
     backgroundColor: theme.colors.red,
   },
   streakCountBlock: {
     marginRight: scale(16),
-    paddingTop: scale(8),
     alignItems: 'flex-start',
+    justifyContent: 'center',
   },
   streakCountNumber: {
     fontFamily: theme.fonts.header,
@@ -746,7 +727,7 @@ const styles = StyleSheet.create({
     fontSize: scale(8),
     color: theme.colors.textMuted,
     letterSpacing: scale(0.8),
-    marginTop: scale(4),
+    marginTop: scale(6),
   },
   heroCard: {
     height: scale(260),
@@ -762,24 +743,22 @@ const styles = StyleSheet.create({
   heroGradient: {
     ...StyleSheet.absoluteFill,
   },
-  heroEyebrow: {
+  heroDifficultyRow: {
     position: 'absolute',
     top: scale(16),
-    left: scale(16),
+    right: scale(16),
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
+    gap: scale(6),
+    zIndex: 2,
   },
-  heroEyebrowNum: {
-    fontFamily: theme.fonts.header,
-    fontSize: scale(13),
-    color: theme.colors.white,
-  },
-  heroEyebrowLabel: {
-    fontFamily: theme.fonts.label,
-    fontSize: scale(9),
-    letterSpacing: scale(1.4),
-    color: 'rgba(255,255,255,0.6)',
-    textTransform: 'uppercase',
+  heroDifficultySquare: {
+    width: scale(8),
+    height: scale(8),
+    borderRadius: scale(4),
+    backgroundColor: theme.colors.teal,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(36,33,33,0.25)',
   },
   heroBottomRow: {
     flexDirection: 'row',
@@ -790,44 +769,25 @@ const styles = StyleSheet.create({
   },
   heroTextBlock: {
     flex: 1,
-    gap: scale(8),
+    gap: scale(6),
   },
   heroTitle: {
     fontFamily: theme.fonts.header,
     fontSize: scale(26),
     color: theme.colors.white,
-  },
-  heroMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
+    textTransform: 'uppercase',
   },
   heroMetaPrimary: {
     fontFamily: theme.fonts.label,
     fontSize: scale(11),
-    color: 'rgba(255,255,255,0.65)',
+    color: 'rgba(255,255,255,0.7)',
     textTransform: 'uppercase',
   },
-  heroMetaSeparator: {
+  heroDescription: {
     fontFamily: theme.fonts.body,
     fontSize: scale(11),
+    lineHeight: scale(15),
     color: 'rgba(255,255,255,0.65)',
-  },
-  heroMetaAiRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: scale(6),
-  },
-  metaSquare: {
-    width: SQUARE_SIZE,
-    height: SQUARE_SIZE,
-    backgroundColor: theme.colors.teal,
-  },
-  heroMetaAi: {
-    fontFamily: theme.fonts.body,
-    fontSize: scale(11),
-    color: theme.colors.teal,
-    textTransform: 'uppercase',
   },
   heroBeginWrap: {
     alignItems: 'center',
@@ -871,6 +831,7 @@ const styles = StyleSheet.create({
   sectionRule: {
     borderBottomWidth: scale(0.5),
     borderBottomColor: theme.colors.border,
+    marginTop: scale(6),
     marginBottom: scale(14),
   },
   filterRow: {
@@ -960,25 +921,24 @@ const styles = StyleSheet.create({
   cardRow1: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  cardIndex: {
-    fontFamily: theme.fonts.header,
-    fontSize: scale(11),
-    color: theme.colors.textMuted,
+    justifyContent: 'space-between',
   },
   cardDuration: {
-    flex: 1,
     fontFamily: theme.fonts.label,
     fontSize: scale(9),
     color: theme.colors.textMuted,
-    textAlign: 'right',
     textTransform: 'uppercase',
   },
   cardAiSquare: {
-    width: SQUARE_SIZE,
-    height: SQUARE_SIZE,
+    width: MOTIF_SIZE,
+    height: MOTIF_SIZE,
+    borderRadius: MOTIF_SIZE / 2,
     backgroundColor: theme.colors.teal,
-    marginLeft: scale(8),
+  },
+  difficultyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scale(3),
   },
   cardTitle: {
     fontFamily: theme.fonts.label,
@@ -991,9 +951,8 @@ const styles = StyleSheet.create({
   cardMeta: {
     fontFamily: theme.fonts.body,
     fontSize: scale(9),
-    letterSpacing: scale(0.6),
+    letterSpacing: scale(0.2),
     color: theme.colors.textMuted,
-    textTransform: 'uppercase',
     marginTop: scale(2),
   },
   emptySavedState: {

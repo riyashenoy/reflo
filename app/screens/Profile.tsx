@@ -3,7 +3,6 @@ import {
   Alert,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   View,
 } from 'react-native';
@@ -26,6 +25,7 @@ import {
 } from '../lib/userProfile';
 import { EditPencilIcon } from '../components/EditPencilIcon';
 import { ProfileAvatar } from '../components/ProfileAvatar';
+import { ThemeToggle } from '../components/ThemeToggle';
 import { ProfileAboutEditSheet } from '../components/profile/ProfileAboutEditSheet';
 import {
   ProfileBodyEditSheet,
@@ -96,16 +96,7 @@ function PreferenceRow({
           <Text style={styles.rowLabel}>{title}</Text>
           <Text style={styles.rowSubtitle}>{subtitle}</Text>
         </View>
-        <Switch
-          value={value}
-          onValueChange={onValueChange}
-          trackColor={{
-            false: theme.colors.grey200,
-            true: theme.colors.teal,
-          }}
-          thumbColor={theme.colors.white}
-          ios_backgroundColor={theme.colors.grey200}
-        />
+        <ThemeToggle value={value} onValueChange={onValueChange} />
       </View>
     </>
   );

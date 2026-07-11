@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 import {
+  Image,
   Platform,
   StyleSheet,
   Text,
@@ -565,14 +566,15 @@ function LiveWorkout({ route, navigation }: Props) {
             <FadeSlideOverlay visible={showOnboarding}>
               <View style={styles.onboardingCard}>
                 <View style={styles.onboardingGifPlaceholder}>
-                  <Text style={styles.onboardingGifLabel}>
-                    Place your device where your full body is visible from the
-                    side
-                  </Text>
+                  <Image
+                    source={require('../../assets/images/demo.png')}
+                    style={styles.onboardingDemoImage}
+                    resizeMode="cover"
+                  />
                 </View>
                 <Text style={styles.onboardingHint}>
-                  AI corrections will be announced with a ding so you know when
-                  to listen
+                  Place your device where your full body is visible from the
+                  side
                 </Text>
                 <PressableScale style={styles.readyButton} onPress={handleReady}>
                   <Text style={styles.readyButtonText}>I&apos;m Ready</Text>
@@ -696,17 +698,12 @@ const styles = StyleSheet.create({
     height: scale(200),
     borderRadius: theme.radius.md,
     backgroundColor: theme.colors.grey200,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.component.cardPadding,
+    overflow: 'hidden',
     marginBottom: theme.component.dialogSectionGap,
   },
-  onboardingGifLabel: {
-    ...theme.typography.body,
-    color: theme.colors.dark,
-    fontSize: scale(14),
-    textAlign: 'center',
-    lineHeight: scale(20),
+  onboardingDemoImage: {
+    width: '100%',
+    height: '100%',
   },
   onboardingHint: {
     ...theme.typography.body,

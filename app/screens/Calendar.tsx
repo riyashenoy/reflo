@@ -23,8 +23,6 @@ import theme, { scale } from '../theme';
 
 type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
 
-const MOTIF_SIZE = scale(4);
-
 export default function Calendar() {
   const navigation = useNavigation<NavigationProp>();
   const tabTopPadding = useTabScreenTopPadding();
@@ -114,10 +112,7 @@ export default function Calendar() {
         {regenerating ? (
           <ActivityIndicator color={theme.colors.white} size="small" />
         ) : (
-          <View style={styles.generateContent}>
-            <View style={styles.generateMotif} />
-            <Text style={styles.generateButtonText}>GENERATE NEW SCHEDULE</Text>
-          </View>
+          <Text style={styles.generateButtonText}>✦ GENERATE NEW SCHEDULE</Text>
         )}
       </PressableScale>
 
@@ -185,28 +180,19 @@ const styles = StyleSheet.create({
     paddingTop: scale(4),
   },
   generateButton: {
-    alignSelf: 'stretch',
+    alignSelf: 'flex-start',
     backgroundColor: theme.colors.dark,
     borderRadius: scale(4),
-    height: scale(52),
+    paddingVertical: scale(10),
+    paddingHorizontal: scale(14),
     marginBottom: scale(24),
     alignItems: 'center',
     justifyContent: 'center',
   },
-  generateContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: scale(8),
-  },
-  generateMotif: {
-    width: MOTIF_SIZE,
-    height: MOTIF_SIZE,
-    backgroundColor: theme.colors.teal,
-  },
   generateButtonText: {
     fontFamily: theme.fonts.label,
-    fontSize: scale(10),
-    letterSpacing: scale(1.5),
+    fontSize: scale(9),
+    letterSpacing: scale(1.2),
     color: theme.colors.white,
     textTransform: 'uppercase',
   },

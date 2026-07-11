@@ -78,6 +78,9 @@ export const theme = {
     buttonPaddingHorizontal: scale(24),
     buttonMinHeight: scale(48),
     buttonGap: scale(12),
+    toggleTrackWidth: scale(44),
+    toggleTrackHeight: scale(26),
+    toggleThumbSize: scale(20),
   },
   layout: {
     tabScreen: {

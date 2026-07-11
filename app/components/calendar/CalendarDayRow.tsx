@@ -167,6 +167,7 @@ const styles = StyleSheet.create({
   todayMotif: {
     width: MOTIF_SIZE,
     height: MOTIF_SIZE,
+    borderRadius: MOTIF_SIZE / 2,
     backgroundColor: theme.colors.red,
     marginRight: scale(6),
   },
