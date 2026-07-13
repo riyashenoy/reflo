@@ -27,7 +27,7 @@ type Rgba = { r: number; g: number; b: number; a: number };
 const COLOR_RED_DOT: Rgba = { r: 204, g: 29, b: 29, a: 1 };
 const COLOR_RED_DOT_DEMO: Rgba = { r: 204, g: 29, b: 29, a: 0.5 };
 const COLOR_TEAL_DOT: Rgba = { r: 121, g: 203, b: 208, a: 1 };
-const COLOR_TEAL_DOT_DEMO: Rgba = { r: 121, g: 203, b: 208, a: 0.95 };
+const COLOR_TEAL_DOT_DEMO: Rgba = { r: 121, g: 203, b: 208, a: 0.5 };
 const COLOR_NEUTRAL_DOT: Rgba = { r: 255, g: 255, b: 255, a: 0.5 };
 
 const COLOR_NEUTRAL_LINE: Rgba = { r: 255, g: 255, b: 255, a: 0.25 };

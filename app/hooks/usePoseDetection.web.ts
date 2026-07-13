@@ -37,6 +37,8 @@ const LANDMARK_ORDER = [
 const MIN_SCORE = 0.6;
 const ERROR_COOLDOWN_MS = 4000;
 const SUSTAINED_CLEAN_MS = 2000;
+/** Blend toward new keypoints each detect. Higher = snappier, lower = steadier. */
+const DEMO_DRAW_EMA = 0.62;
 
 function getAngle(
   A: { x: number; y: number },
@@ -142,6 +144,7 @@ export function usePoseDetection(
 ) {
   const [isDetecting, setIsDetecting] = useState(false);
   const landmarkHistory = useRef<Landmark[][]>([]);
+  const demoDrawKeypoints = useRef<DetectedPose['keypoints'] | null>(null);
   const ankleBaselineY = useRef<number | null>(null);
   const currentExerciseRef = useRef(currentExercise);
   const formDataRefStable = useRef(formDataRef);
@@ -246,6 +249,27 @@ export function usePoseDetection(
     }));
   }
 
+  function getDemoDrawKeypoints(
+    raw: DetectedPose['keypoints']
+  ): DetectedPose['keypoints'] {
+    const previous = demoDrawKeypoints.current;
+    if (!previous || previous.length !== raw.length) {
+      demoDrawKeypoints.current = raw.map((keypoint) => ({ ...keypoint }));
+      return demoDrawKeypoints.current;
+    }
+
+    const next = raw.map((keypoint, index) => {
+      const prior = previous[index];
+      return {
+        ...keypoint,
+        x: prior.x + (keypoint.x - prior.x) * DEMO_DRAW_EMA,
+        y: prior.y + (keypoint.y - prior.y) * DEMO_DRAW_EMA,
+      };
+    });
+    demoDrawKeypoints.current = next;
+    return next;
+  }
+
   function recordFrameAssessment(landmarks: Landmark[]) {
     const exercise = currentExerciseRef.current;
     const formData = formDataRefStable.current.current;
@@ -282,6 +306,7 @@ export function usePoseDetection(
     if (!workoutStarted || currentExercise === 'none') {
       setIsDetecting(false);
       landmarkHistory.current = [];
+      demoDrawKeypoints.current = null;
       clearSkeleton(canvasRef.current);
       resetSkeletonColors(demoVisualModeRef.current);
       return;
@@ -363,7 +388,15 @@ export function usePoseDetection(
               )) as DetectedPose[];
 
               if (detectedPoses.length > 0) {
-                lastDetectedPoses = detectedPoses;
+                const drawKeypoints = demoVisualModeRef.current
+                  ? getDemoDrawKeypoints(detectedPoses[0].keypoints)
+                  : detectedPoses[0].keypoints;
+                lastDetectedPoses = [
+                  {
+                    ...detectedPoses[0],
+                    keypoints: drawKeypoints,
+                  },
+                ];
                 const raw = extractLandmarks(detectedPoses[0].keypoints);
                 if (raw) {
                   const smoothed = getSmoothed(raw);
@@ -410,6 +443,7 @@ export function usePoseDetection(
       disposed = true;
       stopLoop();
       landmarkHistory.current = [];
+      demoDrawKeypoints.current = null;
       ankleBaselineY.current = null;
       cleanStreakStart.current = null;
       clearErrorCooldowns();
