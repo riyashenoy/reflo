@@ -103,7 +103,7 @@ function buildGridWorkouts(
 }
 
 function StreakSquare({ day }: { day: HomeStreakDay }) {
-  if (day.isToday) {
+  if (day.isToday && day.isCompleted) {
     return <View style={styles.streakSquareToday} />;
   }
 

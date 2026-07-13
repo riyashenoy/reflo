@@ -262,7 +262,7 @@ export default function ProfileSetup({ navigation }: Props) {
       <TextInput
         style={styles.input}
         placeholder="e.g. Joseph Pilates"
-        placeholderTextColor={theme.colors.textSecondary}
+        placeholderTextColor={theme.colors.textMuted}
         value={name}
         onChangeText={setName}
       />
@@ -320,7 +320,7 @@ export default function ProfileSetup({ navigation }: Props) {
       <TextInput
         style={styles.input}
         placeholder="168"
-        placeholderTextColor={theme.colors.textSecondary}
+        placeholderTextColor={theme.colors.textMuted}
         value={height}
         onChangeText={setHeight}
         keyboardType="numeric"
@@ -336,7 +336,7 @@ export default function ProfileSetup({ navigation }: Props) {
       <TextInput
         style={styles.input}
         placeholder="62"
-        placeholderTextColor={theme.colors.textSecondary}
+        placeholderTextColor={theme.colors.textMuted}
         value={weight}
         onChangeText={setWeight}
         keyboardType="numeric"
@@ -346,7 +346,7 @@ export default function ProfileSetup({ navigation }: Props) {
       <TextInput
         style={styles.input}
         placeholder="e.g. 02/29/2004"
-        placeholderTextColor={theme.colors.textSecondary}
+        placeholderTextColor={theme.colors.textMuted}
         value={birthday}
         onChangeText={setBirthday}
       />
@@ -500,19 +500,30 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
+  input: {
+    backgroundColor: theme.colors.white,
+    borderRadius: scale(4),
+    borderWidth: scale(1),
+    borderColor: theme.colors.border,
+    padding: scale(14),
+    fontFamily: theme.fonts.body,
+    fontSize: scale(15),
+    color: theme.colors.textPrimary,
+    marginBottom: scale(12),
+  },
   progressTrack: {
-    height: scale(4),
+    height: scale(2),
     flexDirection: 'row',
     backgroundColor: theme.colors.grey200,
     marginTop: scale(8),
   },
   progressFill: {
-    height: scale(4),
+    height: scale(2),
     backgroundColor: theme.colors.red,
   },
   scrollContent: {
     paddingHorizontal: scale(20),
-    paddingTop: scale(16),
+    paddingTop: scale(24),
     paddingBottom: scale(100),
   },
   stepLabel: {
@@ -520,8 +531,8 @@ const styles = StyleSheet.create({
     fontSize: scale(10),
     letterSpacing: scale(1.6),
     textTransform: 'uppercase',
-    color: theme.colors.red,
-    marginBottom: scale(8),
+    color: theme.colors.textMuted,
+    marginBottom: scale(6),
   },
   heading: {
     fontFamily: theme.fonts.header,
@@ -535,58 +546,50 @@ const styles = StyleSheet.create({
     fontSize: scale(13),
     color: theme.colors.textMuted,
     lineHeight: scale(20),
-    marginBottom: scale(20),
+    marginBottom: scale(24),
   },
   fieldLabel: {
     fontFamily: theme.fonts.label,
-    fontSize: scale(10),
-    letterSpacing: scale(1.6),
+    fontSize: scale(9),
+    letterSpacing: scale(1.4),
     textTransform: 'uppercase',
     color: theme.colors.textMuted,
     marginBottom: scale(8),
-    marginTop: scale(8),
-  },
-  input: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.radius.sm,
-    borderWidth: scale(1),
-    borderColor: theme.colors.border,
-    padding: scale(14),
-    fontFamily: theme.fonts.body,
-    fontSize: scale(15),
-    color: theme.colors.textPrimary,
-    marginBottom: scale(12),
+    marginTop: scale(12),
   },
   toggleGroup: {
     flexDirection: 'row',
-    backgroundColor: theme.colors.grey200,
-    borderRadius: scale(24),
-    padding: scale(4),
+    gap: scale(6),
     marginBottom: scale(16),
   },
   toggleOption: {
     flex: 1,
     paddingVertical: scale(10),
-    borderRadius: scale(20),
+    borderRadius: scale(4),
+    borderWidth: scale(1),
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.white,
     alignItems: 'center',
   },
   toggleOptionActive: {
-    backgroundColor: theme.colors.white,
+    backgroundColor: theme.colors.dark,
+    borderColor: theme.colors.dark,
   },
   toggleOptionText: {
-    fontFamily: theme.fonts.body,
-    fontSize: scale(13),
+    fontFamily: theme.fonts.label,
+    fontSize: scale(10),
+    letterSpacing: scale(0.8),
+    textTransform: 'uppercase',
     color: theme.colors.textMuted,
   },
   toggleOptionTextActive: {
-    fontFamily: theme.fonts.bodyMedium,
-    color: theme.colors.textPrimary,
+    color: theme.colors.white,
   },
   equipmentCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.white,
-    borderRadius: scale(12),
+    borderRadius: scale(4),
     borderWidth: scale(0.5),
     borderColor: theme.colors.border,
     padding: scale(14),
@@ -600,7 +603,7 @@ const styles = StyleSheet.create({
   equipmentIcon: {
     width: scale(36),
     height: scale(36),
-    borderRadius: scale(8),
+    borderRadius: scale(4),
     backgroundColor: theme.colors.grey200,
     marginRight: scale(12),
   },
@@ -631,27 +634,30 @@ const styles = StyleSheet.create({
   unitToggle: {
     flexDirection: 'row',
     alignSelf: 'flex-start',
-    backgroundColor: theme.colors.grey200,
-    borderRadius: scale(8),
-    padding: scale(3),
+    gap: scale(6),
     marginBottom: scale(8),
   },
   unitOption: {
     paddingHorizontal: scale(14),
     paddingVertical: scale(6),
-    borderRadius: scale(6),
-  },
-  unitOptionActive: {
+    borderRadius: scale(4),
+    borderWidth: scale(1),
+    borderColor: theme.colors.border,
     backgroundColor: theme.colors.white,
   },
+  unitOptionActive: {
+    backgroundColor: theme.colors.dark,
+    borderColor: theme.colors.dark,
+  },
   unitOptionText: {
-    fontFamily: theme.fonts.body,
-    fontSize: scale(13),
+    fontFamily: theme.fonts.label,
+    fontSize: scale(10),
+    letterSpacing: scale(0.8),
+    textTransform: 'uppercase',
     color: theme.colors.textMuted,
   },
   unitOptionTextActive: {
-    fontFamily: theme.fonts.bodyMedium,
-    color: theme.colors.textPrimary,
+    color: theme.colors.white,
   },
   chipWrap: {
     flexDirection: 'row',
@@ -660,26 +666,25 @@ const styles = StyleSheet.create({
     marginBottom: scale(16),
   },
   chip: {
-    paddingHorizontal: scale(14),
+    paddingHorizontal: scale(12),
     paddingVertical: scale(8),
-    borderRadius: scale(20),
+    borderRadius: scale(4),
     backgroundColor: theme.colors.white,
-    borderWidth: scale(0.5),
+    borderWidth: scale(1),
     borderColor: theme.colors.border,
   },
   chipSelected: {
-    backgroundColor: `${theme.colors.red}0a`,
-    borderWidth: scale(1),
-    borderColor: theme.colors.red,
+    backgroundColor: theme.colors.dark,
+    borderColor: theme.colors.dark,
   },
   chipText: {
     fontFamily: theme.fonts.body,
-    fontSize: scale(13),
+    fontSize: scale(12),
     color: theme.colors.textMuted,
   },
   chipTextSelected: {
     fontFamily: theme.fonts.bodyMedium,
-    color: theme.colors.red,
+    color: theme.colors.white,
   },
   goalsGrid: {
     flexDirection: 'row',
@@ -690,7 +695,7 @@ const styles = StyleSheet.create({
   goalCard: {
     width: '48%',
     backgroundColor: theme.colors.white,
-    borderRadius: scale(12),
+    borderRadius: scale(4),
     borderWidth: scale(0.5),
     borderColor: theme.colors.border,
     padding: scale(12),
@@ -699,11 +704,12 @@ const styles = StyleSheet.create({
   goalCardSelected: {
     borderWidth: scale(1),
     borderColor: `${theme.colors.red}44`,
+    backgroundColor: `${theme.colors.red}0a`,
   },
   goalIcon: {
     width: scale(28),
     height: scale(28),
-    borderRadius: scale(6),
+    borderRadius: scale(4),
     backgroundColor: theme.colors.grey200,
     marginBottom: scale(8),
   },

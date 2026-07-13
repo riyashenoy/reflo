@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     gap: scale(8),
   },
   goalCard: {
-    borderRadius: theme.radius.md,
+    borderRadius: scale(4),
     borderWidth: scale(1),
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.background,
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
   chip: {
     paddingVertical: scale(8),
     paddingHorizontal: scale(12),
-    borderRadius: theme.radius.full,
+    borderRadius: scale(4),
     borderWidth: scale(1),
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.background,
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: scale(10),
     paddingHorizontal: scale(6),
-    borderRadius: theme.radius.md,
+    borderRadius: scale(4),
     borderWidth: scale(1),
     borderColor: theme.colors.border,
     alignItems: 'center',

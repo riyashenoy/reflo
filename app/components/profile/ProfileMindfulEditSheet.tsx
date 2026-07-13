@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   chip: {
     paddingVertical: scale(8),
     paddingHorizontal: scale(12),
-    borderRadius: theme.radius.full,
+    borderRadius: scale(4),
     borderWidth: scale(1),
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.background,

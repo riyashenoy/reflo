@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     fontSize: scale(15),
     color: theme.colors.textPrimary,
     backgroundColor: theme.colors.background,
-    borderRadius: theme.radius.md,
+    borderRadius: scale(4),
     borderWidth: scale(1),
     borderColor: theme.colors.border,
     paddingHorizontal: scale(12),
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   unitOption: {
     flex: 1,
     paddingVertical: scale(9),
-    borderRadius: theme.radius.md,
+    borderRadius: scale(4),
     borderWidth: scale(1),
     borderColor: theme.colors.border,
     alignItems: 'center',

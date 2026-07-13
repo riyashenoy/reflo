@@ -56,16 +56,17 @@ export default function EmailAuth({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Email Sign In</Text>
+      <Text style={styles.eyebrow}>ACCOUNT</Text>
+      <Text style={styles.title}>Email sign in.</Text>
       <Text style={styles.subtitle}>
-        Sign in to your account or create a new one
+        Sign in to your account or create a new one.
       </Text>
 
       <Text style={styles.fieldLabel}>EMAIL</Text>
       <TextInput
         style={styles.input}
         placeholder="you@example.com"
-        placeholderTextColor={theme.colors.textSecondary}
+        placeholderTextColor={theme.colors.textMuted}
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
@@ -78,7 +79,7 @@ export default function EmailAuth({ navigation }: Props) {
       <TextInput
         style={styles.input}
         placeholder="Password"
-        placeholderTextColor={theme.colors.textSecondary}
+        placeholderTextColor={theme.colors.textMuted}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -114,65 +115,81 @@ const styles = StyleSheet.create({
     padding: scale(24),
     backgroundColor: theme.colors.background,
   },
+  eyebrow: {
+    fontFamily: theme.fonts.label,
+    fontSize: scale(10),
+    letterSpacing: scale(1.6),
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    marginBottom: scale(6),
+  },
   title: {
-    ...theme.typography.header,
     fontFamily: theme.fonts.header,
+    fontSize: scale(32),
+    letterSpacing: scale(-1),
     color: theme.colors.textPrimary,
     marginBottom: scale(8),
   },
   subtitle: {
-    ...theme.typography.body,
-    color: theme.colors.textSecondary,
+    fontFamily: theme.fonts.body,
+    fontSize: scale(13),
+    lineHeight: scale(20),
+    color: theme.colors.textMuted,
     marginBottom: scale(28),
-    lineHeight: 20,
   },
   fieldLabel: {
-    ...theme.typography.label,
     fontFamily: theme.fonts.label,
-    color: theme.colors.textSecondary,
+    fontSize: scale(9),
+    letterSpacing: scale(1.4),
+    textTransform: 'uppercase',
+    color: theme.colors.textMuted,
     marginBottom: scale(8),
   },
   input: {
     backgroundColor: theme.colors.white,
-    borderRadius: theme.radius.sm,
+    borderRadius: scale(4),
     borderWidth: scale(1),
     borderColor: theme.colors.border,
     padding: scale(14),
     marginBottom: scale(16),
-    ...theme.typography.body,
+    fontFamily: theme.fonts.body,
     fontSize: scale(15),
     color: theme.colors.textPrimary,
   },
   error: {
-    ...theme.typography.body,
+    fontFamily: theme.fonts.body,
+    fontSize: scale(13),
     color: theme.colors.red,
     marginBottom: scale(16),
-    textAlign: 'center',
   },
   buttons: {
-    gap: scale(12),
+    gap: scale(10),
     marginTop: scale(8),
   },
   primaryButton: {
     backgroundColor: theme.colors.dark,
-    borderRadius: theme.radius.full,
-    paddingVertical: scale(16),
+    borderRadius: scale(4),
+    paddingVertical: scale(14),
     alignItems: 'center',
   },
   primaryButtonText: {
-    ...theme.typography.label,
     fontFamily: theme.fonts.label,
+    fontSize: scale(11),
+    letterSpacing: scale(1.6),
+    textTransform: 'uppercase',
     color: theme.colors.white,
   },
   secondaryButton: {
     backgroundColor: theme.colors.red,
-    borderRadius: theme.radius.full,
-    paddingVertical: scale(16),
+    borderRadius: scale(4),
+    paddingVertical: scale(14),
     alignItems: 'center',
   },
   secondaryButtonText: {
-    ...theme.typography.label,
     fontFamily: theme.fonts.label,
+    fontSize: scale(11),
+    letterSpacing: scale(1.6),
+    textTransform: 'uppercase',
     color: theme.colors.white,
   },
   backButton: {
@@ -180,8 +197,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backButtonText: {
-    ...theme.typography.body,
-    fontFamily: theme.fonts.bodyMedium,
-    color: theme.colors.red,
+    fontFamily: theme.fonts.label,
+    fontSize: scale(10),
+    letterSpacing: scale(1.4),
+    textTransform: 'uppercase',
+    color: theme.colors.textMuted,
   },
 });

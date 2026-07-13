@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Image,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -15,6 +14,7 @@ import {
 } from 'firebase/auth';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { PressableScale } from '../components/motion';
 import { useAuthFlow } from '../context/AuthFlowContext';
 import { auth, googleProvider } from '../lib/firebase';
 import { getAuthErrorMessage } from '../lib/authErrors';
@@ -72,9 +72,10 @@ export default function SignIn({ navigation }: Props) {
         source={require('../../assets/images/logo.png')}
         style={styles.logo}
       />
-      <Text style={styles.title}>Welcome to Reflo</Text>
+      <Text style={styles.eyebrow}>REFLO</Text>
+      <Text style={styles.title}>Welcome back.</Text>
       <Text style={styles.subtitle}>
-        Sign in to start your personalized pilates training
+        Sign in to start your personalized pilates training.
       </Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -83,15 +84,15 @@ export default function SignIn({ navigation }: Props) {
         <ActivityIndicator size="large" color={theme.colors.red} />
       ) : (
         <View style={styles.buttons}>
-          <Pressable style={styles.primaryButton} onPress={handleGoogleSignIn}>
+          <PressableScale style={styles.primaryButton} onPress={handleGoogleSignIn}>
             <Text style={styles.primaryButtonText}>Continue with Google</Text>
-          </Pressable>
-          <Pressable
+          </PressableScale>
+          <PressableScale
             style={styles.secondaryButton}
             onPress={() => navigation.navigate('EmailAuth')}
           >
             <Text style={styles.secondaryButtonText}>Continue with Email</Text>
-          </Pressable>
+          </PressableScale>
         </View>
       )}
     </View>
@@ -106,57 +107,71 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   logo: {
-    width: scale(96),
-    height: scale(48),
+    width: scale(64),
+    height: scale(32),
     resizeMode: 'contain',
-    alignSelf: 'center',
-    marginBottom: scale(32),
+    alignSelf: 'flex-start',
+    marginBottom: scale(28),
+  },
+  eyebrow: {
+    fontFamily: theme.fonts.label,
+    fontSize: scale(10),
+    letterSpacing: scale(1.6),
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    marginBottom: scale(6),
   },
   title: {
-    ...theme.typography.header,
     fontFamily: theme.fonts.header,
+    fontSize: scale(32),
+    letterSpacing: scale(-1),
     color: theme.colors.textPrimary,
-    textAlign: 'center',
     marginBottom: scale(8),
   },
   subtitle: {
-    ...theme.typography.body,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
+    fontFamily: theme.fonts.body,
+    fontSize: scale(13),
+    lineHeight: scale(20),
+    color: theme.colors.textMuted,
     marginBottom: scale(32),
-    lineHeight: 20,
   },
   error: {
-    ...theme.typography.body,
+    fontFamily: theme.fonts.body,
+    fontSize: scale(13),
     color: theme.colors.red,
     marginBottom: scale(16),
-    textAlign: 'center',
   },
   buttons: {
-    gap: scale(12),
+    gap: scale(10),
   },
   primaryButton: {
     backgroundColor: theme.colors.dark,
-    borderRadius: theme.radius.full,
-    paddingVertical: scale(16),
+    borderRadius: scale(4),
+    paddingVertical: scale(14),
+    paddingHorizontal: scale(16),
     alignItems: 'center',
   },
   primaryButtonText: {
-    ...theme.typography.label,
     fontFamily: theme.fonts.label,
+    fontSize: scale(11),
+    letterSpacing: scale(1.6),
+    textTransform: 'uppercase',
     color: theme.colors.white,
   },
   secondaryButton: {
     backgroundColor: theme.colors.white,
-    borderRadius: theme.radius.full,
-    paddingVertical: scale(16),
+    borderRadius: scale(4),
+    paddingVertical: scale(14),
+    paddingHorizontal: scale(16),
     alignItems: 'center',
     borderWidth: scale(1),
     borderColor: theme.colors.border,
   },
   secondaryButtonText: {
-    ...theme.typography.label,
     fontFamily: theme.fonts.label,
+    fontSize: scale(11),
+    letterSpacing: scale(1.6),
+    textTransform: 'uppercase',
     color: theme.colors.textPrimary,
   },
 });
