@@ -38,7 +38,9 @@ const MIN_SCORE = 0.6;
 const ERROR_COOLDOWN_MS = 4000;
 const SUSTAINED_CLEAN_MS = 2000;
 /** Per-second blend rate toward newest detect. Higher = snappier. */
-const DEMO_SMOOTH_RATE = 14;
+const DEMO_SMOOTH_RATE = 12;
+/** Light average of recent detects — enough to calm lines without feeling laggy. */
+const DEMO_TARGET_HISTORY = 2;
 const DEMO_DETECT_INTERVAL_MS = 66;
 const LIVE_DETECT_INTERVAL_MS = 100;
 
@@ -146,6 +148,7 @@ export function usePoseDetection(
 ) {
   const [isDetecting, setIsDetecting] = useState(false);
   const landmarkHistory = useRef<Landmark[][]>([]);
+  const demoKeypointHistory = useRef<DetectedPose['keypoints'][]>([]);
   const demoTargetKeypoints = useRef<DetectedPose['keypoints'] | null>(null);
   const demoDrawKeypoints = useRef<DetectedPose['keypoints'] | null>(null);
   const demoLastDrawTime = useRef(0);
@@ -202,9 +205,7 @@ export function usePoseDetection(
 
     onErrorStateChangeRef.current?.(errorKey, true);
 
-    if (demoVisualModeRef.current) {
-      triggerDemoErrorFlash(errorKey);
-    }
+    triggerDemoErrorFlash(errorKey);
 
     const timeoutId = setTimeout(() => {
       errorCooldownTimers.current.delete(errorKey);
@@ -254,9 +255,34 @@ export function usePoseDetection(
   }
 
   function setDemoTargetKeypoints(raw: DetectedPose['keypoints']) {
-    demoTargetKeypoints.current = raw.map((keypoint) => ({ ...keypoint }));
+    demoKeypointHistory.current.push(raw.map((keypoint) => ({ ...keypoint })));
+    if (demoKeypointHistory.current.length > DEMO_TARGET_HISTORY) {
+      demoKeypointHistory.current.shift();
+    }
+
+    const frames = demoKeypointHistory.current;
+    const frameCount = frames.length;
+    const averaged = frames[0].map((_, index) => {
+      let x = 0;
+      let y = 0;
+      let score = 0;
+      frames.forEach((frame) => {
+        const keypoint = frame[index];
+        x += keypoint.x;
+        y += keypoint.y;
+        score += keypoint.score ?? 0;
+      });
+      return {
+        ...frames[frameCount - 1][index],
+        x: x / frameCount,
+        y: y / frameCount,
+        score: score / frameCount,
+      };
+    });
+
+    demoTargetKeypoints.current = averaged;
     if (!demoDrawKeypoints.current) {
-      demoDrawKeypoints.current = raw.map((keypoint) => ({ ...keypoint }));
+      demoDrawKeypoints.current = averaged.map((keypoint) => ({ ...keypoint }));
     }
   }
 
@@ -330,6 +356,7 @@ export function usePoseDetection(
     if (!workoutStarted || currentExercise === 'none') {
       setIsDetecting(false);
       landmarkHistory.current = [];
+      demoKeypointHistory.current = [];
       demoTargetKeypoints.current = null;
       demoDrawKeypoints.current = null;
       demoLastDrawTime.current = 0;
@@ -474,6 +501,7 @@ export function usePoseDetection(
       disposed = true;
       stopLoop();
       landmarkHistory.current = [];
+      demoKeypointHistory.current = [];
       demoTargetKeypoints.current = null;
       demoDrawKeypoints.current = null;
       demoLastDrawTime.current = 0;

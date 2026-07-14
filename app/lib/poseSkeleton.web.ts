@@ -4,7 +4,6 @@ const SKELETON_DRAW_THRESHOLD = 0.3;
 const DOT_RADIUS = 6;
 const DEMO_DOT_RADIUS = 4;
 const LINE_WIDTH = 2;
-const COLOR_LERP_FACTOR = 0.1;
 const DEMO_COLOR_LERP_FACTOR = 0.16;
 
 const SKELETON_CONNECTIONS: [number, number][] = [
@@ -24,19 +23,15 @@ const SKELETON_CONNECTIONS: [number, number][] = [
 
 type Rgba = { r: number; g: number; b: number; a: number };
 
-const COLOR_RED_DOT: Rgba = { r: 204, g: 29, b: 29, a: 1 };
 const COLOR_RED_DOT_DEMO: Rgba = { r: 204, g: 29, b: 29, a: 0.5 };
-const COLOR_TEAL_DOT: Rgba = { r: 121, g: 203, b: 208, a: 1 };
 const COLOR_TEAL_DOT_DEMO: Rgba = { r: 121, g: 203, b: 208, a: 0.5 };
-const COLOR_NEUTRAL_DOT: Rgba = { r: 255, g: 255, b: 255, a: 0.5 };
 
 const COLOR_NEUTRAL_LINE: Rgba = { r: 255, g: 255, b: 255, a: 0.25 };
 
-let currentDotColor: Rgba = { ...COLOR_NEUTRAL_DOT };
-const demoTealFlashByKeypoint = new Map<number, number>();
-const demoDotColorsByKeypoint = new Map<number, Rgba>();
+const jointTealFlashByKeypoint = new Map<number, number>();
+const jointDotColorsByKeypoint = new Map<number, Rgba>();
 
-const DEMO_TEAL_FLASH_MS = 1500;
+const JOINT_TEAL_FLASH_MS = 1500;
 
 /** MoveNet indices affected by each form error. */
 const ERROR_KEYPOINT_INDICES: Record<string, number[]> = {
@@ -53,7 +48,7 @@ const ERROR_KEYPOINT_INDICES: Record<string, number[]> = {
 
 export function triggerDemoErrorFlash(
   errorKey: string,
-  durationMs = DEMO_TEAL_FLASH_MS
+  durationMs = JOINT_TEAL_FLASH_MS
 ) {
   const keypointIndices = ERROR_KEYPOINT_INDICES[errorKey];
   if (!keypointIndices?.length) {
@@ -62,33 +57,36 @@ export function triggerDemoErrorFlash(
 
   const flashUntil = performance.now() + durationMs;
   keypointIndices.forEach((index) => {
-    demoTealFlashByKeypoint.set(index, flashUntil);
+    jointTealFlashByKeypoint.set(index, flashUntil);
   });
 }
 
-function isDemoKeypointFlashing(index: number) {
-  const flashUntil = demoTealFlashByKeypoint.get(index);
+function isJointKeypointFlashing(index: number) {
+  const flashUntil = jointTealFlashByKeypoint.get(index);
   if (!flashUntil) {
     return false;
   }
 
   if (performance.now() >= flashUntil) {
-    demoTealFlashByKeypoint.delete(index);
+    jointTealFlashByKeypoint.delete(index);
     return false;
   }
 
   return true;
 }
 
-function getDemoDotTargetColor(index: number): Rgba {
-  return isDemoKeypointFlashing(index) ? COLOR_TEAL_DOT_DEMO : COLOR_RED_DOT_DEMO;
+function getJointDotTargetColor(index: number): Rgba {
+  return isJointKeypointFlashing(index)
+    ? COLOR_TEAL_DOT_DEMO
+    : COLOR_RED_DOT_DEMO;
 }
 
-function getDemoDotColor(index: number): Rgba {
-  const target = getDemoDotTargetColor(index);
-  const current = demoDotColorsByKeypoint.get(index) ?? { ...COLOR_RED_DOT_DEMO };
+function getJointDotColor(index: number): Rgba {
+  const target = getJointDotTargetColor(index);
+  const current =
+    jointDotColorsByKeypoint.get(index) ?? { ...COLOR_RED_DOT_DEMO };
   const next = lerpRgba(current, target, DEMO_COLOR_LERP_FACTOR);
-  demoDotColorsByKeypoint.set(index, next);
+  jointDotColorsByKeypoint.set(index, next);
   return next;
 }
 
@@ -102,7 +100,7 @@ function lerpChannel(current: number, target: number, factor: number) {
   return current + (target - current) * factor;
 }
 
-function lerpRgba(current: Rgba, target: Rgba, factor = COLOR_LERP_FACTOR): Rgba {
+function lerpRgba(current: Rgba, target: Rgba, factor = DEMO_COLOR_LERP_FACTOR): Rgba {
   return {
     r: lerpChannel(current.r, target.r, factor),
     g: lerpChannel(current.g, target.g, factor),
@@ -113,21 +111,6 @@ function lerpRgba(current: Rgba, target: Rgba, factor = COLOR_LERP_FACTOR): Rgba
 
 function rgbaToCss(color: Rgba) {
   return `rgba(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)}, ${color.a.toFixed(3)})`;
-}
-
-function getTargetDotColor(
-  errors: Set<string>,
-  sustainedClean: boolean
-): Rgba {
-  if (errors.size > 0) {
-    return COLOR_RED_DOT;
-  }
-
-  if (sustainedClean) {
-    return COLOR_TEAL_DOT;
-  }
-
-  return COLOR_NEUTRAL_DOT;
 }
 
 function getCoverTransform(
@@ -210,20 +193,17 @@ function prepareCanvas(
   };
 }
 
-export function resetSkeletonColors(demoMode = false) {
-  if (demoMode) {
-    demoTealFlashByKeypoint.clear();
-    demoDotColorsByKeypoint.clear();
-  }
-  currentDotColor = demoMode ? { ...COLOR_RED_DOT_DEMO } : { ...COLOR_NEUTRAL_DOT };
+export function resetSkeletonColors(_demoMode = false) {
+  jointTealFlashByKeypoint.clear();
+  jointDotColorsByKeypoint.clear();
 }
 
 export function drawSkeleton(
   poses: DetectedPose[],
   canvas: HTMLCanvasElement,
   video: HTMLVideoElement,
-  errors: Set<string> = new Set(),
-  sustainedClean = false,
+  _errors: Set<string> = new Set(),
+  _sustainedClean = false,
   mirrorX = true,
   demoMode = false
 ) {
@@ -245,12 +225,6 @@ export function drawSkeleton(
       return;
     }
 
-    const targetDot = getTargetDotColor(errors, sustainedClean);
-    if (!demoMode) {
-      currentDotColor = lerpRgba(currentDotColor, targetDot);
-    }
-
-    const defaultDotColor = rgbaToCss(currentDotColor);
     const lineColor = rgbaToCss(COLOR_NEUTRAL_LINE);
 
     ctx.strokeStyle = lineColor;
@@ -277,9 +251,7 @@ export function drawSkeleton(
       if ((kp.score ?? 0) > SKELETON_DRAW_THRESHOLD) {
         const point = mapPoint(kp.x, kp.y, transform, displayWidth, mirrorX);
         const radius = demoMode ? DEMO_DOT_RADIUS : DOT_RADIUS;
-        const fillColor = demoMode
-          ? rgbaToCss(getDemoDotColor(index))
-          : defaultDotColor;
+        const fillColor = rgbaToCss(getJointDotColor(index));
 
         ctx.beginPath();
         ctx.arc(point.x, point.y, radius, 0, 2 * Math.PI);
