@@ -23,6 +23,9 @@ import ProfileSetup from '../screens/ProfileSetup';
 import Progress from '../screens/Progress';
 import SignIn from '../screens/SignIn';
 import BottomTabBar from '../components/BottomTabBar';
+import PikePressLoader, {
+  PIKE_PRESS_CYCLE_S,
+} from '../components/PikePressLoader';
 import { auth } from '../lib/firebase';
 import type { SessionLogEntry } from '../hooks/usePoseDetection';
 import theme from '../theme';
@@ -190,14 +193,19 @@ function AppNavigator({
 
 export default function RootNavigation() {
   const [user, setUser] = useState<User | null>(null);
-  const [initializing, setInitializing] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
   const [appEntryRoute, setAppEntryRoute] = useState<AppEntryRoute>('Main');
+  const [splashMounted, setSplashMounted] = useState(true);
+  const splashOpacity = useRef(new Animated.Value(1)).current;
+  const splashStartedAt = useRef(
+    typeof performance !== 'undefined' ? performance.now() : Date.now()
+  );
   const demoPath = isDemoWorkoutPath();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
-      setInitializing(false);
+      setAuthReady(true);
       if (!firebaseUser) {
         setAppEntryRoute('Main');
       }
@@ -206,9 +214,45 @@ export default function RootNavigation() {
     return unsubscribe;
   }, []);
 
-  if (initializing) {
-    return <AppLoadingScreen />;
-  }
+  useEffect(() => {
+    if (!authReady || !splashMounted) {
+      return;
+    }
+
+    const isReturningSession =
+      Boolean(user) && !demoPath && appEntryRoute === 'Main';
+
+    if (!isReturningSession) {
+      setSplashMounted(false);
+      return;
+    }
+
+    const now =
+      typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const elapsed = now - splashStartedAt.current;
+    const remainingMs = Math.max(0, PIKE_PRESS_CYCLE_S * 1000 - elapsed);
+    let fadeStarted = false;
+
+    const finishTimer = setTimeout(() => {
+      fadeStarted = true;
+      Animated.timing(splashOpacity, {
+        toValue: 0,
+        duration: 480,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) {
+          setSplashMounted(false);
+        }
+      });
+    }, remainingMs);
+
+    return () => {
+      clearTimeout(finishTimer);
+      if (fadeStarted) {
+        splashOpacity.stopAnimation();
+      }
+    };
+  }, [authReady, user, demoPath, appEntryRoute, splashMounted, splashOpacity]);
 
   const showAppNavigator = Boolean(user) || demoPath;
   const navigatorInitialRoute = demoPath ? 'DemoWorkout' : appEntryRoute;
@@ -221,16 +265,27 @@ export default function RootNavigation() {
   return (
     <AuthFlowContext.Provider value={{ setAppEntryRoute }}>
       <View style={styles.root}>
-        <NavigationContainer linking={showAppNavigator ? linking : undefined}>
-          {showAppNavigator ? (
-            <AppNavigator
-              key={navigatorKey}
-              initialRouteName={navigatorInitialRoute}
-            />
-          ) : (
-            <AuthNavigator />
-          )}
-        </NavigationContainer>
+        {authReady ? (
+          <NavigationContainer linking={showAppNavigator ? linking : undefined}>
+            {showAppNavigator ? (
+              <AppNavigator
+                key={navigatorKey}
+                initialRouteName={navigatorInitialRoute}
+              />
+            ) : (
+              <AuthNavigator />
+            )}
+          </NavigationContainer>
+        ) : null}
+
+        {splashMounted ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[loadingStyles.overlay, { opacity: splashOpacity }]}
+          >
+            <PikePressLoader size={112} />
+          </Animated.View>
+        ) : null}
       </View>
     </AuthFlowContext.Provider>
   );
@@ -242,37 +297,16 @@ const styles = StyleSheet.create({
   },
 });
 
-function AppLoadingScreen() {
-  const opacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(opacity, {
-      toValue: 1,
-      duration: 280,
-      useNativeDriver: true,
-    }).start();
-  }, [opacity]);
-
-  return (
-    <View style={loadingStyles.container}>
-      <Animated.Image
-        source={require('../../assets/images/logo.png')}
-        style={[loadingStyles.logo, { opacity }]}
-        resizeMode="contain"
-      />
-    </View>
-  );
-}
-
 const loadingStyles = StyleSheet.create({
-  container: {
-    flex: 1,
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: theme.colors.background,
-  },
-  logo: {
-    width: 96,
-    height: 48,
+    zIndex: 100,
   },
 });
