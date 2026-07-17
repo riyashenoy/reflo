@@ -125,7 +125,7 @@ function SuccessCelebration() {
 
   return (
     <Animated.View style={[styles.celebration, { opacity }]}>
-      <ConfettiBurst size={56} />
+      <ConfettiBurst size={72} />
     </Animated.View>
   );
 }
@@ -409,6 +409,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: scale(24),
     marginBottom: scale(16),
+    overflow: 'visible',
+    width: '100%',
   },
   heading: {
     fontFamily: theme.fonts.header,

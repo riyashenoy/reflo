@@ -111,7 +111,7 @@ function frameAt(t: number): Frame {
   };
 }
 
-export default function ConfettiBurst({ size = 56, style }: Props) {
+export default function ConfettiBurst({ size = 72, style }: Props) {
   const [frame, setFrame] = useState(() => frameAt(0));
   const startRef = useRef<number | null>(null);
   const rafRef = useRef(0);
@@ -131,13 +131,19 @@ export default function ConfettiBurst({ size = 56, style }: Props) {
     };
   }, []);
 
-  const height = size * (200 / 220);
-  // Flip upright around the original pivot; keep the small recoil wiggle.
+  // Wider than tall so the flipped cone + burst aren't clipped at the sides.
+  const width = size * 1.45;
+  const height = size;
   const coneRotation = 180 - 4 * frame.coneRecoil;
 
   return (
-    <View style={[styles.wrap, { width: size, height }, style]}>
-      <Svg width={size} height={height} viewBox="0 0 220 200">
+    <View style={[styles.wrap, { width, height }, style]}>
+      <Svg
+        width={width}
+        height={height}
+        viewBox="-20 40 260 170"
+        style={{ overflow: 'visible' }}
+      >
         {frame.particles.map((particle, index) =>
           particle.kind === 'dot' ? (
             <Circle
@@ -187,5 +193,6 @@ const styles = StyleSheet.create({
   wrap: {
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'visible',
   },
 });
