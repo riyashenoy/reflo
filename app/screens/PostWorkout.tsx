@@ -15,6 +15,7 @@ import {
   FadeInView,
   PressableScale,
 } from '../components/motion';
+import ConfettiBurst from '../components/ConfettiBurst';
 import { getWorkoutById } from '../data/workouts';
 import { getLibraryWorkout } from '../data/workoutLibrary';
 import {
@@ -111,30 +112,21 @@ function ProgressBar({ progress }: { progress: number }) {
   );
 }
 
-function SuccessEmoji() {
-  const scale = useRef(new Animated.Value(0.9)).current;
+function SuccessCelebration() {
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1,
-        friction: 7,
-        tension: 120,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 360,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [opacity, scale]);
+    Animated.timing(opacity, {
+      toValue: 1,
+      duration: 360,
+      useNativeDriver: true,
+    }).start();
+  }, [opacity]);
 
   return (
-    <Animated.Text style={[styles.emoji, { opacity, transform: [{ scale }] }]}>
-      🎉
-    </Animated.Text>
+    <Animated.View style={[styles.celebration, { opacity }]}>
+      <ConfettiBurst size={56} />
+    </Animated.View>
   );
 }
 
@@ -248,7 +240,7 @@ export default function PostWorkout({ route, navigation }: Props) {
           contentContainerStyle={styles.scrollContent}
         >
           <FadeInView>
-            <SuccessEmoji />
+            <SuccessCelebration />
             <Text style={styles.heading}>You Crushed It.</Text>
             <Text style={styles.subtitle}>
               {displayTitle} · {workout.duration} min · {dayOfWeek}
@@ -413,9 +405,8 @@ const styles = StyleSheet.create({
     paddingBottom: scale(40),
     alignItems: 'center',
   },
-  emoji: {
-    fontSize: scale(48),
-    textAlign: 'center',
+  celebration: {
+    alignItems: 'center',
     marginTop: scale(24),
     marginBottom: scale(16),
   },
