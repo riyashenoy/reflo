@@ -196,7 +196,9 @@ export default function RootNavigation() {
   const [authReady, setAuthReady] = useState(false);
   const [appEntryRoute, setAppEntryRoute] = useState<AppEntryRoute>('Main');
   const [splashMounted, setSplashMounted] = useState(true);
-  const splashOpacity = useRef(new Animated.Value(1)).current;
+  const splashBgOpacity = useRef(new Animated.Value(1)).current;
+  const splashFigureOpacity = useRef(new Animated.Value(1)).current;
+  const splashScale = useRef(new Animated.Value(1)).current;
   const splashStartedAt = useRef(
     typeof performance !== 'undefined' ? performance.now() : Date.now()
   );
@@ -235,11 +237,25 @@ export default function RootNavigation() {
 
     const finishTimer = setTimeout(() => {
       fadeStarted = true;
-      Animated.timing(splashOpacity, {
-        toValue: 0,
-        duration: 480,
-        useNativeDriver: true,
-      }).start(({ finished }) => {
+      Animated.parallel([
+        // Background dissolves first so the homepage shows through
+        Animated.timing(splashBgOpacity, {
+          toValue: 0,
+          duration: 460,
+          useNativeDriver: true,
+        }),
+        // Figure shrinks away as the homepage comes through
+        Animated.timing(splashScale, {
+          toValue: 0.05,
+          duration: 320,
+          useNativeDriver: true,
+        }),
+        Animated.timing(splashFigureOpacity, {
+          toValue: 0,
+          duration: 320,
+          useNativeDriver: true,
+        }),
+      ]).start(({ finished }) => {
         if (finished) {
           setSplashMounted(false);
         }
@@ -249,10 +265,21 @@ export default function RootNavigation() {
     return () => {
       clearTimeout(finishTimer);
       if (fadeStarted) {
-        splashOpacity.stopAnimation();
+        splashBgOpacity.stopAnimation();
+        splashFigureOpacity.stopAnimation();
+        splashScale.stopAnimation();
       }
     };
-  }, [authReady, user, demoPath, appEntryRoute, splashMounted, splashOpacity]);
+  }, [
+    authReady,
+    user,
+    demoPath,
+    appEntryRoute,
+    splashMounted,
+    splashBgOpacity,
+    splashFigureOpacity,
+    splashScale,
+  ]);
 
   const showAppNavigator = Boolean(user) || demoPath;
   const navigatorInitialRoute = demoPath ? 'DemoWorkout' : appEntryRoute;
@@ -279,12 +306,19 @@ export default function RootNavigation() {
         ) : null}
 
         {splashMounted ? (
-          <Animated.View
-            pointerEvents="none"
-            style={[loadingStyles.overlay, { opacity: splashOpacity }]}
-          >
-            <PikePressLoader size={112} />
-          </Animated.View>
+          <View pointerEvents="none" style={loadingStyles.overlay}>
+            <Animated.View
+              style={[loadingStyles.background, { opacity: splashBgOpacity }]}
+            />
+            <Animated.View
+              style={{
+                opacity: splashFigureOpacity,
+                transform: [{ scale: splashScale }],
+              }}
+            >
+              <PikePressLoader size={112} />
+            </Animated.View>
+          </View>
         ) : null}
       </View>
     </AuthFlowContext.Provider>
@@ -306,7 +340,14 @@ const loadingStyles = StyleSheet.create({
     left: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: theme.colors.background,
     zIndex: 100,
+  },
+  background: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: theme.colors.background,
   },
 });

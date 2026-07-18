@@ -21,6 +21,7 @@ import {
 } from '../data/workoutLibrary';
 import { getWorkoutById, type Workout } from '../data/workouts';
 import { FadeInView, PressableScale } from '../components/motion';
+import PushupLogo from '../components/PushupLogo';
 import { useSavedWorkouts } from '../context/SavedWorkoutsContext';
 import { useWorkoutHistory } from '../hooks/useWorkoutHistory';
 import { auth } from '../lib/firebase';
@@ -498,10 +499,7 @@ export default function Home() {
   const listHeader = useMemo(
     () => (
       <View style={[styles.headerContent, { paddingTop: tabTopPadding }]}>
-        <Image
-          source={require('../../assets/images/logo.png')}
-          style={styles.logo}
-        />
+        <PushupLogo width={scale(70)} style={styles.logo} />
 
         <FadeInView delay={80} style={styles.greetingBlock}>
           <Text style={styles.greetingLine}>
@@ -609,9 +607,9 @@ const styles = StyleSheet.create({
     gap: SECTION_GAP,
   },
   logo: {
-    width: scale(64),
-    height: scale(32),
-    resizeMode: 'contain',
+    alignSelf: 'flex-start',
+    // Pull the greeting closer than the default section gap
+    marginBottom: -scale(18),
   },
   greetingBlock: {
     gap: scale(6),
