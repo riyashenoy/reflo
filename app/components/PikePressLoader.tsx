@@ -12,7 +12,7 @@ type PoseFrame = {
   guideSolidOpacity: number;
 };
 
-/** Full form-journey cycle: sink too low → rise too high → settle perfect. */
+/** Full form-journey cycle: rise too high → sink too low → settle perfect. */
 export const PIKE_PRESS_CYCLE_S = 4.5;
 
 type Props = {
@@ -87,9 +87,9 @@ function pose(t: number): PoseFrame {
     return u < a ? 0 : u > b ? 1 : ES((u - a) / (b - a));
   }
 
-  // Rise begins the moment the sink finishes draining — no pause between.
-  const sink = seg(0.08, 0.19) - seg(0.3, 0.41);
-  const rise = seg(0.41, 0.52) - seg(0.64, 0.75);
+  // Too high → too low → perfect (no pause between high and low).
+  const rise = seg(0.08, 0.19) - seg(0.3, 0.41);
+  const sink = seg(0.41, 0.52) - seg(0.64, 0.75);
   const ok = seg(0.8, 0.86) - seg(0.95, 0.99);
 
   const H: Point = [160, 168];

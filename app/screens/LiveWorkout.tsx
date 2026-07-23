@@ -130,6 +130,7 @@ function LiveWorkout({ route, navigation }: Props) {
   const [currentExercise, setCurrentExercise] = useState<PoseExercise>('none');
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [workoutStarted, setWorkoutStarted] = useState(false);
+  const [readyUnlocked, setReadyUnlocked] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -150,6 +151,7 @@ function LiveWorkout({ route, navigation }: Props) {
   const sessionLog = useRef<SessionLogEntry[]>([]);
   const currentErrors = useRef<Set<string>>(new Set());
   const sustainedClean = useRef(false);
+  const isInFrameRef = useRef(false);
 
   currentExerciseRef.current = currentExercise;
 
@@ -269,6 +271,10 @@ function LiveWorkout({ route, navigation }: Props) {
 
   const onWindowOpen = useCallback(
     (exercise: string) => {
+      if (!isInFrameRef.current) {
+        return;
+      }
+
       const data = formData.current;
       const totalFrames = data.frameCount;
 
@@ -511,7 +517,7 @@ function LiveWorkout({ route, navigation }: Props) {
     };
   }, [startCamera]);
 
-  usePoseDetection(
+  const { confidence, isInFrame } = usePoseDetection(
     videoRef,
     canvasRef,
     Platform.OS === 'web' ? currentExercise : 'none',
@@ -519,8 +525,21 @@ function LiveWorkout({ route, navigation }: Props) {
     workoutStarted,
     currentErrors,
     handleErrorStateChange,
-    sustainedClean
+    sustainedClean,
+    true,
+    false,
+    Platform.OS === 'web'
   );
+
+  useEffect(() => {
+    isInFrameRef.current = isInFrame;
+  }, [isInFrame]);
+
+  useEffect(() => {
+    if (confidence > 0.6) {
+      setReadyUnlocked(true);
+    }
+  }, [confidence]);
 
   if (!workout) {
     return (
@@ -538,6 +557,15 @@ function LiveWorkout({ route, navigation }: Props) {
     0,
     Math.floor(trackDurationSeconds - timerSeconds)
   );
+
+  const lockStatus =
+    confidence < 0.4
+      ? { text: 'Looking for you…', color: '#989797' }
+      : confidence <= 0.6
+        ? { text: 'Almost — step back a little', color: '#E69639' }
+        : { text: 'Got you ✓', color: '#79CBD0' };
+
+  const showOutOfFrameBanner = workoutStarted && !isInFrame;
 
   return (
     <View style={styles.container}>
@@ -560,27 +588,50 @@ function LiveWorkout({ route, navigation }: Props) {
       >
         <WorkoutVideoFrame
           overlay={
-            <FadeSlideOverlay
-              visible={showOnboarding}
-              backdropColor="rgba(0,0,0,0.35)"
-            >
-              <View style={styles.onboardingCard}>
-                <View style={styles.onboardingGifPlaceholder}>
-                  <Image
-                    source={require('../../assets/images/demo.png')}
-                    style={styles.onboardingDemoImage}
-                    resizeMode="cover"
-                  />
+            <>
+              <FadeSlideOverlay
+                visible={showOnboarding}
+                backdropColor="rgba(0,0,0,0.35)"
+              >
+                <View style={styles.onboardingCard}>
+                  <View style={styles.onboardingGifPlaceholder}>
+                    <Image
+                      source={require('../../assets/images/demo.png')}
+                      style={styles.onboardingDemoImage}
+                      resizeMode="cover"
+                    />
+                  </View>
+                  <Text style={styles.onboardingHint}>
+                    Place your device where your full body is visible from the
+                    side
+                  </Text>
+                  <Text
+                    style={[styles.lockStatusText, { color: lockStatus.color }]}
+                  >
+                    {lockStatus.text}
+                  </Text>
+                  <PressableScale
+                    style={[
+                      styles.readyButton,
+                      !readyUnlocked && styles.readyButtonDisabled,
+                    ]}
+                    onPress={readyUnlocked ? handleReady : undefined}
+                    disabled={!readyUnlocked}
+                  >
+                    <Text style={styles.readyButtonText}>I&apos;m Ready</Text>
+                  </PressableScale>
                 </View>
-                <Text style={styles.onboardingHint}>
-                  Place your device where your full body is visible from the
-                  side
-                </Text>
-                <PressableScale style={styles.readyButton} onPress={handleReady}>
-                  <Text style={styles.readyButtonText}>I&apos;m Ready</Text>
-                </PressableScale>
-              </View>
-            </FadeSlideOverlay>
+              </FadeSlideOverlay>
+
+              {showOutOfFrameBanner ? (
+                <View style={styles.outOfFrameBanner} pointerEvents="none">
+                  <View style={styles.outOfFrameMotif} />
+                  <Text style={styles.outOfFrameText}>
+                    Step back so I can see your full body
+                  </Text>
+                </View>
+              ) : null}
+            </>
           }
         >
           {Platform.OS === 'web' ? (
@@ -699,6 +750,12 @@ const styles = StyleSheet.create({
     fontSize: scale(13),
     textAlign: 'center',
     lineHeight: scale(18),
+    marginBottom: theme.spacing.md,
+  },
+  lockStatusText: {
+    fontFamily: theme.fonts.body,
+    fontSize: scale(13),
+    textAlign: 'center',
     marginBottom: theme.spacing.xxl,
   },
   readyButton: {
@@ -710,12 +767,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  readyButtonDisabled: {
+    opacity: 0.35,
+  },
   readyButtonText: {
     fontFamily: theme.fonts.label,
     fontSize: scale(11),
     letterSpacing: scale(1.6),
     color: theme.colors.white,
     textTransform: 'uppercase',
+  },
+  outOfFrameBanner: {
+    position: 'absolute',
+    alignSelf: 'center',
+    top: '42%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(36,33,33,0.88)',
+    borderRadius: scale(4),
+    paddingVertical: scale(12),
+    paddingHorizontal: scale(14),
+    gap: scale(10),
+    maxWidth: '86%',
+    zIndex: 5,
+  },
+  outOfFrameMotif: {
+    width: scale(4),
+    height: scale(4),
+    backgroundColor: '#E69639',
+  },
+  outOfFrameText: {
+    fontFamily: theme.fonts.body,
+    fontSize: scale(13),
+    color: theme.colors.white,
+    flexShrink: 1,
   },
   notFound: {
     ...theme.typography.body,

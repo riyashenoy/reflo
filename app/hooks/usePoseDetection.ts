@@ -46,7 +46,13 @@ export function usePoseDetection(
   _onErrorStateChange?: ErrorStateChangeHandler,
   _sustainedCleanRef?: RefObject<boolean>,
   _mirrorOverlay = true,
-  _demoVisualMode = false
+  _demoVisualMode = false,
+  _trackingEnabled?: boolean
 ) {
-  return { isDetecting: false, poses: [] as DetectedPose[] };
+  return {
+    isDetecting: false,
+    poses: [] as DetectedPose[],
+    confidence: 0,
+    isInFrame: false,
+  };
 }

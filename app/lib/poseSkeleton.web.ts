@@ -25,6 +25,7 @@ type Rgba = { r: number; g: number; b: number; a: number };
 
 const COLOR_RED_DOT_DEMO: Rgba = { r: 204, g: 29, b: 29, a: 0.5 };
 const COLOR_TEAL_DOT_DEMO: Rgba = { r: 121, g: 203, b: 208, a: 0.5 };
+const COLOR_UNTRACKED: Rgba = { r: 255, g: 255, b: 255, a: 0.25 };
 
 const COLOR_NEUTRAL_LINE: Rgba = { r: 255, g: 255, b: 255, a: 0.25 };
 
@@ -205,7 +206,8 @@ export function drawSkeleton(
   _errors: Set<string> = new Set(),
   _sustainedClean = false,
   mirrorX = true,
-  demoMode = false
+  demoMode = false,
+  untracked = false
 ) {
   try {
     const prepared = prepareCanvas(canvas, video);
@@ -225,7 +227,7 @@ export function drawSkeleton(
       return;
     }
 
-    const lineColor = rgbaToCss(COLOR_NEUTRAL_LINE);
+    const lineColor = rgbaToCss(untracked ? COLOR_UNTRACKED : COLOR_NEUTRAL_LINE);
 
     ctx.strokeStyle = lineColor;
     ctx.lineWidth = LINE_WIDTH;
@@ -251,7 +253,9 @@ export function drawSkeleton(
       if ((kp.score ?? 0) > SKELETON_DRAW_THRESHOLD) {
         const point = mapPoint(kp.x, kp.y, transform, displayWidth, mirrorX);
         const radius = demoMode ? DEMO_DOT_RADIUS : DOT_RADIUS;
-        const fillColor = rgbaToCss(getJointDotColor(index));
+        const fillColor = rgbaToCss(
+          untracked ? COLOR_UNTRACKED : getJointDotColor(index)
+        );
 
         ctx.beginPath();
         ctx.arc(point.x, point.y, radius, 0, 2 * Math.PI);

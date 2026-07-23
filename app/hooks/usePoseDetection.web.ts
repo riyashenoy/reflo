@@ -37,6 +37,16 @@ const LANDMARK_ORDER = [
 const MIN_SCORE = 0.6;
 const ERROR_COOLDOWN_MS = 4000;
 const SUSTAINED_CLEAN_MS = 2000;
+/** MoveNet: left shoulder / hip / knee — minimum joints for angle checks. */
+const CONFIDENCE_KEYPOINT_INDICES = [
+  LANDMARK_INDICES.left_shoulder,
+  LANDMARK_INDICES.left_hip,
+  LANDMARK_INDICES.left_knee,
+] as const;
+const CONFIDENCE_HISTORY = 10;
+const IN_FRAME_ENTER_MS = 1000;
+const IN_FRAME_EXIT_MS = 2000;
+const IN_FRAME_THRESHOLD = 0.4;
 /** Per-second blend rate toward newest detect. Higher = snappier. */
 const DEMO_SMOOTH_RATE = 12;
 /** Light average of recent detects — enough to calm lines without feeling laggy. */
@@ -134,6 +144,27 @@ function detectError(
   return { errorKey: null, ankleBaselineY };
 }
 
+function computeFrameConfidence(
+  keypoints: Array<{ score?: number }> | undefined
+): number {
+  if (!keypoints?.length) {
+    return 0;
+  }
+
+  let sum = 0;
+  let count = 0;
+  CONFIDENCE_KEYPOINT_INDICES.forEach((index) => {
+    const keypoint = keypoints[index];
+    if (!keypoint) {
+      return;
+    }
+    sum += keypoint.score ?? 0;
+    count += 1;
+  });
+
+  return count > 0 ? sum / count : 0;
+}
+
 export function usePoseDetection(
   videoRef: RefObject<HTMLVideoElement | null>,
   canvasRef: RefObject<HTMLCanvasElement | null>,
@@ -144,9 +175,12 @@ export function usePoseDetection(
   onErrorStateChange?: ErrorStateChangeHandler,
   sustainedCleanRef?: RefObject<boolean>,
   mirrorOverlay = true,
-  demoVisualMode = false
+  demoVisualMode = false,
+  trackingEnabled = workoutStarted
 ) {
   const [isDetecting, setIsDetecting] = useState(false);
+  const [confidence, setConfidence] = useState(0);
+  const [isInFrame, setIsInFrame] = useState(false);
   const landmarkHistory = useRef<Landmark[][]>([]);
   const demoKeypointHistory = useRef<DetectedPose['keypoints'][]>([]);
   const demoTargetKeypoints = useRef<DetectedPose['keypoints'] | null>(null);
@@ -160,6 +194,11 @@ export function usePoseDetection(
   const sustainedCleanRefStable = useRef(sustainedCleanRef);
   const mirrorOverlayRef = useRef(mirrorOverlay);
   const demoVisualModeRef = useRef(demoVisualMode);
+  const workoutStartedRef = useRef(workoutStarted);
+  const isInFrameRef = useRef(false);
+  const confidenceHistory = useRef<number[]>([]);
+  const aboveThresholdSince = useRef<number | null>(null);
+  const belowThresholdSince = useRef<number | null>(null);
   const errorCooldownTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map()
   );
@@ -173,6 +212,7 @@ export function usePoseDetection(
   sustainedCleanRefStable.current = sustainedCleanRef;
   mirrorOverlayRef.current = mirrorOverlay;
   demoVisualModeRef.current = demoVisualMode;
+  workoutStartedRef.current = workoutStarted;
 
   const clearErrorCooldowns = () => {
     errorCooldownTimers.current.forEach((timeoutId) => {
@@ -352,9 +392,59 @@ export function usePoseDetection(
     }
   }
 
+  function updateTrackingConfidence(
+    frameConfidence: number,
+    now: number
+  ): number {
+    confidenceHistory.current.push(frameConfidence);
+    if (confidenceHistory.current.length > CONFIDENCE_HISTORY) {
+      confidenceHistory.current.shift();
+    }
+
+    const smoothed =
+      confidenceHistory.current.reduce((sum, value) => sum + value, 0) /
+      confidenceHistory.current.length;
+
+    setConfidence(smoothed);
+
+    if (smoothed >= IN_FRAME_THRESHOLD) {
+      belowThresholdSince.current = null;
+      if (aboveThresholdSince.current == null) {
+        aboveThresholdSince.current = now;
+      }
+      if (
+        !isInFrameRef.current &&
+        now - aboveThresholdSince.current >= IN_FRAME_ENTER_MS
+      ) {
+        isInFrameRef.current = true;
+        setIsInFrame(true);
+      }
+    } else {
+      aboveThresholdSince.current = null;
+      if (belowThresholdSince.current == null) {
+        belowThresholdSince.current = now;
+      }
+      if (
+        isInFrameRef.current &&
+        now - belowThresholdSince.current >= IN_FRAME_EXIT_MS
+      ) {
+        isInFrameRef.current = false;
+        setIsInFrame(false);
+      }
+    }
+
+    return smoothed;
+  }
+
   useEffect(() => {
-    if (!workoutStarted || currentExercise === 'none') {
+    if (!trackingEnabled) {
       setIsDetecting(false);
+      setConfidence(0);
+      setIsInFrame(false);
+      isInFrameRef.current = false;
+      confidenceHistory.current = [];
+      aboveThresholdSince.current = null;
+      belowThresholdSince.current = null;
       landmarkHistory.current = [];
       demoKeypointHistory.current = [];
       demoTargetKeypoints.current = null;
@@ -443,16 +533,30 @@ export function usePoseDetection(
               )) as DetectedPose[];
 
               if (detectedPoses.length > 0) {
+                updateTrackingConfidence(
+                  computeFrameConfidence(detectedPoses[0].keypoints),
+                  now
+                );
+
                 if (demoVisualModeRef.current) {
                   setDemoTargetKeypoints(detectedPoses[0].keypoints);
                 } else {
                   lastDetectedPoses = detectedPoses;
                 }
-                const raw = extractLandmarks(detectedPoses[0].keypoints);
-                if (raw) {
-                  const smoothed = getSmoothed(raw);
-                  recordFrameAssessment(smoothed);
+
+                // Only accumulate form while in-frame during an active workout.
+                if (
+                  workoutStartedRef.current &&
+                  isInFrameRef.current
+                ) {
+                  const raw = extractLandmarks(detectedPoses[0].keypoints);
+                  if (raw) {
+                    const smoothed = getSmoothed(raw);
+                    recordFrameAssessment(smoothed);
+                  }
                 }
+              } else {
+                updateTrackingConfidence(0, now);
               }
             } catch (error) {
               console.warn('[usePoseDetection] frame failed:', error);
@@ -468,7 +572,12 @@ export function usePoseDetection(
             }
           }
 
-          if (canvas && video && video.readyState >= 2 && lastDetectedPoses.length > 0) {
+          if (
+            canvas &&
+            video &&
+            video.readyState >= 2 &&
+            lastDetectedPoses.length > 0
+          ) {
             drawSkeleton(
               lastDetectedPoses,
               canvas,
@@ -476,7 +585,8 @@ export function usePoseDetection(
               currentErrorsRefStable.current?.current ?? new Set(),
               sustainedCleanRefStable.current?.current ?? false,
               mirrorOverlayRef.current,
-              demoVisualModeRef.current
+              demoVisualModeRef.current,
+              workoutStartedRef.current && !isInFrameRef.current
             );
           }
 
@@ -505,6 +615,9 @@ export function usePoseDetection(
       demoTargetKeypoints.current = null;
       demoDrawKeypoints.current = null;
       demoLastDrawTime.current = 0;
+      confidenceHistory.current = [];
+      aboveThresholdSince.current = null;
+      belowThresholdSince.current = null;
       ankleBaselineY.current = null;
       cleanStreakStart.current = null;
       clearErrorCooldowns();
@@ -517,7 +630,12 @@ export function usePoseDetection(
       clearSkeleton(canvasRef.current);
       resetSkeletonColors(demoVisualModeRef.current);
     };
-  }, [canvasRef, currentExercise, videoRef, workoutStarted]);
+  }, [canvasRef, trackingEnabled, videoRef]);
 
-  return { isDetecting, poses: [] as DetectedPose[] };
+  return {
+    isDetecting,
+    poses: [] as DetectedPose[],
+    confidence,
+    isInFrame,
+  };
 }
