@@ -48,6 +48,7 @@ export type AppStackParamList = {
     formScore?: number;
     readOnly?: boolean;
     sessionLog?: SessionLogEntry[];
+    durationSeconds?: number;
   };
   ProfileEdit: { section?: 'about' | 'body' | 'mindful' | 'focus' };
   DemoWorkout: undefined;

@@ -40,6 +40,7 @@ export type WeeklyPlanDay = {
   workoutTitle: string;
   duration: number;
   formScore?: number;
+  correctionCount?: number;
   isRestDay?: boolean;
 };
 

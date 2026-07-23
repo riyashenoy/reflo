@@ -16,8 +16,10 @@ import {
   PressableScale,
 } from '../components/motion';
 import ConfettiBurst from '../components/ConfettiBurst';
+import CorrectionToast from '../components/CorrectionToast';
 import { getWorkoutById } from '../data/workouts';
 import { getLibraryWorkout } from '../data/workoutLibrary';
+import { auth, db } from '../lib/firebase';
 import {
   estimateFormScore,
   recordWorkoutCompletion,
@@ -26,6 +28,7 @@ import {
 import type { AppStackParamList } from '../navigation';
 import type { SessionLogEntry } from '../hooks/usePoseDetection';
 import theme, { scale } from '../theme';
+import { doc, setDoc } from 'firebase/firestore';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'PostWorkout'>;
 
@@ -150,6 +153,7 @@ export default function PostWorkout({ route, navigation }: Props) {
     formScore: routeFormScore,
     readOnly = false,
     sessionLog,
+    durationSeconds,
   } = route.params ?? {};
   const insets = useSafeAreaInsets();
   const workout = workoutId ? getWorkoutById(workoutId) : undefined;
@@ -157,6 +161,7 @@ export default function PostWorkout({ route, navigation }: Props) {
   const displayTitle = libraryWorkout?.title ?? workout?.title ?? 'Workout';
   const reportItems = buildReportItems(sessionLog);
   const hasRecordedCompletion = useRef(false);
+  const [saveErrorToast, setSaveErrorToast] = useState<string | null>(null);
 
   const displayedFormScore = useMemo(() => {
     if (routeFormScore != null) {
@@ -207,11 +212,48 @@ export default function PostWorkout({ route, navigation }: Props) {
     setSelectedOption(null);
   };
 
-  const handleCompleteRating = () => {
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'Main' }],
-    });
+  const handleCompleteRating = async () => {
+    const goHome = () => {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }],
+      });
+    };
+
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      goHome();
+      return;
+    }
+
+    const today = new Date();
+    const dateId = dateKey ?? toDateKey(today);
+    const log = sessionLog ?? [];
+    const correctionCount = log.filter(
+      (entry) => entry.type === 'correction'
+    ).length;
+
+    try {
+      await setDoc(doc(db, 'users', uid, 'sessions', dateId), {
+        workoutId: workoutId ?? null,
+        completedAt: today.toISOString(),
+        durationSeconds: durationSeconds ?? 307,
+        sessionLog: log,
+        correctionCount,
+        ratings,
+        overallStars: starRating,
+      });
+    } catch (error) {
+      console.warn('[PostWorkout] session save failed:', error);
+      setSaveErrorToast(
+        'Couldn’t save this session. Your progress may be incomplete.'
+      );
+      // Brief toast, then leave — never trap the user on the rating screen.
+      setTimeout(goHome, 1600);
+      return;
+    }
+
+    goHome();
   };
 
   if (!workout) {
@@ -338,43 +380,51 @@ export default function PostWorkout({ route, navigation }: Props) {
 
   if (stage === 'overall') {
     return (
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.overallContent}
-      >
-        <FadeInView>
-          <Text style={styles.ratingQuestion}>How was the class overall?</Text>
+      <View style={styles.container}>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.overallContent}
+        >
+          <FadeInView>
+            <Text style={styles.ratingQuestion}>How was the class overall?</Text>
 
-          <View style={styles.starsRow}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <PressableScale key={star} onPress={() => setStarRating(star)}>
-                <Text
-                  style={[
-                    styles.star,
-                    star <= starRating
-                      ? styles.starFilled
-                      : styles.starEmpty,
-                  ]}
-                >
-                  ★
-                </Text>
-              </PressableScale>
-            ))}
-          </View>
+            <View style={styles.starsRow}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <PressableScale key={star} onPress={() => setStarRating(star)}>
+                  <Text
+                    style={[
+                      styles.star,
+                      star <= starRating
+                        ? styles.starFilled
+                        : styles.starEmpty,
+                    ]}
+                  >
+                    ★
+                  </Text>
+                </PressableScale>
+              ))}
+            </View>
 
-          <PressableScale
-            style={[
-              styles.pillButton,
-              styles.pillButtonCenter,
-              starRating === 0 && styles.pillButtonDisabled,
-            ]}
-            onPress={handleCompleteRating}
-            disabled={starRating === 0}
-          >
-            <Text style={styles.pillButtonText}>COMPLETE RATING</Text>
-          </PressableScale>
-        </FadeInView>
-      </ScrollView>
+            <PressableScale
+              style={[
+                styles.pillButton,
+                styles.pillButtonCenter,
+                starRating === 0 && styles.pillButtonDisabled,
+              ]}
+              onPress={() => {
+                void handleCompleteRating();
+              }}
+              disabled={starRating === 0}
+            >
+              <Text style={styles.pillButtonText}>COMPLETE RATING</Text>
+            </PressableScale>
+          </FadeInView>
+        </ScrollView>
+        <CorrectionToast
+          message={saveErrorToast}
+          onDismiss={() => setSaveErrorToast(null)}
+        />
+      </View>
     );
   }
 

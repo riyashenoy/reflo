@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -6,20 +6,113 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { FormScoreChart, ProgressEmptyState } from '../components/FormScoreChart';
 import { FadeInView } from '../components/motion';
 import { useLayoutWidth } from '../hooks/useLayoutWidth';
-import { useWorkoutHistory } from '../hooks/useWorkoutHistory';
+import { useSessions, type Session } from '../hooks/useSessions';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
-import {
-  buildProgressSummary,
-  type ProgressPeriod,
-} from '../lib/progressStats';
+import { toDateKey } from '../lib/workoutHistory';
 import theme, { scale } from '../theme';
+
+type ProgressPeriod = 'Week' | 'Month' | 'All time';
 
 const PERIODS: ProgressPeriod[] = ['Week', 'Month', 'All time'];
 const WARM_RULE = '#E4E2DD';
+
+const CLIP_LABELS: Record<string, string> = {
+  '01': 'Stay focused',
+  '02': 'Steady breathing',
+  '03': 'Great form',
+  '04': 'Strong control',
+  '05': 'Hip pike',
+  '06': 'Hip sag',
+  '07': 'Head drop',
+  '08': 'Arms sinking',
+  '09': 'Knee cave',
+  '10': 'Heels drop',
+  '11': 'Rushing',
+  '12': 'Hip break',
+  '13': 'Momentum',
+};
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function getPeriodStart(period: ProgressPeriod, reference = new Date()): Date | null {
+  if (period === 'All time') {
+    return null;
+  }
+
+  const start = new Date(reference);
+  start.setHours(0, 0, 0, 0);
+  return period === 'Week' ? addDays(start, -6) : addDays(start, -29);
+}
+
+function filterSessionsByPeriod(
+  sessions: Session[],
+  period: ProgressPeriod,
+  reference = new Date()
+): Session[] {
+  const start = getPeriodStart(period, reference);
+  if (!start) {
+    return [...sessions].sort((a, b) => a.id.localeCompare(b.id));
+  }
+
+  const startKey = toDateKey(start);
+  return sessions
+    .filter((session) => session.id >= startKey)
+    .sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function formatTotalTime(totalSeconds: number): string {
+  const minutes = Math.round(totalSeconds / 60);
+  if (minutes < 60) {
+    return `${minutes}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const rem = minutes % 60;
+  return rem > 0 ? `${hours}h ${rem}m` : `${hours}h`;
+}
+
+function formatChartLabel(dateKey: string): string {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return ['S', 'M', 'T', 'W', 'Th', 'F', 'Sa'][date.getDay()];
+}
+
+function getMostCommonCorrection(sessions: Session[]): string {
+  const counts = new Map<string, number>();
+
+  sessions.forEach((session) => {
+    session.sessionLog.forEach((entry) => {
+      if (entry.type !== 'correction') {
+        return;
+      }
+      counts.set(entry.clipPlayed, (counts.get(entry.clipPlayed) ?? 0) + 1);
+    });
+  });
+
+  let topClip: string | null = null;
+  let topCount = 0;
+  counts.forEach((count, clip) => {
+    if (count > topCount) {
+      topClip = clip;
+      topCount = count;
+    }
+  });
+
+  if (!topClip) {
+    return '—';
+  }
+
+  const label = CLIP_LABELS[topClip] ?? `Clip ${topClip}`;
+  return `${label} · ${topCount}`;
+}
 
 function PeriodTab({
   label,
@@ -78,14 +171,57 @@ function SectionEyebrow({ title }: { title: string }) {
 export default function Progress() {
   const tabTopPadding = useTabScreenTopPadding();
   const layoutWidth = useLayoutWidth();
-  const { entries, streak, isLoading } = useWorkoutHistory();
+  const { sessions, loading, refetch } = useSessions();
   const [activePeriod, setActivePeriod] = useState<ProgressPeriod>('Week');
+
+  useFocusEffect(
+    useCallback(() => {
+      void refetch();
+    }, [refetch])
+  );
 
   const chartWidth = layoutWidth - scale(40);
 
-  const summary = useMemo(
-    () => buildProgressSummary(entries, activePeriod, streak),
-    [activePeriod, entries, streak]
+  const summary = useMemo(() => {
+    const filtered = filterSessionsByPeriod(sessions, activePeriod);
+    if (!filtered.length) {
+      return {
+        hasData: false,
+        sessions: 0,
+        totalTime: '0m',
+        averageStars: '—',
+        mostCommon: '—',
+        chartPoints: [] as Array<{ dateKey: string; label: string; score: number }>,
+      };
+    }
+
+    const totalSeconds = filtered.reduce(
+      (sum, session) => sum + (session.durationSeconds || 0),
+      0
+    );
+    const starTotal = filtered.reduce(
+      (sum, session) => sum + (session.overallStars || 0),
+      0
+    );
+    const averageStars = (starTotal / filtered.length).toFixed(1);
+
+    return {
+      hasData: true,
+      sessions: filtered.length,
+      totalTime: formatTotalTime(totalSeconds),
+      averageStars,
+      mostCommon: getMostCommonCorrection(filtered),
+      chartPoints: filtered.map((session) => ({
+        dateKey: session.id,
+        label: formatChartLabel(session.id),
+        score: session.correctionCount,
+      })),
+    };
+  }, [activePeriod, sessions]);
+
+  const chartMax = Math.max(
+    5,
+    ...summary.chartPoints.map((point) => point.score)
   );
 
   return (
@@ -116,11 +252,16 @@ export default function Progress() {
       </View>
 
       <FadeInView style={styles.content} delay={80}>
-        <SectionEyebrow title="FORM SCORE OVER TIME" />
-        {isLoading ? (
+        <SectionEyebrow title="CORRECTIONS OVER TIME" />
+        {loading ? (
           <Text style={styles.emptyMessage}>Loading workouts…</Text>
         ) : summary.hasData ? (
-          <FormScoreChart points={summary.chartPoints} width={chartWidth} />
+          <FormScoreChart
+            points={summary.chartPoints}
+            width={chartWidth}
+            minValue={0}
+            maxValue={chartMax}
+          />
         ) : (
           <ProgressEmptyState />
         )}
@@ -130,16 +271,16 @@ export default function Progress() {
             <View style={styles.statsRule} />
             <View style={styles.statRow}>
               <StatBlock value={summary.sessions} label="SESSIONS DONE" />
-              <StatBlock value={summary.streak} label="CURRENT STREAK" />
+              <StatBlock value={summary.totalTime} label="TOTAL TIME" />
             </View>
 
             <View style={styles.statsRule} />
             <View style={styles.statRow}>
-              <StatBlock value={summary.averageScore} label="AVERAGE FORM SCORE" />
-              <StatBlock value={summary.bestScore} label="PERSONAL BEST" />
+              <StatBlock value={summary.averageStars} label="AVERAGE STARS" />
+              <StatBlock value={summary.mostCommon} label="TOP CORRECTION" />
             </View>
           </>
-        ) : !isLoading ? (
+        ) : !loading ? (
           <>
             <View style={styles.statsRule} />
             <Text style={styles.motivationTitle}>Build your movement story</Text>

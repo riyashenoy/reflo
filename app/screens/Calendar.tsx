@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -15,8 +15,12 @@ import { WeeklyPlanEditSheet } from '../components/profile/WeeklyPlanEditSheet';
 import { PressableScale } from '../components/motion';
 import { auth } from '../lib/firebase';
 import { fetchUserProfile, type UserProfile } from '../lib/userProfile';
+import { useSessions } from '../hooks/useSessions';
 import { useWorkoutHistory } from '../hooks/useWorkoutHistory';
-import type { WeeklyPlanDay } from '../lib/workoutHistory';
+import {
+  toDateKey,
+  type WeeklyPlanDay,
+} from '../lib/workoutHistory';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
@@ -28,6 +32,7 @@ export default function Calendar() {
   const tabTopPadding = useTabScreenTopPadding();
   const { weeklyPlan, isLoading, regenerateSchedule, refresh } =
     useWorkoutHistory();
+  const { sessions, refetch: refetchSessions } = useSessions();
   const [regenerating, setRegenerating] = useState(false);
   const [planEditVisible, setPlanEditVisible] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -39,15 +44,61 @@ export default function Calendar() {
       return;
     }
 
-    const data = await fetchUserProfile(uid);
-    setProfile(data);
+    try {
+      const data = await fetchUserProfile(uid);
+      setProfile(data);
+    } catch (error) {
+      console.warn('[Calendar] profile load failed:', error);
+      setProfile(null);
+    }
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       void loadProfile();
-    }, [loadProfile])
+      void refetchSessions();
+    }, [loadProfile, refetchSessions])
   );
+
+  const days = useMemo(() => {
+    const todayKey = toDateKey(new Date());
+    const sessionsByDate = new Map(
+      sessions.map((session) => [session.id, session])
+    );
+
+    return weeklyPlan.map((day): WeeklyPlanDay => {
+      if (day.isRestDay) {
+        return {
+          ...day,
+          status: day.dateKey === todayKey ? 'today' : day.status,
+          isRestDay: true,
+        };
+      }
+
+      const session = sessionsByDate.get(day.dateKey);
+      if (session) {
+        return {
+          ...day,
+          status: 'completed',
+          duration: Math.max(1, Math.round(session.durationSeconds / 60)),
+          correctionCount: session.correctionCount,
+          formScore: undefined,
+          isRestDay: false,
+        };
+      }
+
+      if (day.dateKey === todayKey) {
+        return { ...day, status: 'today', isRestDay: false };
+      }
+
+      if (day.dateKey > todayKey) {
+        return { ...day, status: 'future', isRestDay: false };
+      }
+
+      // Past workout day with no session → missed
+      return { ...day, status: 'missed', isRestDay: false };
+    });
+  }, [sessions, weeklyPlan]);
 
   const handleGenerateSchedule = async () => {
     setRegenerating(true);
@@ -122,7 +173,7 @@ export default function Calendar() {
         </View>
       ) : (
         <View style={styles.dayList}>
-          {weeklyPlan.map((day, index) => (
+          {days.map((day, index) => (
             <CalendarDayRow
               key={day.dateKey}
               day={day}
@@ -201,6 +252,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dayList: {
-    width: '100%',
+    gap: 0,
   },
 });

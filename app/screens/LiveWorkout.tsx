@@ -182,6 +182,7 @@ function LiveWorkout({ route, navigation }: Props) {
       libraryId,
       dateKey: dateKey ?? undefined,
       sessionLog: sessionLog.current,
+      durationSeconds: timerSecondsRef.current,
     });
   }, [navigation, workoutId, libraryId, dateKey]);
 

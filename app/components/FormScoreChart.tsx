@@ -16,12 +16,16 @@ type FormScoreChartProps = {
   points: FormScorePoint[];
   width: number;
   height?: number;
+  minValue?: number;
+  maxValue?: number;
 };
 
 export function FormScoreChart({
   points,
   width,
   height = scale(180),
+  minValue = 60,
+  maxValue = 100,
 }: FormScoreChartProps) {
   const chart = useMemo(() => {
     const padding = {
@@ -32,8 +36,9 @@ export function FormScoreChart({
     };
     const innerWidth = width - padding.left - padding.right;
     const innerHeight = height - padding.top - padding.bottom;
-    const minScore = 60;
-    const maxScore = 100;
+    const minScore = minValue;
+    const maxScore = Math.max(maxValue, minValue + 1);
+    const range = maxScore - minScore;
 
     const coords = points.map((point, index) => {
       const x =
@@ -41,7 +46,7 @@ export function FormScoreChart({
         (points.length === 1
           ? innerWidth / 2
           : (index / (points.length - 1)) * innerWidth);
-      const normalized = (point.score - minScore) / (maxScore - minScore);
+      const normalized = (point.score - minScore) / range;
       const y = padding.top + innerHeight - normalized * innerHeight;
       return { ...point, x, y };
     });
@@ -57,7 +62,7 @@ export function FormScoreChart({
       : '';
 
     return { coords, linePath, areaPath, padding, innerHeight, minScore, maxScore };
-  }, [height, points, width]);
+  }, [height, maxValue, minValue, points, width]);
 
   if (!points.length) {
     return null;

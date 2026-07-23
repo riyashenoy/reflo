@@ -35,10 +35,17 @@ function getStatusLine(day: WeeklyPlanDay, variant: CalendarDayVariant): string 
     return 'Recovery · Rest and reset';
   }
   if (variant === 'completed') {
-    return `Done · ${day.duration} min · Form ${day.formScore ?? 82}`;
+    const minutes = day.duration;
+    const corrections = day.correctionCount ?? 0;
+    return `Done · ${minutes} min · ${corrections} correction${
+      corrections === 1 ? '' : 's'
+    }`;
   }
   if (variant === 'missed') {
     return `Missed · ${day.duration} min`;
+  }
+  if (variant === 'today') {
+    return `Up next · ${day.duration} min`;
   }
   return `Scheduled · ${day.duration} min`;
 }

@@ -23,7 +23,10 @@ import { getWorkoutById, type Workout } from '../data/workouts';
 import { FadeInView, PressableScale } from '../components/motion';
 import PushupLogo from '../components/PushupLogo';
 import { useSavedWorkouts } from '../context/SavedWorkoutsContext';
-import { useWorkoutHistory } from '../hooks/useWorkoutHistory';
+import {
+  getHomeSessionStreakDays,
+  useSessions,
+} from '../hooks/useSessions';
 import { auth } from '../lib/firebase';
 import { fetchUserProfile } from '../lib/userProfile';
 import type { HomeStreakDay } from '../lib/workoutHistory';
@@ -103,7 +106,17 @@ function buildGridWorkouts(
   return result;
 }
 
-function StreakSquare({ day }: { day: HomeStreakDay }) {
+function StreakSquare({
+  day,
+  loading = false,
+}: {
+  day: HomeStreakDay;
+  loading?: boolean;
+}) {
+  if (loading) {
+    return <View style={[styles.streakSquare, styles.streakSquareFuture]} />;
+  }
+
   if (day.isToday && day.isCompleted) {
     return <View style={styles.streakSquareToday} />;
   }
@@ -121,9 +134,11 @@ function StreakSquare({ day }: { day: HomeStreakDay }) {
 function StreakRail({
   days,
   streakCount,
+  loading = false,
 }: {
   days: HomeStreakDay[];
   streakCount: number;
+  loading?: boolean;
 }) {
   return (
     <View style={styles.streakRail}>
@@ -144,7 +159,7 @@ function StreakRail({
             >
               {day.label}
             </Text>
-            <StreakSquare day={day} />
+            <StreakSquare day={day} loading={loading} />
           </View>
         ))}
       </View>
@@ -373,7 +388,12 @@ function WorkoutGrid({
 export default function Home() {
   const navigation = useNavigation<NavigationProp>();
   const { savedIds, toggleSaved } = useSavedWorkouts();
-  const { weekStreakDays, streak } = useWorkoutHistory();
+  const {
+    sessions,
+    streak,
+    loading: sessionsLoading,
+    refetch: refetchSessions,
+  } = useSessions();
   const tabTopPadding = useTabScreenTopPadding();
   const layoutWidth = useLayoutWidth();
   const reduceMotion = useReducedMotion();
@@ -388,11 +408,18 @@ export default function Home() {
 
   const heroWorkoutMeta = getWorkoutById(HERO_WORKOUT.workoutId);
 
+  const weekStreakDays = useMemo(
+    () => getHomeSessionStreakDays(sessions),
+    [sessions]
+  );
+
   const contentWidth = layoutWidth - HORIZONTAL_PADDING * 2;
   const cardWidth = (contentWidth - CARD_GAP) / 2;
 
   useFocusEffect(
     useCallback(() => {
+      void refetchSessions();
+
       let cancelled = false;
 
       const loadProfile = async () => {
@@ -420,7 +447,7 @@ export default function Home() {
       return () => {
         cancelled = true;
       };
-    }, [])
+    }, [refetchSessions])
   );
 
   const handleWorkoutPress = useCallback(
@@ -508,7 +535,11 @@ export default function Home() {
           <Text style={styles.greetingHeadline}>Keep it going.</Text>
         </FadeInView>
 
-        <StreakRail days={weekStreakDays} streakCount={streak} />
+        <StreakRail
+          days={weekStreakDays}
+          streakCount={sessionsLoading ? 0 : streak}
+          loading={sessionsLoading}
+        />
 
         {heroWorkoutMeta ? (
           <UpNextHeroCard
@@ -546,6 +577,7 @@ export default function Home() {
       handleWorkoutPress,
       heroWorkoutMeta,
       selectedFilter,
+      sessionsLoading,
       streak,
       tabTopPadding,
       timeGreeting,
