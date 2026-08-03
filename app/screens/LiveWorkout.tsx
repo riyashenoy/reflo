@@ -49,6 +49,10 @@ import {
   type GeneratedWorkoutDoc,
 } from '../lib/generatePlan';
 import {
+  clearVoiceSession,
+  peekVoiceSession,
+} from '../lib/voiceSessionCache';
+import {
   usePoseDetection,
   type FormAssessmentData,
   type PoseExercise,
@@ -234,6 +238,13 @@ function LiveWorkout({ route, navigation }: Props) {
     workout?.voiceMode ?? (generatedSlug ? 'generated' : 'generated');
   const correctionMode: CorrectionMode = getCorrectionMode(voiceMode);
   const isRecordedVoice = voiceMode === 'recorded';
+
+  /** Generated TTS base track URI (from PrepareSession). */
+  const voiceUriRef = useRef<string | null>(null);
+  if (generatedSlug && voiceUriRef.current == null) {
+    const session = peekVoiceSession(generatedSlug);
+    voiceUriRef.current = session?.uri ?? null;
+  }
 
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [currentExercise, setCurrentExercise] = useState<PoseExercise>('none');
@@ -506,6 +517,37 @@ function LiveWorkout({ route, navigation }: Props) {
     });
   }, [navigateToPostWorkout]);
 
+  /** Generated path: TTS track plays as the base track (same finish semantics). */
+  const loadAndPlayGeneratedTrack = useCallback(async () => {
+    const uri = voiceUriRef.current;
+    if (!uri) {
+      console.warn('[LiveWorkout] missing generated voice URI — wall-clock fallback');
+      generatedStartedAtMsRef.current = Date.now();
+      lastGeneratedCorrectionSecRef.current = -Infinity;
+      timerSecondsRef.current = 0;
+      setTimerSeconds(0);
+      setCurrentExercise(firstTrackedPose());
+      return;
+    }
+
+    await configureWorkoutAudioMode();
+
+    const { sound } = await Audio.Sound.createAsync(
+      { uri },
+      { shouldPlay: true, volume: 1.0 }
+    );
+    baseTrackRef.current = sound;
+
+    sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
+      if (status.isLoaded && status.didJustFinish) {
+        navigateToPostWorkout();
+      }
+    });
+
+    setCurrentExercise(firstTrackedPose());
+    lastGeneratedCorrectionSecRef.current = -Infinity;
+  }, [navigateToPostWorkout, firstTrackedPose]);
+
   const handleReady = useCallback(() => {
     prevProcessedSecondRef.current = -1;
     setShowOnboarding(false);
@@ -516,14 +558,10 @@ function LiveWorkout({ route, navigation }: Props) {
       // recorded: basetrack + numbered clips (unchanged)
       void loadAndPlayBaseTrack();
     } else {
-      // generated: wall-clock session, no basetrack
-      generatedStartedAtMsRef.current = Date.now();
-      lastGeneratedCorrectionSecRef.current = -Infinity;
-      timerSecondsRef.current = 0;
-      setTimerSeconds(0);
-      setCurrentExercise(firstTrackedPose());
+      // generated: TTS audio as base track + interval corrections
+      void loadAndPlayGeneratedTrack();
     }
-  }, [isRecordedVoice, loadAndPlayBaseTrack, firstTrackedPose]);
+  }, [isRecordedVoice, loadAndPlayBaseTrack, loadAndPlayGeneratedTrack]);
 
   const skipToEnd = useCallback(async () => {
     if (!workout) {
@@ -541,8 +579,38 @@ function LiveWorkout({ route, navigation }: Props) {
       setWorkoutStarted(true);
     }
 
-    // Generated path: jump wall-clock near the end (no basetrack).
+    // Generated path: seek TTS base track near end when available.
     if (!isRecordedVoice) {
+      if (!baseTrackRef.current && voiceUriRef.current) {
+        await loadAndPlayGeneratedTrack();
+      }
+
+      const sound = baseTrackRef.current;
+      if (sound) {
+        try {
+          const status = await sound.getStatusAsync();
+          const durationMs =
+            status.isLoaded && typeof status.durationMillis === 'number'
+              ? status.durationMillis
+              : skipSeconds * 1000;
+          const seekMs = Math.max(0, durationMs - 15_220);
+          await configureWorkoutAudioMode();
+          await sound.setPositionAsync(seekMs);
+          const after = await sound.getStatusAsync();
+          if (after.isLoaded && !after.isPlaying) {
+            await sound.playAsync();
+          }
+          const t = Math.floor(seekMs / 1000);
+          timerSecondsRef.current = t;
+          setTimerSeconds(t);
+          prevProcessedSecondRef.current = t - 1;
+        } catch (error) {
+          console.warn('[LiveWorkout] generated skip seek failed:', error);
+        }
+        return;
+      }
+
+      // No audio URI — wall-clock skip (dev/fallback)
       generatedStartedAtMsRef.current = Date.now() - skipSeconds * 1000;
       timerSecondsRef.current = skipSeconds;
       setTimerSeconds(skipSeconds);
@@ -576,15 +644,24 @@ function LiveWorkout({ route, navigation }: Props) {
     setTimerSeconds(skipSeconds);
     prevProcessedSecondRef.current = skipSeconds - 1;
     setCurrentExercise('footwork_toes');
-  }, [workout, workoutStarted, loadAndPlayBaseTrack, isRecordedVoice]);
+  }, [
+    workout,
+    workoutStarted,
+    loadAndPlayBaseTrack,
+    loadAndPlayGeneratedTrack,
+    isRecordedVoice,
+  ]);
 
   useEffect(() => {
     return () => {
       void baseTrackRef.current?.unloadAsync();
       void unloadClipSounds(clipSoundsRef.current);
       clipSoundsRef.current = {};
+      if (generatedSlug) {
+        clearVoiceSession(generatedSlug);
+      }
     };
-  }, []);
+  }, [generatedSlug]);
 
   useEffect(() => {
     if (!workoutStarted || Platform.OS === 'web') {
@@ -655,41 +732,69 @@ function LiveWorkout({ route, navigation }: Props) {
     return () => clearInterval(interval);
   }, [workoutStarted, isRecordedVoice, onWindowOpen]);
 
-  // ── Generated path: wall clock + interval corrections (no windows) ──
+  // ── Generated path: TTS basetrack clock + interval corrections ──
   useEffect(() => {
     if (!workoutStarted || isRecordedVoice || !workout) {
       return;
     }
 
-    if (generatedStartedAtMsRef.current == null) {
+    const hasVoiceTrack = Boolean(voiceUriRef.current);
+
+    // Wall-clock fallback only when no TTS URI was cached
+    if (!hasVoiceTrack && generatedStartedAtMsRef.current == null) {
       generatedStartedAtMsRef.current = Date.now();
     }
 
     const trackDurationSeconds = getTrackDurationSeconds(workout);
 
     const interval = setInterval(() => {
-      const startedAt = generatedStartedAtMsRef.current;
-      if (startedAt == null) {
-        return;
-      }
+      void (async () => {
+        // Prefer TTS playback position when base track is present
+        if (baseTrackRef.current) {
+          try {
+            const status = await baseTrackRef.current.getStatusAsync();
+            if (status.isLoaded) {
+              const t = Math.floor((status.positionMillis ?? 0) / 1000);
+              timerSecondsRef.current = t;
+              setTimerSeconds(t);
 
-      const t = Math.floor((Date.now() - startedAt) / 1000);
-      timerSecondsRef.current = t;
-      setTimerSeconds(t);
+              if (t !== prevProcessedSecondRef.current) {
+                prevProcessedSecondRef.current = t;
+                if (correctionMode === 'interval') {
+                  tryFireIntervalCorrection();
+                }
+              }
+            }
+          } catch {
+            // Ignore transient reads
+          }
+          return;
+        }
 
-      if (t >= trackDurationSeconds) {
-        navigateToPostWorkout();
-        return;
-      }
+        // Fallback: wall-clock session end
+        const startedAt = generatedStartedAtMsRef.current;
+        if (startedAt == null) {
+          return;
+        }
 
-      if (t === prevProcessedSecondRef.current) {
-        return;
-      }
-      prevProcessedSecondRef.current = t;
+        const t = Math.floor((Date.now() - startedAt) / 1000);
+        timerSecondsRef.current = t;
+        setTimerSeconds(t);
 
-      if (correctionMode === 'interval') {
-        tryFireIntervalCorrection();
-      }
+        if (t >= trackDurationSeconds) {
+          navigateToPostWorkout();
+          return;
+        }
+
+        if (t === prevProcessedSecondRef.current) {
+          return;
+        }
+        prevProcessedSecondRef.current = t;
+
+        if (correctionMode === 'interval') {
+          tryFireIntervalCorrection();
+        }
+      })();
     }, 500);
 
     return () => clearInterval(interval);

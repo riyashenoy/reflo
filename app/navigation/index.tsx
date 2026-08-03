@@ -17,6 +17,7 @@ import EmailAuth from '../screens/EmailAuth';
 import Home from '../screens/Home';
 import LiveWorkout from '../screens/LiveWorkout';
 import PostWorkout from '../screens/PostWorkout';
+import PrepareSession from '../screens/PrepareSession';
 import Profile from '../screens/Profile';
 import ProfileEdit from '../screens/ProfileEdit';
 import ProfileSetup from '../screens/ProfileSetup';
@@ -49,6 +50,10 @@ export type AppStackParamList = {
     libraryId?: string;
     dateKey?: string;
     generatedSlug?: string;
+  };
+  PrepareSession: {
+    generatedSlug: string;
+    dateKey?: string;
   };
   PostWorkout: {
     workoutId?: string;
@@ -180,6 +185,11 @@ function AppNavigator({
       <AppStack.Screen
         name="LiveWorkout"
         component={LiveWorkout}
+        options={{ headerShown: false }}
+      />
+      <AppStack.Screen
+        name="PrepareSession"
+        component={PrepareSession}
         options={{ headerShown: false }}
       />
       <AppStack.Screen

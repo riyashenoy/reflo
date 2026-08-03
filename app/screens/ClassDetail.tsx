@@ -403,14 +403,21 @@ export default function ClassDetail({ route, navigation }: Props) {
       >
         <PressableScale
           style={styles.beginButton}
-          onPress={() =>
+          onPress={() => {
+            const dateKey = toDateKey(new Date());
+            if (display.isGenerated) {
+              navigation.navigate('PrepareSession', {
+                generatedSlug: display.id,
+                dateKey,
+              });
+              return;
+            }
             navigation.navigate('LiveWorkout', {
-              workoutId: display.isGenerated ? undefined : display.id,
+              workoutId: display.id,
               libraryId: libraryWorkout?.id,
-              generatedSlug: display.isGenerated ? display.id : undefined,
-              dateKey: toDateKey(new Date()),
-            })
-          }
+              dateKey,
+            });
+          }}
         >
           <Text style={styles.beginButtonText}>BEGIN</Text>
         </PressableScale>
