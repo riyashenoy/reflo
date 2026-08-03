@@ -50,16 +50,26 @@ function getStatusLine(day: WeeklyPlanDay, variant: CalendarDayVariant): string 
   return `Scheduled · ${day.duration} min`;
 }
 
+function formatBrandTitle(title: string): string {
+  return title.trim().replace(/\s+/g, ' ').toUpperCase();
+}
+
+function formatFocusLabel(focus: string): string {
+  return focus
+    .trim()
+    .replace(/-/g, ' ')
+    .replace(/\s+/g, ' ')
+    .toUpperCase();
+}
+
 function getWorkoutTitle(day: WeeklyPlanDay, variant: CalendarDayVariant): string {
   if (variant === 'rest') {
-    return 'Rest day';
+    return 'REST DAY';
   }
   if (day.workoutFocus) {
-    const focus =
-      day.workoutFocus.charAt(0).toUpperCase() + day.workoutFocus.slice(1);
-    return `${day.workoutTitle} · ${focus}`;
+    return `${formatBrandTitle(day.workoutTitle)} · ${formatFocusLabel(day.workoutFocus)}`;
   }
-  return day.workoutTitle.toUpperCase();
+  return formatBrandTitle(day.workoutTitle || 'Workout');
 }
 
 function StatusMarker({
@@ -127,7 +137,6 @@ export function CalendarDayRow({
           <Text
             style={[
               styles.workoutTitle,
-              isRest && styles.workoutTitleRest,
               { color: titleColor },
             ]}
           >
@@ -195,10 +204,6 @@ const styles = StyleSheet.create({
     letterSpacing: scale(0.6),
     textTransform: 'uppercase',
     marginBottom: scale(4),
-  },
-  workoutTitleRest: {
-    textTransform: 'none',
-    letterSpacing: 0,
   },
   statusLine: {
     fontFamily: theme.fonts.body,

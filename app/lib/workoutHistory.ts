@@ -311,7 +311,7 @@ export function buildWeeklyPlan(
         dateKey,
         status,
         workoutId: '',
-        workoutTitle: 'Rest Day',
+        workoutTitle: 'REST DAY',
         duration: 0,
         isRestDay: true,
       };

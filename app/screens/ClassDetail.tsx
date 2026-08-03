@@ -165,9 +165,9 @@ export default function ClassDetail({ route, navigation }: Props) {
   const display: DisplayWorkout | null = generated
     ? {
         id: generated.slug,
-        title: generated.title,
+        title: generated.title.trim(),
         description: generated.focus
-          ? `Focus: ${generated.focus.charAt(0).toUpperCase()}${generated.focus.slice(1)}`
+          ? `FOCUS · ${generated.focus.replace(/-/g, ' ').toUpperCase()}`
           : '',
         duration: generated.estimatedDuration,
         intensity: generated.intensity,
@@ -315,7 +315,11 @@ export default function ClassDetail({ route, navigation }: Props) {
               <View key={`difficulty-${index}`} style={styles.difficultyDot} />
             ))}
           </View>
-          <Text style={styles.title}>{display.title}</Text>
+          <Text style={styles.title}>
+            {display.isGenerated
+              ? display.title.toUpperCase()
+              : display.title}
+          </Text>
           <View style={styles.voiceModeRow}>
             <VoiceModeTag voiceMode={display.voiceMode} />
           </View>
@@ -509,10 +513,12 @@ const styles = StyleSheet.create({
     marginBottom: scale(10),
   },
   description: {
-    fontFamily: theme.fonts.body,
-    fontSize: scale(13),
-    lineHeight: scale(20),
+    fontFamily: theme.fonts.label,
+    fontSize: scale(10),
+    letterSpacing: scale(1.2),
+    lineHeight: scale(16),
     color: MUTED,
+    textTransform: 'uppercase',
     marginBottom: scale(4),
   },
   statsRow: {

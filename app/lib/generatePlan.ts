@@ -131,6 +131,38 @@ function clampReps(value: unknown): number | null {
   return n;
 }
 
+function titleCaseWords(input: string): string {
+  return input
+    .trim()
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((word) => {
+      // Keep short connectors lowercase in the middle of titles when entire word
+      if (word === '&') {
+        return '&';
+      }
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(' ');
+}
+
+function normalizeFocus(input: string): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
+}
+
+function normalizeIntensity(value: unknown): 'low' | 'medium' | 'high' {
+  if (value === 'low' || value === 'high' || value === 'medium') {
+    return value;
+  }
+  return 'medium';
+}
+
 function slugify(input: string): string {
   return input
     .toLowerCase()
@@ -288,15 +320,13 @@ export function validateAndRepairPlan(raw: unknown): ValidatedPlan | null {
 
     const title =
       typeof w.title === 'string' && w.title.trim()
-        ? w.title.trim()
+        ? titleCaseWords(w.title)
         : 'Custom Class';
     const focus =
       typeof w.focus === 'string' && w.focus.trim()
-        ? w.focus.trim().toLowerCase()
+        ? normalizeFocus(w.focus) || 'full-body'
         : 'full-body';
-    const intensityRaw = typeof w.intensity === 'string' ? w.intensity : 'medium';
-    const intensity: 'low' | 'medium' | 'high' =
-      intensityRaw === 'low' || intensityRaw === 'high' ? intensityRaw : 'medium';
+    const intensity = normalizeIntensity(w.intensity);
 
     const exerciseRefs: ComposedExerciseRef[] = [];
     if (Array.isArray(w.exercises)) {
