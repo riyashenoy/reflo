@@ -9,11 +9,17 @@ import {
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import CorrectionToast from '../components/CorrectionToast';
 import { EditPencilIcon } from '../components/EditPencilIcon';
 import { CalendarDayRow } from '../components/calendar/CalendarDayRow';
 import { WeeklyPlanEditSheet } from '../components/profile/WeeklyPlanEditSheet';
 import { PressableScale } from '../components/motion';
 import { auth } from '../lib/firebase';
+import {
+  fetchFirestoreWeeklyPlan,
+  generateAndSaveWeeklyPlan,
+  isPlanGenerationRateLimited,
+} from '../lib/generatePlan';
 import { fetchUserProfile, type UserProfile } from '../lib/userProfile';
 import { useSessions } from '../hooks/useSessions';
 import { useWorkoutHistory } from '../hooks/useWorkoutHistory';
@@ -30,10 +36,11 @@ type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
 export default function Calendar() {
   const navigation = useNavigation<NavigationProp>();
   const tabTopPadding = useTabScreenTopPadding();
-  const { weeklyPlan, isLoading, regenerateSchedule, refresh } =
-    useWorkoutHistory();
+  const { weeklyPlan, isLoading, refresh } = useWorkoutHistory();
   const { sessions, refetch: refetchSessions } = useSessions();
   const [regenerating, setRegenerating] = useState(false);
+  const [rateLimited, setRateLimited] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [planEditVisible, setPlanEditVisible] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
@@ -41,6 +48,7 @@ export default function Calendar() {
     const uid = auth.currentUser?.uid;
     if (!uid) {
       setProfile(null);
+      setRateLimited(false);
       return;
     }
 
@@ -50,6 +58,14 @@ export default function Calendar() {
     } catch (error) {
       console.warn('[Calendar] profile load failed:', error);
       setProfile(null);
+    }
+
+    try {
+      const plan = await fetchFirestoreWeeklyPlan(uid);
+      setRateLimited(isPlanGenerationRateLimited(plan?.lastGeneratedAt));
+    } catch (error) {
+      console.warn('[Calendar] plan load failed:', error);
+      setRateLimited(false);
     }
   }, []);
 
@@ -101,9 +117,62 @@ export default function Calendar() {
   }, [sessions, weeklyPlan]);
 
   const handleGenerateSchedule = async () => {
+    if (rateLimited || regenerating) {
+      return;
+    }
+
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      setToastMessage('Sign in to generate a schedule.');
+      return;
+    }
+
+    let activeProfile = profile;
+    if (!activeProfile) {
+      try {
+        activeProfile = await fetchUserProfile(uid);
+        setProfile(activeProfile);
+      } catch {
+        setToastMessage('Couldn’t load your profile.');
+        return;
+      }
+    }
+
+    if (!activeProfile) {
+      setToastMessage('Complete your profile to generate a schedule.');
+      return;
+    }
+
+    if (isPlanGenerationRateLimited(
+      (await fetchFirestoreWeeklyPlan(uid))?.lastGeneratedAt
+    )) {
+      setRateLimited(true);
+      return;
+    }
+
     setRegenerating(true);
     try {
-      await regenerateSchedule();
+      const result = await generateAndSaveWeeklyPlan(uid, activeProfile);
+
+      if (result.ok === false) {
+        if (result.reason === 'rate_limited') {
+          setRateLimited(true);
+          return;
+        }
+        if (result.reason === 'network') {
+          setToastMessage('Couldn’t generate a new schedule. Try again later.');
+          return;
+        }
+        setToastMessage('Couldn’t generate a new schedule. Try again later.');
+        return;
+      }
+
+      setRateLimited(true);
+      await refresh();
+      await refetchSessions();
+    } catch (error) {
+      console.warn('[Calendar] generate failed:', error);
+      setToastMessage('Couldn’t generate a new schedule. Try again later.');
     } finally {
       setRegenerating(false);
     }
@@ -137,64 +206,89 @@ export default function Calendar() {
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[
-        styles.scrollContent,
-        { paddingTop: tabTopPadding },
-      ]}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.headerRow}>
-        <View style={styles.headerText}>
-          <Text style={styles.eyebrow}>THIS WEEK</Text>
-          <Text style={styles.heading}>Your weekly plan.</Text>
-        </View>
-        <PressableScale style={styles.editButton} hitSlop={8} onPress={handleEditFocus}>
-          <EditPencilIcon />
-        </PressableScale>
-      </View>
-
-      <PressableScale
-        style={styles.generateButton}
-        onPress={handleGenerateSchedule}
-        disabled={regenerating}
+    <View style={styles.screen}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: tabTopPadding },
+        ]}
+        showsVerticalScrollIndicator={false}
       >
-        {regenerating ? (
-          <ActivityIndicator color={theme.colors.white} size="small" />
+        <View style={styles.headerRow}>
+          <View style={styles.headerText}>
+            <Text style={styles.eyebrow}>THIS WEEK</Text>
+            <Text style={styles.heading}>Your weekly plan.</Text>
+          </View>
+          <PressableScale style={styles.editButton} hitSlop={8} onPress={handleEditFocus}>
+            <EditPencilIcon />
+          </PressableScale>
+        </View>
+
+        <PressableScale
+          style={[
+            styles.generateButton,
+            (regenerating || rateLimited) && styles.generateButtonDisabled,
+          ]}
+          onPress={() => {
+            void handleGenerateSchedule();
+          }}
+          disabled={regenerating || rateLimited}
+        >
+          {regenerating ? (
+            <View style={styles.generateButtonInner}>
+              <ActivityIndicator color={theme.colors.white} size="small" />
+              <Text style={styles.generateButtonText}>GENERATING…</Text>
+            </View>
+          ) : rateLimited ? (
+            <Text style={styles.generateButtonText}>
+              You can regenerate next week
+            </Text>
+          ) : (
+            <Text style={styles.generateButtonText}>
+              ✦ GENERATE NEW SCHEDULE
+            </Text>
+          )}
+        </PressableScale>
+
+        {isLoading ? (
+          <View style={styles.loadingState}>
+            <ActivityIndicator color={theme.colors.red} />
+          </View>
         ) : (
-          <Text style={styles.generateButtonText}>✦ GENERATE NEW SCHEDULE</Text>
+          <View style={styles.dayList}>
+            {days.map((day, index) => (
+              <CalendarDayRow
+                key={day.dateKey}
+                day={day}
+                showDivider={index > 0}
+                onPress={() => handleDayPress(day)}
+              />
+            ))}
+          </View>
         )}
-      </PressableScale>
 
-      {isLoading ? (
-        <View style={styles.loadingState}>
-          <ActivityIndicator color={theme.colors.red} />
-        </View>
-      ) : (
-        <View style={styles.dayList}>
-          {days.map((day, index) => (
-            <CalendarDayRow
-              key={day.dateKey}
-              day={day}
-              showDivider={index > 0}
-              onPress={() => handleDayPress(day)}
-            />
-          ))}
-        </View>
-      )}
+        <WeeklyPlanEditSheet
+          visible={planEditVisible}
+          profile={profile}
+          onClose={() => setPlanEditVisible(false)}
+          onSaved={refresh}
+        />
+      </ScrollView>
 
-      <WeeklyPlanEditSheet
-        visible={planEditVisible}
-        profile={profile}
-        onClose={() => setPlanEditVisible(false)}
-        onSaved={refresh}
+      <CorrectionToast
+        message={toastMessage}
+        onDismiss={() => setToastMessage(null)}
       />
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -239,6 +333,14 @@ const styles = StyleSheet.create({
     marginBottom: scale(24),
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  generateButtonDisabled: {
+    opacity: 0.75,
+  },
+  generateButtonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scale(8),
   },
   generateButtonText: {
     fontFamily: theme.fonts.label,
