@@ -65,7 +65,7 @@ export type GeneratedWorkoutDoc = {
   focus: string;
   intensity: 'low' | 'medium' | 'high';
   voiceMode: 'generated';
-  correctionMode: 'interval';
+  correctionMode: 'windowed';
   estimatedDuration: number;
   exercises: ResolvedGeneratedExercise[];
   createdAt: string;
@@ -230,7 +230,7 @@ function buildResolvedWorkout(input: {
     focus: input.focus,
     intensity: input.intensity,
     voiceMode: 'generated',
-    correctionMode: 'interval',
+    correctionMode: 'windowed',
     estimatedDuration: estimateDurationMinutes(exercises),
     exercises,
     createdAt: new Date().toISOString(),

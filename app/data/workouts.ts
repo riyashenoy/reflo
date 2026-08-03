@@ -27,14 +27,17 @@ export interface Workout {
   aiTracked: boolean;
   /**
    * `recorded` — polished basetrack + windowed clips.
-   * `generated` — AI / TTS path (stubbed; no basetrack yet).
+   * `generated` — timed TTS cue clips + silent work from rep timeline.
    */
   voiceMode: VoiceMode;
   exercises: Exercise[];
 }
 
 export function getCorrectionMode(voiceMode: VoiceMode): CorrectionMode {
-  return voiceMode === 'recorded' ? 'windowed' : 'interval';
+  // Flagship = hand-mapped windows; generated = timeline-derived windows.
+  // (No more 15s interval corrections on the generated path.)
+  void voiceMode;
+  return 'windowed';
 }
 
 export const workouts: Workout[] = [

@@ -32,9 +32,7 @@ import {
   workoutBottomPanelStyles,
 } from '../components/workout/WorkoutChrome';
 import {
-  getCorrectionMode,
   getWorkoutById,
-  type CorrectionMode,
   type VoiceMode,
   type Workout,
 } from '../data/workouts';
@@ -51,7 +49,9 @@ import {
 import {
   clearVoiceSession,
   peekVoiceSession,
+  type VoiceSessionPayload,
 } from '../lib/voiceSessionCache';
+import { SKIP_TAIL_SECONDS } from '../lib/workoutTimeline';
 import {
   usePoseDetection,
   type FormAssessmentData,
@@ -180,7 +180,8 @@ const GENERATED_CORRECTION_MESSAGES: Record<string, string> = {
   momentum: 'Less momentum — control the return',
 };
 
-const GENERATED_CORRECTION_INTERVAL_SEC = 15;
+/** Min gap between generated correction toasts (seconds). */
+const GENERATED_CORRECTION_COOLDOWN_SEC = 8;
 
 function messageForError(errorKey: string): string {
   return GENERATED_CORRECTION_MESSAGES[errorKey] ?? 'Check your form and reset';
@@ -236,15 +237,17 @@ function LiveWorkout({ route, navigation }: Props) {
   /** Single audio fork for the session (shared pose/UI). */
   const voiceMode: VoiceMode =
     workout?.voiceMode ?? (generatedSlug ? 'generated' : 'generated');
-  const correctionMode: CorrectionMode = getCorrectionMode(voiceMode);
   const isRecordedVoice = voiceMode === 'recorded';
 
-  /** Generated TTS base track URI (from PrepareSession). */
-  const voiceUriRef = useRef<string | null>(null);
-  if (generatedSlug && voiceUriRef.current == null) {
-    const session = peekVoiceSession(generatedSlug);
-    voiceUriRef.current = session?.uri ?? null;
+  /** Timed generated session (clips + timeline from PrepareSession). */
+  const voiceSessionRef = useRef<VoiceSessionPayload | null>(null);
+  if (generatedSlug && voiceSessionRef.current == null) {
+    voiceSessionRef.current = peekVoiceSession(generatedSlug);
   }
+  const playedCueKeysRef = useRef<Set<string>>(new Set());
+  const firedCorrectionWindowsRef = useRef<Set<string>>(new Set());
+  const cueClipPlayingRef = useRef(false);
+  const activeCueSoundRef = useRef<Audio.Sound | null>(null);
 
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [currentExercise, setCurrentExercise] = useState<PoseExercise>('none');
@@ -451,12 +454,15 @@ function LiveWorkout({ route, navigation }: Props) {
   );
 
   /**
-   * Generated voice path only — toast + log today; TTS later.
-   * // TODO: wire TTS here
+   * Generated voice path only — toast corrections during timed windows.
+   * Base coach audio is the scheduled TTS cue clips (not per-correction speech).
    */
   const playGeneratedCorrection = useCallback((message: string) => {
+    // Never overlay a spoken coach cue
+    if (cueClipPlayingRef.current) {
+      return;
+    }
     console.log('[LiveWorkout] generated correction:', message);
-    // TODO: wire TTS here
     setGeneratedToast(message);
     sessionLog.current.push({
       exercise: currentExerciseRef.current,
@@ -466,38 +472,45 @@ function LiveWorkout({ route, navigation }: Props) {
     });
   }, []);
 
-  const tryFireIntervalCorrection = useCallback(() => {
-    if (!isInFrameRef.current) {
-      return;
-    }
+  const fireGeneratedWindowCorrection = useCallback(
+    (exerciseId: string) => {
+      if (!isInFrameRef.current) {
+        return;
+      }
+      if (cueClipPlayingRef.current) {
+        return;
+      }
 
-    const t = timerSecondsRef.current;
-    if (t - lastGeneratedCorrectionSecRef.current < GENERATED_CORRECTION_INTERVAL_SEC) {
-      return;
-    }
+      const t = timerSecondsRef.current;
+      if (
+        t - lastGeneratedCorrectionSecRef.current <
+        GENERATED_CORRECTION_COOLDOWN_SEC
+      ) {
+        return;
+      }
 
-    const data = formData.current;
-    const totalFrames = data.frameCount;
-    if (totalFrames === 0) {
-      return;
-    }
+      const data = formData.current;
+      const totalFrames = data.frameCount;
+      if (totalFrames === 0) {
+        formData.current = { errorCount: {}, frameCount: 0, goodFrames: 0 };
+        return;
+      }
 
-    const topError = Object.entries(data.errorCount).sort(
-      ([, a], [, b]) => b - a
-    )[0];
-    if (!topError) {
-      return;
-    }
+      const topError = Object.entries(data.errorCount).sort(
+        ([, a], [, b]) => b - a
+      )[0];
+      const errorRatio = topError ? topError[1] / totalFrames : 0;
 
-    const errorRatio = topError[1] / totalFrames;
-    if (errorRatio <= 0.3) {
-      return;
-    }
+      if (errorRatio > 0.3 && topError) {
+        lastGeneratedCorrectionSecRef.current = t;
+        playGeneratedCorrection(messageForError(topError[0]));
+      }
 
-    lastGeneratedCorrectionSecRef.current = t;
-    playGeneratedCorrection(messageForError(topError[0]));
-    formData.current = { errorCount: {}, frameCount: 0, goodFrames: 0 };
-  }, [playGeneratedCorrection]);
+      formData.current = { errorCount: {}, frameCount: 0, goodFrames: 0 };
+      void exerciseId;
+    },
+    [playGeneratedCorrection]
+  );
 
   const loadAndPlayBaseTrack = useCallback(async () => {
     await configureWorkoutAudioMode();
@@ -517,36 +530,56 @@ function LiveWorkout({ route, navigation }: Props) {
     });
   }, [navigateToPostWorkout]);
 
-  /** Generated path: TTS track plays as the base track (same finish semantics). */
-  const loadAndPlayGeneratedTrack = useCallback(async () => {
-    const uri = voiceUriRef.current;
-    if (!uri) {
-      console.warn('[LiveWorkout] missing generated voice URI — wall-clock fallback');
-      generatedStartedAtMsRef.current = Date.now();
-      lastGeneratedCorrectionSecRef.current = -Infinity;
-      timerSecondsRef.current = 0;
-      setTimerSeconds(0);
-      setCurrentExercise(firstTrackedPose());
-      return;
-    }
-
-    await configureWorkoutAudioMode();
-
-    const { sound } = await Audio.Sound.createAsync(
-      { uri },
-      { shouldPlay: true, volume: 1.0 }
-    );
-    baseTrackRef.current = sound;
-
-    sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
-      if (status.isLoaded && status.didJustFinish) {
-        navigateToPostWorkout();
+  const playTimelineCue = useCallback(async (uri: string) => {
+    try {
+      await configureWorkoutAudioMode();
+      if (activeCueSoundRef.current) {
+        try {
+          await activeCueSoundRef.current.stopAsync();
+          await activeCueSoundRef.current.unloadAsync();
+        } catch {
+          // ignore
+        }
+        activeCueSoundRef.current = null;
       }
-    });
 
-    setCurrentExercise(firstTrackedPose());
+      cueClipPlayingRef.current = true;
+      const { sound } = await Audio.Sound.createAsync(
+        { uri },
+        { shouldPlay: true, volume: 1.0 }
+      );
+      activeCueSoundRef.current = sound;
+
+      sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
+        if (status.isLoaded && status.didJustFinish) {
+          cueClipPlayingRef.current = false;
+          void sound.unloadAsync();
+          if (activeCueSoundRef.current === sound) {
+            activeCueSoundRef.current = null;
+          }
+        }
+      });
+    } catch (error) {
+      console.warn('[LiveWorkout] cue play failed:', error);
+      cueClipPlayingRef.current = false;
+    }
+  }, []);
+
+  /** Start generated timeline clock — cues schedule against elapsed seconds. */
+  const startGeneratedTimeline = useCallback(() => {
+    if (generatedSlug) {
+      voiceSessionRef.current =
+        peekVoiceSession(generatedSlug) ?? voiceSessionRef.current;
+    }
+    playedCueKeysRef.current = new Set();
+    firedCorrectionWindowsRef.current = new Set();
     lastGeneratedCorrectionSecRef.current = -Infinity;
-  }, [navigateToPostWorkout, firstTrackedPose]);
+    generatedStartedAtMsRef.current = Date.now();
+    timerSecondsRef.current = 0;
+    setTimerSeconds(0);
+    setCurrentExercise(firstTrackedPose());
+    void configureWorkoutAudioMode();
+  }, [firstTrackedPose, generatedSlug]);
 
   const handleReady = useCallback(() => {
     prevProcessedSecondRef.current = -1;
@@ -558,20 +591,15 @@ function LiveWorkout({ route, navigation }: Props) {
       // recorded: basetrack + numbered clips (unchanged)
       void loadAndPlayBaseTrack();
     } else {
-      // generated: TTS audio as base track + interval corrections
-      void loadAndPlayGeneratedTrack();
+      // generated: timed timeline + scheduled cue clips
+      startGeneratedTimeline();
     }
-  }, [isRecordedVoice, loadAndPlayBaseTrack, loadAndPlayGeneratedTrack]);
+  }, [isRecordedVoice, loadAndPlayBaseTrack, startGeneratedTimeline]);
 
   const skipToEnd = useCallback(async () => {
     if (!workout) {
       return;
     }
-
-    const skipSeconds = Math.max(
-      0,
-      Math.floor(getTrackDurationSeconds(workout) - 15.22)
-    );
 
     setShowOnboarding(false);
 
@@ -579,45 +607,53 @@ function LiveWorkout({ route, navigation }: Props) {
       setWorkoutStarted(true);
     }
 
-    // Generated path: seek TTS base track near end when available.
+    // Generated path: jump timeline clock to totalDuration − SKIP_TAIL_SECONDS
     if (!isRecordedVoice) {
-      if (!baseTrackRef.current && voiceUriRef.current) {
-        await loadAndPlayGeneratedTrack();
-      }
+      const session = voiceSessionRef.current;
+      const total =
+        session?.totalDurationSeconds ??
+        getTrackDurationSeconds(workout);
+      const skipSeconds = Math.max(0, Math.floor(total - SKIP_TAIL_SECONDS));
 
-      const sound = baseTrackRef.current;
-      if (sound) {
-        try {
-          const status = await sound.getStatusAsync();
-          const durationMs =
-            status.isLoaded && typeof status.durationMillis === 'number'
-              ? status.durationMillis
-              : skipSeconds * 1000;
-          const seekMs = Math.max(0, durationMs - 15_220);
-          await configureWorkoutAudioMode();
-          await sound.setPositionAsync(seekMs);
-          const after = await sound.getStatusAsync();
-          if (after.isLoaded && !after.isPlaying) {
-            await sound.playAsync();
-          }
-          const t = Math.floor(seekMs / 1000);
-          timerSecondsRef.current = t;
-          setTimerSeconds(t);
-          prevProcessedSecondRef.current = t - 1;
-        } catch (error) {
-          console.warn('[LiveWorkout] generated skip seek failed:', error);
-        }
-        return;
+      if (generatedStartedAtMsRef.current == null) {
+        startGeneratedTimeline();
       }
-
-      // No audio URI — wall-clock skip (dev/fallback)
       generatedStartedAtMsRef.current = Date.now() - skipSeconds * 1000;
       timerSecondsRef.current = skipSeconds;
       setTimerSeconds(skipSeconds);
       prevProcessedSecondRef.current = skipSeconds - 1;
+
+      // Mark past cues as already played so we don't re-announce
+      if (session) {
+        session.clips.forEach((clip) => {
+          if (clip.start <= skipSeconds) {
+            playedCueKeysRef.current.add(clip.key);
+          }
+        });
+        session.timeline.segments.forEach((seg) => {
+          if (seg.correctionWindow.start + 1 <= skipSeconds) {
+            firedCorrectionWindowsRef.current.add(
+              `${seg.exerciseId}:${seg.correctionWindow.start}`
+            );
+          }
+        });
+      }
+
+      // Stop any mid-cue
+      if (activeCueSoundRef.current) {
+        try {
+          await activeCueSoundRef.current.stopAsync();
+          await activeCueSoundRef.current.unloadAsync();
+        } catch {
+          // ignore
+        }
+        activeCueSoundRef.current = null;
+        cueClipPlayingRef.current = false;
+      }
       return;
     }
 
+    // Recorded path: seek basetrack to duration − SKIP_TAIL (uses audio length)
     if (!baseTrackRef.current) {
       await loadAndPlayBaseTrack();
     }
@@ -629,26 +665,32 @@ function LiveWorkout({ route, navigation }: Props) {
 
     try {
       await configureWorkoutAudioMode();
-      await sound.setPositionAsync(skipSeconds * 1000);
-
       const status = await sound.getStatusAsync();
-      if (status.isLoaded && !status.isPlaying) {
+      const durationMs =
+        status.isLoaded && typeof status.durationMillis === 'number'
+          ? status.durationMillis
+          : getTrackDurationSeconds(workout) * 1000;
+      const seekMs = Math.max(0, durationMs - SKIP_TAIL_SECONDS * 1000);
+      await sound.setPositionAsync(seekMs);
+
+      const after = await sound.getStatusAsync();
+      if (after.isLoaded && !after.isPlaying) {
         await sound.playAsync();
       }
+
+      const t = Math.floor(seekMs / 1000);
+      timerSecondsRef.current = t;
+      setTimerSeconds(t);
+      prevProcessedSecondRef.current = t - 1;
+      setCurrentExercise('footwork_toes');
     } catch (error) {
       console.warn('[LiveWorkout] skip seek failed:', error);
-      return;
     }
-
-    timerSecondsRef.current = skipSeconds;
-    setTimerSeconds(skipSeconds);
-    prevProcessedSecondRef.current = skipSeconds - 1;
-    setCurrentExercise('footwork_toes');
   }, [
     workout,
     workoutStarted,
     loadAndPlayBaseTrack,
-    loadAndPlayGeneratedTrack,
+    startGeneratedTimeline,
     isRecordedVoice,
   ]);
 
@@ -657,6 +699,10 @@ function LiveWorkout({ route, navigation }: Props) {
       void baseTrackRef.current?.unloadAsync();
       void unloadClipSounds(clipSoundsRef.current);
       clipSoundsRef.current = {};
+      if (activeCueSoundRef.current) {
+        void activeCueSoundRef.current.unloadAsync();
+        activeCueSoundRef.current = null;
+      }
       if (generatedSlug) {
         clearVoiceSession(generatedSlug);
       }
@@ -732,79 +778,99 @@ function LiveWorkout({ route, navigation }: Props) {
     return () => clearInterval(interval);
   }, [workoutStarted, isRecordedVoice, onWindowOpen]);
 
-  // ── Generated path: TTS basetrack clock + interval corrections ──
+  // ── Generated path: wall-clock timeline, scheduled cues, windowed corrections ──
   useEffect(() => {
     if (!workoutStarted || isRecordedVoice || !workout) {
       return;
     }
 
-    const hasVoiceTrack = Boolean(voiceUriRef.current);
-
-    // Wall-clock fallback only when no TTS URI was cached
-    if (!hasVoiceTrack && generatedStartedAtMsRef.current == null) {
+    if (generatedStartedAtMsRef.current == null) {
       generatedStartedAtMsRef.current = Date.now();
     }
 
-    const trackDurationSeconds = getTrackDurationSeconds(workout);
+    const session = voiceSessionRef.current;
+    const totalDuration =
+      session?.totalDurationSeconds ?? getTrackDurationSeconds(workout);
 
     const interval = setInterval(() => {
-      void (async () => {
-        // Prefer TTS playback position when base track is present
-        if (baseTrackRef.current) {
-          try {
-            const status = await baseTrackRef.current.getStatusAsync();
-            if (status.isLoaded) {
-              const t = Math.floor((status.positionMillis ?? 0) / 1000);
-              timerSecondsRef.current = t;
-              setTimerSeconds(t);
+      const startedAt = generatedStartedAtMsRef.current;
+      if (startedAt == null) {
+        return;
+      }
 
-              if (t !== prevProcessedSecondRef.current) {
-                prevProcessedSecondRef.current = t;
-                if (correctionMode === 'interval') {
-                  tryFireIntervalCorrection();
-                }
-              }
+      const t = Math.floor((Date.now() - startedAt) / 1000);
+      timerSecondsRef.current = t;
+      setTimerSeconds(t);
+
+      // Timeline completion is the single end source for generated sessions
+      if (t >= totalDuration) {
+        navigateToPostWorkout();
+        return;
+      }
+
+      if (t === prevProcessedSecondRef.current) {
+        return;
+      }
+      prevProcessedSecondRef.current = t;
+
+      // Schedule cue clips at their cueStart (silent work between them)
+      if (session) {
+        for (const clip of session.clips) {
+          if (
+            t >= Math.floor(clip.start) &&
+            !playedCueKeysRef.current.has(clip.key)
+          ) {
+            // Only start if we're still near the planned start (skip past)
+            if (t <= Math.floor(clip.start) + 1) {
+              playedCueKeysRef.current.add(clip.key);
+              void playTimelineCue(clip.uri);
+            } else {
+              // Past due after skip — don't flood
+              playedCueKeysRef.current.add(clip.key);
             }
-          } catch {
-            // Ignore transient reads
           }
-          return;
         }
 
-        // Fallback: wall-clock session end
-        const startedAt = generatedStartedAtMsRef.current;
-        if (startedAt == null) {
-          return;
+        // Pose exercise only while inside a tracked segment's work block
+        let pose: PoseExercise = 'none';
+        for (const seg of session.timeline.segments) {
+          if (t >= seg.workStart && t < seg.workEnd) {
+            pose = TRACKED_ID_TO_POSE[seg.exerciseId] ?? 'none';
+            break;
+          }
+        }
+        if (pose !== 'none' && pose !== currentExerciseRef.current) {
+          setCurrentExercise(pose);
         }
 
-        const t = Math.floor((Date.now() - startedAt) / 1000);
-        timerSecondsRef.current = t;
-        setTimerSeconds(t);
-
-        if (t >= trackDurationSeconds) {
-          navigateToPostWorkout();
-          return;
+        // Windowed corrections from computed timeline (not fixed 15s intervals)
+        for (const seg of session.timeline.segments) {
+          const win = seg.correctionWindow;
+          const windowKey = `${seg.exerciseId}:${win.start}`;
+          if (firedCorrectionWindowsRef.current.has(windowKey)) {
+            continue;
+          }
+          // Fire once near window open; requires room before workEnd so next cue is free
+          if (
+            t === Math.floor(win.start) + 1 &&
+            win.end - t >= 3 &&
+            !cueClipPlayingRef.current
+          ) {
+            firedCorrectionWindowsRef.current.add(windowKey);
+            fireGeneratedWindowCorrection(seg.exerciseId);
+          }
         }
-
-        if (t === prevProcessedSecondRef.current) {
-          return;
-        }
-        prevProcessedSecondRef.current = t;
-
-        if (correctionMode === 'interval') {
-          tryFireIntervalCorrection();
-        }
-      })();
-    }, 500);
+      }
+    }, 250);
 
     return () => clearInterval(interval);
   }, [
     workoutStarted,
     isRecordedVoice,
     workout,
-    correctionMode,
-    tryFireIntervalCorrection,
     navigateToPostWorkout,
+    playTimelineCue,
+    fireGeneratedWindowCorrection,
   ]);
 
   const handleBack = useCallback(() => {

@@ -2,17 +2,23 @@ import type { GeneratedWorkoutDoc } from './generatePlan';
 import {
   base64AudioToUri,
   setVoiceSession,
+  type VoiceClip,
 } from './voiceSessionCache';
+import type { WorkoutTimeline } from './workoutTimeline';
 
-const VOICE_TIMEOUT_MS = 90_000;
+const VOICE_TIMEOUT_MS = 120_000;
 
 export type GenerateVoiceResult =
-  | { ok: true; uri: string; format: string }
+  | {
+      ok: true;
+      timeline: WorkoutTimeline;
+      totalDurationSeconds: number;
+    }
   | { ok: false; error: string };
 
 /**
- * POST workout to /api/generate-voice, decode audio, cache for LiveWorkout.
- * Does not touch quota — caller enforces + increments on success only.
+ * POST workout to /api/generate-voice.
+ * Decodes timed clips + timeline into the voice session cache for LiveWorkout.
  */
 export async function requestGeneratedVoice(
   workout: GeneratedWorkoutDoc
@@ -33,6 +39,7 @@ export async function requestGeneratedVoice(
         workout: {
           title: workout.title,
           exercises: workout.exercises.map((ex) => ({
+            id: ex.id,
             name: ex.name,
             sets: ex.sets,
             reps: ex.reps,
@@ -55,25 +62,53 @@ export async function requestGeneratedVoice(
     }
 
     const data = (await response.json()) as {
-      audio?: string;
       format?: string;
+      timeline?: WorkoutTimeline;
+      totalDurationSeconds?: number;
+      clips?: Array<{
+        key: string;
+        start: number;
+        audio?: string;
+      }>;
     };
 
-    if (!data.audio || typeof data.audio !== 'string') {
-      return { ok: false, error: 'Empty audio response' };
+    if (!data.timeline || !Array.isArray(data.clips) || data.clips.length === 0) {
+      return { ok: false, error: 'Invalid voice response (missing timeline)' };
     }
 
-    const format = data.format === 'mp3' || data.format ? data.format : 'mp3';
-    const uri = base64AudioToUri(data.audio, format);
+    const format = data.format === 'mp3' || data.format ? data.format! : 'mp3';
+    const clips: VoiceClip[] = [];
+
+    for (const clip of data.clips) {
+      if (!clip.audio || typeof clip.audio !== 'string') {
+        return { ok: false, error: `Missing audio for clip ${clip.key}` };
+      }
+      clips.push({
+        key: clip.key,
+        start: typeof clip.start === 'number' ? clip.start : 0,
+        uri: base64AudioToUri(clip.audio, format),
+      });
+    }
+
+    const totalDurationSeconds =
+      typeof data.totalDurationSeconds === 'number'
+        ? data.totalDurationSeconds
+        : data.timeline.totalDurationSeconds;
 
     setVoiceSession({
       generatedSlug: workout.slug,
-      uri,
       format,
       createdAt: Date.now(),
+      timeline: data.timeline,
+      clips,
+      totalDurationSeconds,
     });
 
-    return { ok: true, uri, format };
+    return {
+      ok: true,
+      timeline: data.timeline,
+      totalDurationSeconds,
+    };
   } catch (error) {
     const aborted =
       error instanceof Error &&

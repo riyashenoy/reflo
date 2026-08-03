@@ -1,15 +1,26 @@
 import { Platform } from 'react-native';
 
+import type { TimelineSegment, WorkoutTimeline } from './workoutTimeline';
+
 /**
  * In-memory handoff: PrepareSession → LiveWorkout.
- * Avoids stuffing multi-MB base64 into navigation params.
+ * Holds timed TTS clips + the session timeline (not a glued single track).
  */
+
+export type VoiceClip = {
+  key: string;
+  /** Absolute start time on the workout timeline (seconds). */
+  start: number;
+  uri: string;
+};
 
 export type VoiceSessionPayload = {
   generatedSlug: string;
-  uri: string;
   format: string;
   createdAt: number;
+  timeline: WorkoutTimeline;
+  clips: VoiceClip[];
+  totalDurationSeconds: number;
 };
 
 let cached: VoiceSessionPayload | null = null;
@@ -26,17 +37,22 @@ export function base64AudioToUri(base64: string, format = 'mp3'): string {
     return URL.createObjectURL(blob);
   }
 
-  // expo-av accepts data URIs on iOS/Android
   return `data:audio/${format};base64,${base64}`;
 }
 
-export function setVoiceSession(payload: VoiceSessionPayload): void {
-  if (cached?.uri && cached.uri.startsWith('blob:')) {
+function revokeUri(uri: string) {
+  if (uri.startsWith('blob:')) {
     try {
-      URL.revokeObjectURL(cached.uri);
+      URL.revokeObjectURL(uri);
     } catch {
       // ignore
     }
+  }
+}
+
+export function setVoiceSession(payload: VoiceSessionPayload): void {
+  if (cached) {
+    cached.clips.forEach((c) => revokeUri(c.uri));
   }
   cached = payload;
 }
@@ -50,16 +66,6 @@ export function peekVoiceSession(
   return cached;
 }
 
-export function takeVoiceSession(
-  generatedSlug: string
-): VoiceSessionPayload | null {
-  if (!cached || cached.generatedSlug !== generatedSlug) {
-    return null;
-  }
-  const session = cached;
-  return session;
-}
-
 export function clearVoiceSession(generatedSlug?: string): void {
   if (!cached) {
     return;
@@ -67,12 +73,8 @@ export function clearVoiceSession(generatedSlug?: string): void {
   if (generatedSlug && cached.generatedSlug !== generatedSlug) {
     return;
   }
-  if (cached.uri.startsWith('blob:')) {
-    try {
-      URL.revokeObjectURL(cached.uri);
-    } catch {
-      // ignore
-    }
-  }
+  cached.clips.forEach((c) => revokeUri(c.uri));
   cached = null;
 }
+
+export type { TimelineSegment, WorkoutTimeline };
