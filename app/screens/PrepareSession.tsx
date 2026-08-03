@@ -19,6 +19,7 @@ import {
   incrementVoiceQuotaOnSuccess,
   VOICE_GENERATIONS_PER_WEEK,
 } from '../lib/voiceQuota';
+import { peekVoiceSession } from '../lib/voiceSessionCache';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
 
@@ -83,6 +84,15 @@ export default function PrepareSession({ route, navigation }: Props) {
     const runId = ++runIdRef.current;
     setGate({ kind: 'loading' });
     setStatusIndex(0);
+
+    // Already prepared this session — skip re-TTS / quota.
+    if (peekVoiceSession(generatedSlug)?.clips.length) {
+      navigation.replace('LiveWorkout', {
+        generatedSlug,
+        dateKey,
+      });
+      return;
+    }
 
     const uid = auth.currentUser?.uid;
     if (!uid) {
@@ -247,7 +257,7 @@ export default function PrepareSession({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: theme.colors.dark,
+    backgroundColor: theme.colors.background,
     paddingHorizontal: scale(28),
   },
   backHit: {
@@ -257,7 +267,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   backText: {
-    color: theme.colors.white,
+    color: theme.colors.textPrimary,
     fontSize: scale(20),
   },
   center: {
@@ -271,14 +281,14 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.header,
     fontSize: scale(26),
     letterSpacing: scale(-0.6),
-    color: theme.colors.white,
+    color: theme.colors.textPrimary,
     textAlign: 'center',
     marginTop: scale(8),
   },
   pulseTrack: {
     width: scale(120),
     height: scale(3),
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: theme.colors.grey200,
     borderRadius: scale(2),
     overflow: 'hidden',
     marginTop: scale(8),
@@ -294,7 +304,7 @@ const styles = StyleSheet.create({
     fontSize: scale(10),
     letterSpacing: scale(1.4),
     textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.55)',
+    color: theme.colors.textMuted,
     textAlign: 'center',
     marginTop: scale(4),
     minHeight: scale(16),
@@ -310,7 +320,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.body,
     fontSize: scale(14),
     lineHeight: scale(21),
-    color: 'rgba(255,255,255,0.75)',
+    color: theme.colors.textSecondary,
     textAlign: 'center',
   },
   quotaMeta: {
@@ -318,7 +328,7 @@ const styles = StyleSheet.create({
     fontSize: scale(9),
     letterSpacing: scale(1.2),
     textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.4)',
+    color: theme.colors.textMuted,
   },
   primaryButton: {
     width: '100%',
@@ -339,7 +349,7 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: scale(4),
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.25)',
+    borderColor: theme.colors.border,
     paddingVertical: scale(14),
     alignItems: 'center',
   },
@@ -347,7 +357,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.label,
     fontSize: scale(11),
     letterSpacing: scale(1.4),
-    color: theme.colors.white,
+    color: theme.colors.textPrimary,
     textTransform: 'uppercase',
   },
 });

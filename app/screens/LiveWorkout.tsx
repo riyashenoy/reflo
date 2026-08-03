@@ -307,6 +307,10 @@ function LiveWorkout({ route, navigation }: Props) {
     }
 
     hasNavigatedToPostWorkout.current = true;
+    // Session complete — free cached clips so next visit re-generates if needed.
+    if (generatedSlug) {
+      clearVoiceSession(generatedSlug);
+    }
     navigation.navigate('PostWorkout', {
       workoutId: resolvedId,
       libraryId,
@@ -703,11 +707,9 @@ function LiveWorkout({ route, navigation }: Props) {
         void activeCueSoundRef.current.unloadAsync();
         activeCueSoundRef.current = null;
       }
-      if (generatedSlug) {
-        clearVoiceSession(generatedSlug);
-      }
+      // Keep generated clips cached when backing out so ClassDetail can show BEGIN.
     };
-  }, [generatedSlug]);
+  }, []);
 
   useEffect(() => {
     if (!workoutStarted || Platform.OS === 'web') {

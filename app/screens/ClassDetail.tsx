@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -27,6 +28,7 @@ import {
   type GeneratedWorkoutDoc,
   type ResolvedGeneratedExercise,
 } from '../lib/generatePlan';
+import { peekVoiceSession } from '../lib/voiceSessionCache';
 import { toDateKey } from '../lib/workoutHistory';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
@@ -115,6 +117,19 @@ export default function ClassDetail({ route, navigation }: Props) {
 
   const [generated, setGenerated] = useState<GeneratedWorkoutDoc | null>(null);
   const [loadingGenerated, setLoadingGenerated] = useState(Boolean(generatedSlug));
+  /** True when TTS clips for this slug are already in the session cache. */
+  const [voiceReady, setVoiceReady] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!generatedSlug) {
+        setVoiceReady(false);
+        return;
+      }
+      const session = peekVoiceSession(generatedSlug);
+      setVoiceReady(Boolean(session && session.clips.length > 0));
+    }, [generatedSlug])
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -406,10 +421,17 @@ export default function ClassDetail({ route, navigation }: Props) {
           onPress={() => {
             const dateKey = toDateKey(new Date());
             if (display.isGenerated) {
-              navigation.navigate('PrepareSession', {
-                generatedSlug: display.id,
-                dateKey,
-              });
+              if (voiceReady) {
+                navigation.navigate('LiveWorkout', {
+                  generatedSlug: display.id,
+                  dateKey,
+                });
+              } else {
+                navigation.navigate('PrepareSession', {
+                  generatedSlug: display.id,
+                  dateKey,
+                });
+              }
               return;
             }
             navigation.navigate('LiveWorkout', {
@@ -419,7 +441,9 @@ export default function ClassDetail({ route, navigation }: Props) {
             });
           }}
         >
-          <Text style={styles.beginButtonText}>BEGIN</Text>
+          <Text style={styles.beginButtonText}>
+            {display.isGenerated && !voiceReady ? 'GENERATE' : 'BEGIN'}
+          </Text>
         </PressableScale>
       </View>
     </View>
