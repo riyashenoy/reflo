@@ -39,12 +39,13 @@ export default function App() {
     'SHAdGrotesk-Regular': require('./assets/fonts/adgroteskregular.ttf'),
     'SHAdGrotesk-Light': require('./assets/fonts/adgrotesklight.ttf'),
     'SHAdGrotesk-Medium': require('./assets/fonts/adgroteskmedium.ttf'),
-    'LouisGeorgeCafe': require('./assets/fonts/Louis George Cafe.ttf'),
-    'LouisGeorgeCafe-Bold': require('./assets/fonts/Louis George Cafe Bold.ttf'),
-    'LouisGeorgeCafe-Italic': require('./assets/fonts/Louis George Cafe Italic.ttf'),
-    'LouisGeorgeCafe-BoldItalic': require('./assets/fonts/Louis George Cafe Bold Italic.ttf'),
-    'LouisGeorgeCafe-Light': require('./assets/fonts/Louis George Cafe Light.ttf'),
-    'LouisGeorgeCafe-LightItalic': require('./assets/fonts/Louis George Cafe Light Italic.ttf'),
+    // Space-free filenames — URLs with spaces break @font-face on web / Vercel.
+    'LouisGeorgeCafe': require('./assets/fonts/LouisGeorgeCafe.ttf'),
+    'LouisGeorgeCafe-Bold': require('./assets/fonts/LouisGeorgeCafe-Bold.ttf'),
+    'LouisGeorgeCafe-Italic': require('./assets/fonts/LouisGeorgeCafe-Italic.ttf'),
+    'LouisGeorgeCafe-BoldItalic': require('./assets/fonts/LouisGeorgeCafe-BoldItalic.ttf'),
+    'LouisGeorgeCafe-Light': require('./assets/fonts/LouisGeorgeCafe-Light.ttf'),
+    'LouisGeorgeCafe-LightItalic': require('./assets/fonts/LouisGeorgeCafe-LightItalic.ttf'),
     Inter_400Regular,
     Inter_500Medium,
   });
@@ -52,6 +53,7 @@ export default function App() {
   useEffect(() => {
     if (fontError) {
       console.error('[Fonts] Loading error:', fontError);
+      void SplashScreen.hideAsync();
       return;
     }
 
@@ -59,11 +61,14 @@ export default function App() {
       console.log('[Fonts] Loaded successfully:', {
         'SHAdGrotesk-Regular': true,
         'LouisGeorgeCafe-Bold': true,
+        Inter_400Regular: true,
       });
-      SplashScreen.hideAsync();
+      void SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
 
+  // Block first paint until faces are ready so we never flash system fonts.
+  // On hard load failure, still mount (logged above) rather than hang forever.
   if (!fontsLoaded && !fontError) {
     return null;
   }

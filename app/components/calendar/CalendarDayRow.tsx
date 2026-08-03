@@ -54,6 +54,11 @@ function getWorkoutTitle(day: WeeklyPlanDay, variant: CalendarDayVariant): strin
   if (variant === 'rest') {
     return 'Rest day';
   }
+  if (day.workoutFocus) {
+    const focus =
+      day.workoutFocus.charAt(0).toUpperCase() + day.workoutFocus.slice(1);
+    return `${day.workoutTitle} · ${focus}`;
+  }
   return day.workoutTitle.toUpperCase();
 }
 

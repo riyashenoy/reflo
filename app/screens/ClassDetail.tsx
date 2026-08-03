@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   Image,
   Platform,
@@ -19,6 +21,12 @@ import {
   getLibraryWorkoutForDemo,
 } from '../data/workoutLibrary';
 import { useSavedWorkouts } from '../context/SavedWorkoutsContext';
+import { auth } from '../lib/firebase';
+import {
+  fetchGeneratedWorkout,
+  type GeneratedWorkoutDoc,
+  type ResolvedGeneratedExercise,
+} from '../lib/generatePlan';
 import { toDateKey } from '../lib/workoutHistory';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
@@ -30,7 +38,7 @@ const HERO_HEIGHT_RATIO = 0.34;
 const RULE = 'rgba(255,255,255,0.12)';
 const MUTED = 'rgba(255,255,255,0.55)';
 
-function formatIntensity(intensity: Intensity) {
+function formatIntensity(intensity: Intensity | string) {
   if (intensity === 'medium') {
     return 'Med';
   }
@@ -43,10 +51,14 @@ function formatIntensity(intensity: Intensity) {
 function formatExerciseMeta(
   sets: number,
   reps: number,
+  repType?: 'count' | 'seconds',
   meta?: string
 ) {
   if (meta) {
     return meta;
+  }
+  if (repType === 'seconds') {
+    return `${sets > 1 ? `${sets} × ` : ''}${reps}s hold`;
   }
   if (sets === 1 && reps >= 50) {
     return `${sets} set · ${reps} counts`;
@@ -54,23 +66,166 @@ function formatExerciseMeta(
   return `${sets} sets · ${reps} reps`;
 }
 
+function difficultyDots(level: GeneratedWorkoutDoc['intensity'] | number): number {
+  if (typeof level === 'number') {
+    return level;
+  }
+  if (level === 'high') {
+    return 3;
+  }
+  if (level === 'low') {
+    return 1;
+  }
+  return 2;
+}
+
+type DisplayExercise = {
+  name: string;
+  sets: number;
+  reps: number;
+  repType?: 'count' | 'seconds';
+  springSetting?: string;
+  tracked: boolean;
+  meta?: string;
+  cue?: string;
+};
+
+type DisplayWorkout = {
+  id: string;
+  title: string;
+  description: string;
+  duration: number;
+  intensity: Intensity | string;
+  voiceMode: 'recorded' | 'generated';
+  aiTracked: boolean;
+  exercises: DisplayExercise[];
+  isGenerated: boolean;
+  focus?: string;
+};
+
 export default function ClassDetail({ route, navigation }: Props) {
-  const { libraryId, workoutId: routeWorkoutId } = route.params ?? {};
-  const libraryWorkout = getLibraryWorkoutForDemo(libraryId, routeWorkoutId);
-  const workout = getWorkoutById(
-    libraryWorkout?.workoutId ?? routeWorkoutId ?? DEMO_WORKOUT_ID
-  );
+  const {
+    libraryId,
+    workoutId: routeWorkoutId,
+    generatedSlug,
+  } = route.params ?? {};
   const { isSaved, toggleSaved } = useSavedWorkouts();
   const insets = useSafeAreaInsets();
   const heroHeight = Dimensions.get('window').height * HERO_HEIGHT_RATIO;
+
+  const [generated, setGenerated] = useState<GeneratedWorkoutDoc | null>(null);
+  const [loadingGenerated, setLoadingGenerated] = useState(Boolean(generatedSlug));
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadGenerated() {
+      if (!generatedSlug) {
+        setLoadingGenerated(false);
+        return;
+      }
+      const uid = auth.currentUser?.uid;
+      if (!uid) {
+        setLoadingGenerated(false);
+        return;
+      }
+      setLoadingGenerated(true);
+      try {
+        const docData = await fetchGeneratedWorkout(uid, generatedSlug);
+        if (!cancelled) {
+          setGenerated(docData);
+        }
+      } catch (error) {
+        console.warn('[ClassDetail] generated load failed:', error);
+        if (!cancelled) {
+          setGenerated(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingGenerated(false);
+        }
+      }
+    }
+
+    void loadGenerated();
+    return () => {
+      cancelled = true;
+    };
+  }, [generatedSlug]);
+
+  const libraryWorkout = generatedSlug
+    ? undefined
+    : getLibraryWorkoutForDemo(libraryId, routeWorkoutId);
+  const staticWorkout = generatedSlug
+    ? undefined
+    : getWorkoutById(
+        libraryWorkout?.workoutId ?? routeWorkoutId ?? DEMO_WORKOUT_ID
+      );
+
+  const display: DisplayWorkout | null = generated
+    ? {
+        id: generated.slug,
+        title: generated.title,
+        description: generated.focus
+          ? `Focus: ${generated.focus.charAt(0).toUpperCase()}${generated.focus.slice(1)}`
+          : '',
+        duration: generated.estimatedDuration,
+        intensity: generated.intensity,
+        voiceMode: 'generated',
+        aiTracked: generated.exercises.some((ex) => ex.tracked),
+        isGenerated: true,
+        focus: generated.focus,
+        exercises: generated.exercises.map((ex: ResolvedGeneratedExercise) => ({
+          name: ex.name,
+          sets: ex.sets,
+          reps: ex.reps,
+          repType: ex.repType,
+          springSetting: ex.springSetting,
+          tracked: ex.tracked,
+          cue: ex.cue,
+        })),
+      }
+    : staticWorkout
+      ? {
+          id: staticWorkout.id,
+          title: libraryWorkout?.title ?? staticWorkout.title,
+          description:
+            libraryWorkout?.description ?? staticWorkout.description ?? '',
+          duration: staticWorkout.duration,
+          intensity: staticWorkout.intensity,
+          voiceMode: staticWorkout.voiceMode,
+          aiTracked: staticWorkout.aiTracked,
+          isGenerated: false,
+          exercises: staticWorkout.exercises.map((ex) => ({
+            name: ex.name,
+            sets: ex.sets,
+            reps: ex.reps,
+            tracked: ex.tracked,
+            meta: ex.meta,
+            cue: ex.cue,
+          })),
+        }
+      : null;
+
   const bookmarkId = libraryWorkout?.id ?? routeWorkoutId;
   const saved = bookmarkId ? isSaved(bookmarkId) : false;
-  const displayTitle = libraryWorkout?.title ?? workout?.title;
-  const description =
-    libraryWorkout?.description ?? workout?.description ?? '';
-  const difficulty = libraryWorkout?.difficulty ?? 2;
+  const difficulty = libraryWorkout?.difficulty
+    ?? difficultyDots(
+      (display?.intensity as GeneratedWorkoutDoc['intensity']) ?? 'medium'
+    );
 
-  if (!workout) {
+  if (loadingGenerated) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator color={theme.colors.teal} />
+          <Text style={styles.loadingText}>Loading class…</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!display) {
     return (
       <View style={styles.container}>
         <PressableScale
@@ -86,15 +241,15 @@ export default function ClassDetail({ route, navigation }: Props) {
 
   const stats = [
     {
-      value: String(workout.duration),
+      value: String(display.duration),
       label: 'MIN',
     },
     {
-      value: formatIntensity(workout.intensity),
+      value: formatIntensity(display.intensity),
       label: 'LEVEL',
     },
     {
-      value: String(workout.exercises.length),
+      value: String(display.exercises.length),
       label: 'MOVES',
     },
   ];
@@ -133,25 +288,25 @@ export default function ClassDetail({ route, navigation }: Props) {
           >
             <Text style={styles.iconButtonText}>←</Text>
           </PressableScale>
-          <PressableScale
-            style={[
-              styles.favoriteButton,
-              { top: insets.top + scale(12), right: scale(20) },
-            ]}
-            onPress={() => {
-              if (bookmarkId) {
+          {!display.isGenerated && bookmarkId ? (
+            <PressableScale
+              style={[
+                styles.favoriteButton,
+                { top: insets.top + scale(12), right: scale(20) },
+              ]}
+              onPress={() => {
                 toggleSaved(bookmarkId);
-              }
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={saved ? 'Remove bookmark' : 'Bookmark workout'}
-          >
-            <Ionicons
-              name={saved ? 'star' : 'star-outline'}
-              size={scale(16)}
-              color={theme.colors.teal}
-            />
-          </PressableScale>
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={saved ? 'Remove bookmark' : 'Bookmark workout'}
+            >
+              <Ionicons
+                name={saved ? 'star' : 'star-outline'}
+                size={scale(16)}
+                color={theme.colors.teal}
+              />
+            </PressableScale>
+          ) : null}
         </View>
 
         <FadeInView style={styles.content} delay={100}>
@@ -160,12 +315,12 @@ export default function ClassDetail({ route, navigation }: Props) {
               <View key={`difficulty-${index}`} style={styles.difficultyDot} />
             ))}
           </View>
-          <Text style={styles.title}>{displayTitle}</Text>
+          <Text style={styles.title}>{display.title}</Text>
           <View style={styles.voiceModeRow}>
-            <VoiceModeTag voiceMode={workout.voiceMode} />
+            <VoiceModeTag voiceMode={display.voiceMode} />
           </View>
-          {description ? (
-            <Text style={styles.description}>{description}</Text>
+          {display.description ? (
+            <Text style={styles.description}>{display.description}</Text>
           ) : null}
 
           <View style={styles.statsRow}>
@@ -178,7 +333,7 @@ export default function ClassDetail({ route, navigation }: Props) {
                 </View>
               </View>
             ))}
-            {workout.aiTracked ? (
+            {display.aiTracked ? (
               <View style={styles.statSlot}>
                 <View style={styles.statDivider} />
                 <View style={styles.statColumn}>
@@ -196,21 +351,15 @@ export default function ClassDetail({ route, navigation }: Props) {
             <Text style={styles.sectionLabel}>CLASS BREAKDOWN</Text>
           </View>
 
-          {workout.exercises.map((exercise, index) => (
-            <PressableScale
+          {display.exercises.map((exercise, index) => (
+            <View
               key={`${exercise.name}-${index}`}
               style={[
                 styles.exerciseRow,
                 index === 0 && styles.exerciseRowFirst,
-                index < workout.exercises.length - 1 &&
+                index < display.exercises.length - 1 &&
                   styles.exerciseRowBorder,
               ]}
-              onPress={() =>
-                navigation.navigate('ExercisePreview', {
-                  workoutId: workout.id,
-                  exerciseIndex: index,
-                })
-              }
             >
               <Text style={styles.exerciseNumber}>
                 {String(index + 1).padStart(2, '0')}
@@ -221,8 +370,12 @@ export default function ClassDetail({ route, navigation }: Props) {
                   {formatExerciseMeta(
                     exercise.sets,
                     exercise.reps,
+                    exercise.repType,
                     exercise.meta
                   )}
+                  {exercise.springSetting
+                    ? ` · ${exercise.springSetting}`
+                    : ''}
                 </Text>
               </View>
               {exercise.tracked ? (
@@ -231,7 +384,7 @@ export default function ClassDetail({ route, navigation }: Props) {
                   <Text style={styles.trackedLabel}>TRACKED</Text>
                 </View>
               ) : null}
-            </PressableScale>
+            </View>
           ))}
 
           <View style={styles.bottomSpacer} />
@@ -248,8 +401,9 @@ export default function ClassDetail({ route, navigation }: Props) {
           style={styles.beginButton}
           onPress={() =>
             navigation.navigate('LiveWorkout', {
-              workoutId: workout.id,
+              workoutId: display.isGenerated ? undefined : display.id,
               libraryId: libraryWorkout?.id,
+              generatedSlug: display.isGenerated ? display.id : undefined,
               dateKey: toDateKey(new Date()),
             })
           }
@@ -265,6 +419,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.dark,
+  },
+  loadingWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: scale(12),
+  },
+  loadingText: {
+    fontFamily: theme.fonts.body,
+    fontSize: scale(13),
+    color: MUTED,
   },
   scroll: {
     flex: 1,

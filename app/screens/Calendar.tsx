@@ -159,11 +159,8 @@ export default function Calendar() {
           setRateLimited(true);
           return;
         }
-        if (result.reason === 'network') {
-          setToastMessage('Couldn’t generate a new schedule. Try again later.');
-          return;
-        }
-        setToastMessage('Couldn’t generate a new schedule. Try again later.');
+        // Unauthenticated / no profile edge cases
+        setToastMessage('Couldn’t build your plan. Try again later.');
         return;
       }
 
@@ -172,7 +169,7 @@ export default function Calendar() {
       await refetchSessions();
     } catch (error) {
       console.warn('[Calendar] generate failed:', error);
-      setToastMessage('Couldn’t generate a new schedule. Try again later.');
+      setToastMessage('Couldn’t build your plan. Try again later.');
     } finally {
       setRegenerating(false);
     }
@@ -202,6 +199,7 @@ export default function Calendar() {
     navigation.navigate('ClassDetail', {
       libraryId: day.libraryId,
       workoutId: day.workoutId,
+      generatedSlug: day.generatedSlug,
     });
   };
 
@@ -238,7 +236,7 @@ export default function Calendar() {
           {regenerating ? (
             <View style={styles.generateButtonInner}>
               <ActivityIndicator color={theme.colors.white} size="small" />
-              <Text style={styles.generateButtonText}>GENERATING…</Text>
+              <Text style={styles.generateButtonText}>Building your plan…</Text>
             </View>
           ) : rateLimited ? (
             <Text style={styles.generateButtonText}>

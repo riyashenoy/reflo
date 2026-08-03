@@ -2,6 +2,10 @@ import { useCallback, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { auth } from '../lib/firebase';
+import {
+  applyWeekPlanToLocalSchedule,
+  fetchFirestoreWeeklyPlan,
+} from '../lib/generatePlan';
 import { fetchUserProfile } from '../lib/userProfile';
 import {
   buildWeeklyPlan,
@@ -46,11 +50,19 @@ export function useWorkoutHistory(): WorkoutHistoryState {
 
     if (uid) {
       try {
-        const profile = await fetchUserProfile(uid);
-        nextSchedule = await ensureCurrentWeekSchedule(
-          profile,
-          completedDateKeys
-        );
+        // Prefer Firestore AI weekly plan when present
+        const firestorePlan = await fetchFirestoreWeeklyPlan(uid);
+        if (firestorePlan?.schedule) {
+          nextSchedule = await applyWeekPlanToLocalSchedule(
+            firestorePlan.schedule
+          );
+        } else {
+          const profile = await fetchUserProfile(uid);
+          nextSchedule = await ensureCurrentWeekSchedule(
+            profile,
+            completedDateKeys
+          );
+        }
       } catch (error) {
         console.warn('[useWorkoutHistory] schedule load failed:', error);
       }

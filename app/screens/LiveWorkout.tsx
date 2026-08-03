@@ -36,12 +36,18 @@ import {
   getWorkoutById,
   type CorrectionMode,
   type VoiceMode,
+  type Workout,
 } from '../data/workouts';
 import {
   configureWorkoutAudioMode,
   preloadClipSounds,
   unloadClipSounds,
 } from '../lib/workoutAudio';
+import { auth } from '../lib/firebase';
+import {
+  fetchGeneratedWorkout,
+  type GeneratedWorkoutDoc,
+} from '../lib/generatePlan';
 import {
   usePoseDetection,
   type FormAssessmentData,
@@ -52,6 +58,36 @@ import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'LiveWorkout'>;
+
+const TRACKED_ID_TO_POSE: Record<string, PoseExercise> = {
+  'the-hundred': 'hundred',
+  'long-stretch': 'long_stretch',
+  'footwork-toes': 'footwork_toes',
+};
+
+function generatedToWorkout(doc: GeneratedWorkoutDoc): Workout {
+  return {
+    id: doc.slug,
+    title: doc.title,
+    description: doc.focus ? `Focus: ${doc.focus}` : '',
+    duration: doc.estimatedDuration,
+    intensity: doc.intensity,
+    tags: [doc.focus],
+    aiTracked: doc.exercises.some((ex) => ex.tracked),
+    voiceMode: 'generated',
+    exercises: doc.exercises.map((ex) => ({
+      name: ex.name,
+      sets: ex.sets,
+      reps: ex.reps,
+      cue: ex.cue,
+      tracked: ex.tracked,
+      meta:
+        ex.repType === 'seconds'
+          ? `${ex.reps}s`
+          : `${ex.sets} × ${ex.reps}`,
+    })),
+  };
+}
 
 type ExerciseWindows = {
   exercise: PoseExercise;
@@ -147,12 +183,55 @@ function messageForError(errorKey: string): string {
 }
 
 function LiveWorkout({ route, navigation }: Props) {
-  const { workoutId, libraryId, dateKey } = route.params ?? {};
-  const workout = workoutId ? getWorkoutById(workoutId) : undefined;
+  const { workoutId, libraryId, dateKey, generatedSlug } = route.params ?? {};
+  const staticWorkout = workoutId ? getWorkoutById(workoutId) : undefined;
   const insets = useSafeAreaInsets();
 
+  const [generatedDoc, setGeneratedDoc] = useState<GeneratedWorkoutDoc | null>(
+    null
+  );
+  const [loadingGenerated, setLoadingGenerated] = useState(
+    Boolean(generatedSlug)
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      if (!generatedSlug) {
+        setLoadingGenerated(false);
+        return;
+      }
+      const uid = auth.currentUser?.uid;
+      if (!uid) {
+        setLoadingGenerated(false);
+        return;
+      }
+      try {
+        const docData = await fetchGeneratedWorkout(uid, generatedSlug);
+        if (!cancelled) {
+          setGeneratedDoc(docData);
+        }
+      } catch (error) {
+        console.warn('[LiveWorkout] generated load failed:', error);
+      } finally {
+        if (!cancelled) {
+          setLoadingGenerated(false);
+        }
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [generatedSlug]);
+
+  const workout: Workout | undefined = generatedDoc
+    ? generatedToWorkout(generatedDoc)
+    : staticWorkout;
+
   /** Single audio fork for the session (shared pose/UI). */
-  const voiceMode: VoiceMode = workout?.voiceMode ?? 'generated';
+  const voiceMode: VoiceMode =
+    workout?.voiceMode ?? (generatedSlug ? 'generated' : 'generated');
   const correctionMode: CorrectionMode = getCorrectionMode(voiceMode);
   const isRecordedVoice = voiceMode === 'recorded';
 
@@ -208,19 +287,33 @@ function LiveWorkout({ route, navigation }: Props) {
   );
 
   const navigateToPostWorkout = useCallback(() => {
-    if (!workoutId || hasNavigatedToPostWorkout.current) {
+    const resolvedId = generatedSlug ?? workoutId;
+    if (!resolvedId || hasNavigatedToPostWorkout.current) {
       return;
     }
 
     hasNavigatedToPostWorkout.current = true;
     navigation.navigate('PostWorkout', {
-      workoutId,
+      workoutId: resolvedId,
       libraryId,
       dateKey: dateKey ?? undefined,
       sessionLog: sessionLog.current,
       durationSeconds: timerSecondsRef.current,
     });
-  }, [navigation, workoutId, libraryId, dateKey]);
+  }, [navigation, workoutId, generatedSlug, libraryId, dateKey]);
+
+  const firstTrackedPose = useCallback((): PoseExercise => {
+    if (!generatedDoc) {
+      return 'none';
+    }
+    for (const ex of generatedDoc.exercises) {
+      const pose = TRACKED_ID_TO_POSE[ex.id];
+      if (pose) {
+        return pose;
+      }
+    }
+    return 'none';
+  }, [generatedDoc]);
 
   const queueClip = useCallback(
     async (
@@ -428,8 +521,9 @@ function LiveWorkout({ route, navigation }: Props) {
       lastGeneratedCorrectionSecRef.current = -Infinity;
       timerSecondsRef.current = 0;
       setTimerSeconds(0);
+      setCurrentExercise(firstTrackedPose());
     }
-  }, [isRecordedVoice, loadAndPlayBaseTrack]);
+  }, [isRecordedVoice, loadAndPlayBaseTrack, firstTrackedPose]);
 
   const skipToEnd = useCallback(async () => {
     if (!workout) {
@@ -691,6 +785,22 @@ function LiveWorkout({ route, navigation }: Props) {
       setReadyUnlocked(true);
     }
   }, [confidence]);
+
+  if (loadingGenerated) {
+    return (
+      <View style={styles.container}>
+        <View
+          style={{
+            paddingTop: insets.top + WORKOUT_TOP_BAR_TOP,
+            paddingLeft: scale(20),
+          }}
+        >
+          <WorkoutBackButton onPress={handleBack} />
+        </View>
+        <Text style={styles.notFound}>Loading class…</Text>
+      </View>
+    );
+  }
 
   if (!workout) {
     return (

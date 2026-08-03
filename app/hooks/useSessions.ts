@@ -21,8 +21,6 @@ export type Session = {
   overallStars: number;
 };
 
-type WeeklyPlanByDay = Record<string, string>;
-
 const DAY_NAMES = [
   'sunday',
   'monday',
@@ -71,6 +69,35 @@ function parseSessionDoc(
   };
 }
 
+type WeeklyPlanByDay = {
+  schedule?: Record<string, { type?: string; workoutSlug?: string } | string>;
+} & Record<string, unknown>;
+
+function isRestPlanDay(
+  weeklyPlan: WeeklyPlanByDay | null,
+  dayName: string
+): boolean {
+  if (!weeklyPlan) {
+    return false;
+  }
+
+  // New shape: { schedule: { monday: { type: 'rest' } } }
+  const schedule = weeklyPlan.schedule;
+  if (schedule && typeof schedule === 'object') {
+    const entry = schedule[dayName];
+    if (entry && typeof entry === 'object' && 'type' in entry) {
+      return entry.type === 'rest';
+    }
+    if (typeof entry === 'string') {
+      return entry === 'rest';
+    }
+  }
+
+  // Legacy flat shape: { monday: 'rest' | workoutId }
+  const legacy = weeklyPlan[dayName];
+  return legacy === 'rest';
+}
+
 function computeStreak(
   sessionIds: Set<string>,
   weeklyPlan: WeeklyPlanByDay | null,
@@ -87,7 +114,7 @@ function computeStreak(
     const dayName = DAY_NAMES[cursor.getDay()];
     const hasSession = sessionIds.has(dateId);
     const isRestDay =
-      weeklyPlan?.[dayName] === 'rest' || restDateKeys.has(dateId);
+      isRestPlanDay(weeklyPlan, dayName) || restDateKeys.has(dateId);
 
     if (hasSession) {
       streak += 1;

@@ -650,3 +650,26 @@ export const exercises: Exercise[] = [
 export function getExerciseById(id: string): Exercise | undefined {
   return exercises.find((exercise) => exercise.id === id);
 }
+
+/** Slim catalog for AI plan prompts (no cues/springs). */
+export type ExerciseCatalogItem = {
+  id: string;
+  name: string;
+  equipment: Exercise['equipment'];
+  targetAreas: string[];
+  difficulty: Exercise['difficulty'];
+  tracked: boolean;
+};
+
+export function getExerciseCatalog(): ExerciseCatalogItem[] {
+  return exercises.map(
+    ({ id, name, equipment, targetAreas, difficulty, tracked }) => ({
+      id,
+      name,
+      equipment,
+      targetAreas,
+      difficulty,
+      tracked,
+    })
+  );
+}

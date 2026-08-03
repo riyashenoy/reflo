@@ -14,7 +14,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { auth, db } from '../lib/firebase';
 import { getAuthErrorMessage } from '../lib/authErrors';
-import { regenerateWeeklySchedule } from '../lib/weeklySchedule';
+import { generateAndSaveWeeklyPlan } from '../lib/generatePlan';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
 
@@ -203,7 +203,7 @@ export default function ProfileSetup({ navigation }: Props) {
 
     setSaving(true);
     try {
-      await setDoc(doc(db, 'users', uid), {
+      const profilePayload = {
         name: name.trim(),
         experienceLevel,
         equipment,
@@ -216,28 +216,17 @@ export default function ProfileSetup({ navigation }: Props) {
         goals,
         targetAreas,
         trainingFrequency,
+      };
+
+      await setDoc(doc(db, 'users', uid), {
+        ...profilePayload,
         createdAt: new Date().toISOString(),
       });
 
-      await regenerateWeeklySchedule(
-        {
-          name: name.trim(),
-          experienceLevel,
-          equipment,
-          height,
-          heightUnit,
-          weight,
-          weightUnit,
-          birthday,
-          mindfulAreas,
-          goals,
-          targetAreas,
-          trainingFrequency,
-        },
-        new Set(),
-        undefined,
-        { shuffleTrainingDays: false }
-      );
+      // First plan — always generate; silent fallback if AI fails
+      await generateAndSaveWeeklyPlan(uid, profilePayload, {
+        skipRateLimit: true,
+      });
 
       navigation.reset({
         index: 0,
@@ -484,7 +473,10 @@ export default function ProfileSetup({ navigation }: Props) {
             disabled={saving}
           >
             {saving ? (
-              <ActivityIndicator color={theme.colors.white} />
+              <View style={styles.savingRow}>
+                <ActivityIndicator color={theme.colors.white} />
+                <Text style={styles.finishButtonText}>Building your plan…</Text>
+              </View>
             ) : (
               <Text style={styles.finishButtonText}>FINISH →</Text>
             )}
@@ -763,6 +755,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: scale(28),
     minWidth: scale(140),
     alignItems: 'center',
+  },
+  savingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scale(10),
   },
   finishButtonText: {
     fontFamily: theme.fonts.label,

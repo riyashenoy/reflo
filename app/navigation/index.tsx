@@ -38,9 +38,18 @@ export type AuthStackParamList = {
 export type AppStackParamList = {
   Main: undefined;
   ProfileSetup: undefined;
-  ClassDetail: { libraryId?: string; workoutId?: string };
+  ClassDetail: {
+    libraryId?: string;
+    workoutId?: string;
+    generatedSlug?: string;
+  };
   ExercisePreview: { workoutId: string; exerciseIndex: number };
-  LiveWorkout: { workoutId?: string; libraryId?: string; dateKey?: string };
+  LiveWorkout: {
+    workoutId?: string;
+    libraryId?: string;
+    dateKey?: string;
+    generatedSlug?: string;
+  };
   PostWorkout: {
     workoutId?: string;
     libraryId?: string;

@@ -38,6 +38,8 @@ export type WeeklyPlanDay = {
   workoutId: string;
   libraryId?: string;
   workoutTitle: string;
+  workoutFocus?: string;
+  generatedSlug?: string;
   duration: number;
   formScore?: number;
   correctionCount?: number;
@@ -315,6 +317,25 @@ export function buildWeeklyPlan(
       };
     }
 
+    // AI-generated plan day
+    if (scheduled?.generatedSlug) {
+      return {
+        dayIndex,
+        dayName,
+        dateKey,
+        status,
+        workoutId: scheduled.workoutId ?? scheduled.generatedSlug,
+        generatedSlug: scheduled.generatedSlug,
+        workoutTitle: scheduled.workoutTitle ?? 'Workout',
+        workoutFocus: scheduled.workoutFocus ?? undefined,
+        duration:
+          scheduled.estimatedDuration ??
+          fallbackWorkout?.duration ??
+          5,
+        isRestDay: false,
+      };
+    }
+
     const workoutId =
       scheduled?.workoutId ?? fallbackWorkout?.id ?? DEFAULT_WORKOUT_ID;
     const libraryItem = scheduled?.libraryId
@@ -329,8 +350,14 @@ export function buildWeeklyPlan(
       status,
       workoutId,
       libraryId: scheduled?.libraryId ?? libraryItem?.id,
-      workoutTitle: libraryItem?.title ?? workout?.title ?? 'Workout',
-      duration: workout?.duration ?? 5,
+      workoutTitle:
+        scheduled?.workoutTitle ??
+        libraryItem?.title ??
+        workout?.title ??
+        'Workout',
+      workoutFocus: scheduled?.workoutFocus ?? undefined,
+      duration:
+        scheduled?.estimatedDuration ?? workout?.duration ?? 5,
       isRestDay: false,
     };
   });

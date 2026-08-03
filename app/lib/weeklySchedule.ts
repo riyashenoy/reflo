@@ -20,6 +20,11 @@ export type ScheduledDay = {
   libraryId: string | null;
   workoutId: string | null;
   isRestDay: boolean;
+  /** AI plan slug — when set, ClassDetail loads generatedWorkouts/{slug}. */
+  generatedSlug?: string | null;
+  workoutTitle?: string | null;
+  workoutFocus?: string | null;
+  estimatedDuration?: number | null;
 };
 
 export type WeeklySchedule = {
