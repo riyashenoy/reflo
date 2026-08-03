@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { FadeInView, PressableScale } from '../components/motion';
+import VoiceModeTag from '../components/VoiceModeTag';
 import { getWorkoutById, type Intensity } from '../data/workouts';
 import {
   DEMO_WORKOUT_ID,
@@ -160,6 +161,9 @@ export default function ClassDetail({ route, navigation }: Props) {
             ))}
           </View>
           <Text style={styles.title}>{displayTitle}</Text>
+          <View style={styles.voiceModeRow}>
+            <VoiceModeTag voiceMode={workout.voiceMode} />
+          </View>
           {description ? (
             <Text style={styles.description}>{description}</Text>
           ) : null}
@@ -334,6 +338,9 @@ const styles = StyleSheet.create({
     letterSpacing: scale(-1),
     lineHeight: scale(34),
     color: theme.colors.white,
+    marginBottom: scale(10),
+  },
+  voiceModeRow: {
     marginBottom: scale(10),
   },
   description: {

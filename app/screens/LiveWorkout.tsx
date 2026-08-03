@@ -17,6 +17,7 @@ import { Audio, type AVPlaybackStatus } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import CorrectionToast from '../components/CorrectionToast';
 import LiveWorkoutNativeCamera from '../components/LiveWorkoutNativeCamera';
 import { FadeSlideOverlay, PressableScale } from '../components/motion';
 import {
@@ -30,7 +31,12 @@ import {
   WorkoutVideoFrame,
   workoutBottomPanelStyles,
 } from '../components/workout/WorkoutChrome';
-import { getWorkoutById } from '../data/workouts';
+import {
+  getCorrectionMode,
+  getWorkoutById,
+  type CorrectionMode,
+  type VoiceMode,
+} from '../data/workouts';
 import {
   configureWorkoutAudioMode,
   preloadClipSounds,
@@ -121,16 +127,41 @@ function getClipForError(errorKey: string): string {
   return map[errorKey] ?? '01';
 }
 
+/** Human-readable form cues for the generated (TTS stub) path. */
+const GENERATED_CORRECTION_MESSAGES: Record<string, string> = {
+  hip_pike: 'Hips too high — lower into a straight line',
+  hip_sag: 'Hips dropping — lift through your core',
+  head_drop: 'Lift your head — keep the neck long',
+  arms_sinking: 'Arms sinking — press down with control',
+  knee_cave: 'Knees caving in — track over second toes',
+  heels_drop: 'Heels dropping — stay light on the balls of your feet',
+  rushing: 'Slow down — own each rep',
+  hip_break: 'Hips breaking — keep a long spine',
+  momentum: 'Less momentum — control the return',
+};
+
+const GENERATED_CORRECTION_INTERVAL_SEC = 15;
+
+function messageForError(errorKey: string): string {
+  return GENERATED_CORRECTION_MESSAGES[errorKey] ?? 'Check your form and reset';
+}
+
 function LiveWorkout({ route, navigation }: Props) {
   const { workoutId, libraryId, dateKey } = route.params ?? {};
   const workout = workoutId ? getWorkoutById(workoutId) : undefined;
   const insets = useSafeAreaInsets();
+
+  /** Single audio fork for the session (shared pose/UI). */
+  const voiceMode: VoiceMode = workout?.voiceMode ?? 'generated';
+  const correctionMode: CorrectionMode = getCorrectionMode(voiceMode);
+  const isRecordedVoice = voiceMode === 'recorded';
 
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [currentExercise, setCurrentExercise] = useState<PoseExercise>('none');
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [workoutStarted, setWorkoutStarted] = useState(false);
   const [readyUnlocked, setReadyUnlocked] = useState(false);
+  const [generatedToast, setGeneratedToast] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -143,6 +174,9 @@ function LiveWorkout({ route, navigation }: Props) {
   const lastClipEndTime = useRef(0);
   const prevProcessedSecondRef = useRef(-1);
   const hasNavigatedToPostWorkout = useRef(false);
+  /** Wall-clock start for generated sessions (no basetrack clock). */
+  const generatedStartedAtMsRef = useRef<number | null>(null);
+  const lastGeneratedCorrectionSecRef = useRef(-Infinity);
   const formData = useRef<FormAssessmentData>({
     errorCount: {},
     frameCount: 0,
@@ -312,6 +346,55 @@ function LiveWorkout({ route, navigation }: Props) {
     [queueClip]
   );
 
+  /**
+   * Generated voice path only — toast + log today; TTS later.
+   * // TODO: wire TTS here
+   */
+  const playGeneratedCorrection = useCallback((message: string) => {
+    console.log('[LiveWorkout] generated correction:', message);
+    // TODO: wire TTS here
+    setGeneratedToast(message);
+    sessionLog.current.push({
+      exercise: currentExerciseRef.current,
+      clipPlayed: 'generated',
+      timestamp: timerSecondsRef.current,
+      type: 'correction',
+    });
+  }, []);
+
+  const tryFireIntervalCorrection = useCallback(() => {
+    if (!isInFrameRef.current) {
+      return;
+    }
+
+    const t = timerSecondsRef.current;
+    if (t - lastGeneratedCorrectionSecRef.current < GENERATED_CORRECTION_INTERVAL_SEC) {
+      return;
+    }
+
+    const data = formData.current;
+    const totalFrames = data.frameCount;
+    if (totalFrames === 0) {
+      return;
+    }
+
+    const topError = Object.entries(data.errorCount).sort(
+      ([, a], [, b]) => b - a
+    )[0];
+    if (!topError) {
+      return;
+    }
+
+    const errorRatio = topError[1] / totalFrames;
+    if (errorRatio <= 0.3) {
+      return;
+    }
+
+    lastGeneratedCorrectionSecRef.current = t;
+    playGeneratedCorrection(messageForError(topError[0]));
+    formData.current = { errorCount: {}, frameCount: 0, goodFrames: 0 };
+  }, [playGeneratedCorrection]);
+
   const loadAndPlayBaseTrack = useCallback(async () => {
     await configureWorkoutAudioMode();
 
@@ -334,8 +417,19 @@ function LiveWorkout({ route, navigation }: Props) {
     prevProcessedSecondRef.current = -1;
     setShowOnboarding(false);
     setWorkoutStarted(true);
-    void loadAndPlayBaseTrack();
-  }, [loadAndPlayBaseTrack]);
+
+    // ── Audio fork ──────────────────────────────────────────────
+    if (isRecordedVoice) {
+      // recorded: basetrack + numbered clips (unchanged)
+      void loadAndPlayBaseTrack();
+    } else {
+      // generated: wall-clock session, no basetrack
+      generatedStartedAtMsRef.current = Date.now();
+      lastGeneratedCorrectionSecRef.current = -Infinity;
+      timerSecondsRef.current = 0;
+      setTimerSeconds(0);
+    }
+  }, [isRecordedVoice, loadAndPlayBaseTrack]);
 
   const skipToEnd = useCallback(async () => {
     if (!workout) {
@@ -351,6 +445,15 @@ function LiveWorkout({ route, navigation }: Props) {
 
     if (!workoutStarted) {
       setWorkoutStarted(true);
+    }
+
+    // Generated path: jump wall-clock near the end (no basetrack).
+    if (!isRecordedVoice) {
+      generatedStartedAtMsRef.current = Date.now() - skipSeconds * 1000;
+      timerSecondsRef.current = skipSeconds;
+      setTimerSeconds(skipSeconds);
+      prevProcessedSecondRef.current = skipSeconds - 1;
+      return;
     }
 
     if (!baseTrackRef.current) {
@@ -379,7 +482,7 @@ function LiveWorkout({ route, navigation }: Props) {
     setTimerSeconds(skipSeconds);
     prevProcessedSecondRef.current = skipSeconds - 1;
     setCurrentExercise('footwork_toes');
-  }, [workout, workoutStarted, loadAndPlayBaseTrack]);
+  }, [workout, workoutStarted, loadAndPlayBaseTrack, isRecordedVoice]);
 
   useEffect(() => {
     return () => {
@@ -401,8 +504,9 @@ function LiveWorkout({ route, navigation }: Props) {
     return () => clearTimeout(timeout);
   }, [workoutStarted]);
 
+  // ── Recorded path: basetrack clock + CORRECTION_WINDOWS (unchanged) ──
   useEffect(() => {
-    if (!workoutStarted) {
+    if (!workoutStarted || !isRecordedVoice) {
       return;
     }
 
@@ -455,7 +559,54 @@ function LiveWorkout({ route, navigation }: Props) {
     }, 500);
 
     return () => clearInterval(interval);
-  }, [workoutStarted, onWindowOpen]);
+  }, [workoutStarted, isRecordedVoice, onWindowOpen]);
+
+  // ── Generated path: wall clock + interval corrections (no windows) ──
+  useEffect(() => {
+    if (!workoutStarted || isRecordedVoice || !workout) {
+      return;
+    }
+
+    if (generatedStartedAtMsRef.current == null) {
+      generatedStartedAtMsRef.current = Date.now();
+    }
+
+    const trackDurationSeconds = getTrackDurationSeconds(workout);
+
+    const interval = setInterval(() => {
+      const startedAt = generatedStartedAtMsRef.current;
+      if (startedAt == null) {
+        return;
+      }
+
+      const t = Math.floor((Date.now() - startedAt) / 1000);
+      timerSecondsRef.current = t;
+      setTimerSeconds(t);
+
+      if (t >= trackDurationSeconds) {
+        navigateToPostWorkout();
+        return;
+      }
+
+      if (t === prevProcessedSecondRef.current) {
+        return;
+      }
+      prevProcessedSecondRef.current = t;
+
+      if (correctionMode === 'interval') {
+        tryFireIntervalCorrection();
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [
+    workoutStarted,
+    isRecordedVoice,
+    workout,
+    correctionMode,
+    tryFireIntervalCorrection,
+    navigateToPostWorkout,
+  ]);
 
   const handleBack = useCallback(() => {
     void baseTrackRef.current?.unloadAsync();
@@ -630,6 +781,13 @@ function LiveWorkout({ route, navigation }: Props) {
                     Step back so I can see your full body
                   </Text>
                 </View>
+              ) : null}
+
+              {!isRecordedVoice ? (
+                <CorrectionToast
+                  message={generatedToast}
+                  onDismiss={() => setGeneratedToast(null)}
+                />
               ) : null}
             </>
           }

@@ -22,6 +22,7 @@ import {
 import { getWorkoutById, type Workout } from '../data/workouts';
 import { FadeInView, PressableScale } from '../components/motion';
 import PushupLogo from '../components/PushupLogo';
+import VoiceModeTag from '../components/VoiceModeTag';
 import { useSavedWorkouts } from '../context/SavedWorkoutsContext';
 import {
   getHomeSessionStreakDays,
@@ -235,6 +236,9 @@ function UpNextHeroCard({
           <Text style={styles.heroMetaPrimary}>
             {workoutMeta.duration} MIN
           </Text>
+          <View style={styles.heroVoiceModeRow}>
+            <VoiceModeTag voiceMode={workoutMeta.voiceMode} />
+          </View>
           <Text style={styles.heroTitle}>{workout.title.toUpperCase()}</Text>
           <Text
             style={styles.heroDescription}
@@ -785,6 +789,9 @@ const styles = StyleSheet.create({
     fontSize: scale(11),
     color: 'rgba(255,255,255,0.7)',
     textTransform: 'uppercase',
+  },
+  heroVoiceModeRow: {
+    marginTop: scale(2),
   },
   heroDescription: {
     fontFamily: theme.fonts.body,

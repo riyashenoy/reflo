@@ -1,5 +1,11 @@
 export type Intensity = 'low' | 'medium' | 'high';
 
+/** How workout coach audio is sourced. */
+export type VoiceMode = 'recorded' | 'generated';
+
+/** How form corrections are paced during a class. */
+export type CorrectionMode = 'windowed' | 'interval';
+
 export interface Exercise {
   name: string;
   sets: number;
@@ -19,7 +25,16 @@ export interface Workout {
   intensity: Intensity;
   tags: string[];
   aiTracked: boolean;
+  /**
+   * `recorded` — polished basetrack + windowed clips.
+   * `generated` — AI / TTS path (stubbed; no basetrack yet).
+   */
+  voiceMode: VoiceMode;
   exercises: Exercise[];
+}
+
+export function getCorrectionMode(voiceMode: VoiceMode): CorrectionMode {
+  return voiceMode === 'recorded' ? 'windowed' : 'interval';
 }
 
 export const workouts: Workout[] = [
@@ -33,6 +48,7 @@ export const workouts: Workout[] = [
     intensity: 'medium',
     tags: ['Full Body', 'Flexibility', 'Pilates'],
     aiTracked: true,
+    voiceMode: 'recorded',
     exercises: [
       {
         name: 'The Hundred',
@@ -69,6 +85,7 @@ export const workouts: Workout[] = [
     intensity: 'medium',
     tags: ['flexibility', 'pilates'],
     aiTracked: true,
+    voiceMode: 'recorded',
     exercises: [
       {
         name: 'Spine Stretch Forward',
@@ -109,6 +126,7 @@ export const workouts: Workout[] = [
     intensity: 'high',
     tags: ['core', 'abs', 'pilates'],
     aiTracked: true,
+    voiceMode: 'generated',
     exercises: [
       {
         name: 'Double Leg Stretch',
@@ -149,6 +167,7 @@ export const workouts: Workout[] = [
     intensity: 'medium',
     tags: ['upper body', 'arms', 'shoulders'],
     aiTracked: false,
+    voiceMode: 'generated',
     exercises: [
       {
         name: 'Push Up',
@@ -189,6 +208,7 @@ export const workouts: Workout[] = [
     intensity: 'medium',
     tags: ['lower body', 'glutes', 'legs'],
     aiTracked: false,
+    voiceMode: 'generated',
     exercises: [
       {
         name: 'Bridge',
