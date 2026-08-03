@@ -17,7 +17,7 @@ export default function TabBarFade({
         styles.fade,
         {
           height,
-          backgroundImage: `linear-gradient(to bottom, rgba(243,243,243,0) 0%, rgba(243,243,243,0.12) 22%, rgba(243,243,243,0.32) 42%, rgba(243,243,243,0.58) 62%, rgba(243,243,243,0.82) 82%, ${theme.colors.background} 100%)`,
+          backgroundImage: `linear-gradient(to bottom, rgba(243,243,243,0) 0%, rgba(243,243,243,0.25) 18%, rgba(243,243,243,0.55) 36%, rgba(243,243,243,0.8) 55%, rgba(243,243,243,0.94) 75%, ${theme.colors.background} 100%)`,
         } as object,
       ]}
     />

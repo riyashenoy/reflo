@@ -10,14 +10,14 @@ type TabBarFadeProps = {
 
 const FADE_COLORS = [
   'rgba(243,243,243,0)',
-  'rgba(243,243,243,0.12)',
-  'rgba(243,243,243,0.32)',
-  'rgba(243,243,243,0.58)',
-  'rgba(243,243,243,0.82)',
+  'rgba(243,243,243,0.25)',
+  'rgba(243,243,243,0.55)',
+  'rgba(243,243,243,0.8)',
+  'rgba(243,243,243,0.94)',
   theme.colors.background,
 ] as const;
 
-const FADE_LOCATIONS = [0, 0.22, 0.42, 0.62, 0.82, 1] as const;
+const FADE_LOCATIONS = [0, 0.18, 0.36, 0.55, 0.75, 1] as const;
 
 export default function TabBarFade({
   height = TAB_BAR_FADE_HEIGHT,
