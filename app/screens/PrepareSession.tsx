@@ -13,13 +13,13 @@ import PushupLogo from '../components/PushupLogo';
 import { PressableScale } from '../components/motion';
 import { auth } from '../lib/firebase';
 import { fetchGeneratedWorkout } from '../lib/generatePlan';
-import { requestGeneratedVoice } from '../lib/generateVoice';
+import { getWorkoutAudio } from '../lib/generateVoice';
 import {
   getVoiceQuota,
   incrementVoiceQuotaOnSuccess,
   VOICE_GENERATIONS_PER_WEEK,
 } from '../lib/voiceQuota';
-import { peekVoiceSession } from '../lib/voiceSessionCache';
+import { hasVoiceSessionAudio } from '../lib/voiceSessionCache';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
 
@@ -85,8 +85,8 @@ export default function PrepareSession({ route, navigation }: Props) {
     setGate({ kind: 'loading' });
     setStatusIndex(0);
 
-    // Already prepared this session — skip re-TTS / quota.
-    if (peekVoiceSession(generatedSlug)?.clips.length) {
+    // In-memory hit: no quota, no network (same app session only)
+    if (hasVoiceSessionAudio(generatedSlug)) {
       navigation.replace('LiveWorkout', {
         generatedSlug,
         dateKey,
@@ -104,6 +104,8 @@ export default function PrepareSession({ route, navigation }: Props) {
     }
 
     try {
+      // FUTURE (storage cache): if workout.voiceAudioUrl is set, getWorkoutAudio
+      // returns source:'storage' and we skip quota here the same way as memory.
       const quota = await getVoiceQuota(uid);
       if (runId !== runIdRef.current) {
         return;
@@ -128,7 +130,8 @@ export default function PrepareSession({ route, navigation }: Props) {
         return;
       }
 
-      const voice = await requestGeneratedVoice(workout);
+      // Single entry point — cache layers live inside getWorkoutAudio
+      const voice = await getWorkoutAudio(workout);
       if (runId !== runIdRef.current) {
         return;
       }
@@ -142,12 +145,14 @@ export default function PrepareSession({ route, navigation }: Props) {
         return;
       }
 
-      // Meter only on success — failures never increment.
-      try {
-        await incrementVoiceQuotaOnSuccess(uid);
-      } catch (error) {
-        console.warn('[PrepareSession] quota increment failed:', error);
-        // Voice already generated; continue into the session.
+      // Meter only on a real network generation — memory/storage hits free
+      if (voice.source === 'network') {
+        try {
+          await incrementVoiceQuotaOnSuccess(uid);
+        } catch (error) {
+          console.warn('[PrepareSession] quota increment failed:', error);
+          // Voice already generated; continue into the session.
+        }
       }
 
       if (runId !== runIdRef.current) {

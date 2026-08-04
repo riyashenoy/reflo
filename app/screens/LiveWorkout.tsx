@@ -47,7 +47,6 @@ import {
   type GeneratedWorkoutDoc,
 } from '../lib/generatePlan';
 import {
-  clearVoiceSession,
   peekVoiceSession,
   type VoiceSessionPayload,
 } from '../lib/voiceSessionCache';
@@ -248,6 +247,9 @@ function LiveWorkout({ route, navigation }: Props) {
   const firedCorrectionWindowsRef = useRef<Set<string>>(new Set());
   const cueClipPlayingRef = useRef(false);
   const activeCueSoundRef = useRef<Audio.Sound | null>(null);
+  /** Preloaded TTS cues — required so web autoplay works after Ready. */
+  const generatedCueSoundsRef = useRef<Record<string, Audio.Sound>>({});
+  const generatedCuesPreloadRef = useRef<Promise<void> | null>(null);
 
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [currentExercise, setCurrentExercise] = useState<PoseExercise>('none');
@@ -307,10 +309,6 @@ function LiveWorkout({ route, navigation }: Props) {
     }
 
     hasNavigatedToPostWorkout.current = true;
-    // Session complete — free cached clips so next visit re-generates if needed.
-    if (generatedSlug) {
-      clearVoiceSession(generatedSlug);
-    }
     navigation.navigate('PostWorkout', {
       workoutId: resolvedId,
       libraryId,
@@ -534,56 +532,215 @@ function LiveWorkout({ route, navigation }: Props) {
     });
   }, [navigateToPostWorkout]);
 
-  const playTimelineCue = useCallback(async (uri: string) => {
-    try {
-      await configureWorkoutAudioMode();
-      if (activeCueSoundRef.current) {
+  const unloadGeneratedCueSounds = useCallback(async () => {
+    const sounds = Object.values(generatedCueSoundsRef.current);
+    generatedCueSoundsRef.current = {};
+    activeCueSoundRef.current = null;
+    cueClipPlayingRef.current = false;
+    await Promise.all(
+      sounds.map(async (sound) => {
         try {
-          await activeCueSoundRef.current.stopAsync();
-          await activeCueSoundRef.current.unloadAsync();
+          await sound.stopAsync();
         } catch {
           // ignore
         }
-        activeCueSoundRef.current = null;
+        try {
+          await sound.unloadAsync();
+        } catch {
+          // ignore
+        }
+      })
+    );
+  }, []);
+
+  /** Load any missing cue sounds without interrupting ones already playing. */
+  const preloadGeneratedCueSounds = useCallback(
+    async (session: VoiceSessionPayload) => {
+      await configureWorkoutAudioMode();
+
+      await Promise.all(
+        session.clips.map(async (clip) => {
+          if (generatedCueSoundsRef.current[clip.key]) {
+            return;
+          }
+          try {
+            const { sound } = await Audio.Sound.createAsync(
+              { uri: clip.uri },
+              { shouldPlay: false, volume: 1.0 }
+            );
+            // Another concurrent load may have won
+            if (generatedCueSoundsRef.current[clip.key]) {
+              try {
+                await sound.unloadAsync();
+              } catch {
+                // ignore
+              }
+              return;
+            }
+            generatedCueSoundsRef.current[clip.key] = sound;
+          } catch (error) {
+            console.warn(
+              `[LiveWorkout] failed to preload cue ${clip.key}:`,
+              error
+            );
+          }
+        })
+      );
+
+      console.log(
+        '[LiveWorkout] preloaded generated cues:',
+        Object.keys(generatedCueSoundsRef.current)
+      );
+    },
+    []
+  );
+
+  const playGeneratedCue = useCallback(async (key: string, uri: string) => {
+    try {
+      await configureWorkoutAudioMode();
+
+      // Stop any other cue mid-flight
+      if (
+        activeCueSoundRef.current &&
+        generatedCueSoundsRef.current[key] !== activeCueSoundRef.current
+      ) {
+        try {
+          await activeCueSoundRef.current.stopAsync();
+          await activeCueSoundRef.current.setPositionAsync(0);
+        } catch {
+          // ignore
+        }
+      }
+
+      let sound = generatedCueSoundsRef.current[key] ?? null;
+      if (!sound) {
+        const created = await Audio.Sound.createAsync(
+          { uri },
+          { shouldPlay: false, volume: 1.0 }
+        );
+        sound = created.sound;
+        generatedCueSoundsRef.current[key] = sound;
       }
 
       cueClipPlayingRef.current = true;
-      const { sound } = await Audio.Sound.createAsync(
-        { uri },
-        { shouldPlay: true, volume: 1.0 }
-      );
       activeCueSoundRef.current = sound;
 
       sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
         if (status.isLoaded && status.didJustFinish) {
           cueClipPlayingRef.current = false;
-          void sound.unloadAsync();
           if (activeCueSoundRef.current === sound) {
             activeCueSoundRef.current = null;
           }
         }
       });
+
+      await sound.setPositionAsync(0);
+      const status = await sound.playAsync();
+      if (!status.isLoaded || status.isPlaying !== true) {
+        // Fallback play attempt (web can need a second try after unlock)
+        await sound.playAsync();
+      }
+      console.log('[LiveWorkout] playing cue', key);
     } catch (error) {
-      console.warn('[LiveWorkout] cue play failed:', error);
+      console.warn('[LiveWorkout] cue play failed:', key, error);
       cueClipPlayingRef.current = false;
     }
   }, []);
 
-  /** Start generated timeline clock — cues schedule against elapsed seconds. */
-  const startGeneratedTimeline = useCallback(() => {
+  /** Start wall-clock timeline and fire intro immediately (user-gesture safe). */
+  const startGeneratedTimeline = useCallback(async () => {
     if (generatedSlug) {
       voiceSessionRef.current =
         peekVoiceSession(generatedSlug) ?? voiceSessionRef.current;
     }
+
+    const session = voiceSessionRef.current;
+    if (!session?.clips.length) {
+      console.warn(
+        '[LiveWorkout] no voice session — generated timeline has no audio'
+      );
+      playedCueKeysRef.current = new Set();
+      firedCorrectionWindowsRef.current = new Set();
+      lastGeneratedCorrectionSecRef.current = -Infinity;
+      generatedStartedAtMsRef.current = Date.now();
+      timerSecondsRef.current = 0;
+      prevProcessedSecondRef.current = -1;
+      setTimerSeconds(0);
+      setCurrentExercise(firstTrackedPose());
+      return;
+    }
+
+    await configureWorkoutAudioMode();
+
+    // Don't block on full preload (breaks web autoplay gesture window).
+    // Prefer in-flight preload; ensure first cue loads next if needed.
+    if (generatedCuesPreloadRef.current) {
+      try {
+        await Promise.race([
+          generatedCuesPreloadRef.current,
+          new Promise<void>((resolve) => {
+            setTimeout(resolve, 80);
+          }),
+        ]);
+      } catch {
+        // continue — playGeneratedCue will load on demand
+      }
+    }
+
     playedCueKeysRef.current = new Set();
     firedCorrectionWindowsRef.current = new Set();
     lastGeneratedCorrectionSecRef.current = -Infinity;
     generatedStartedAtMsRef.current = Date.now();
     timerSecondsRef.current = 0;
+    prevProcessedSecondRef.current = -1;
     setTimerSeconds(0);
     setCurrentExercise(firstTrackedPose());
-    void configureWorkoutAudioMode();
-  }, [firstTrackedPose, generatedSlug]);
+
+    // Play the first due cue in the Ready tap path (unlocks web audio)
+    const firstClip =
+      session.clips.find((clip) => Math.floor(clip.start) <= 0) ??
+      session.clips[0];
+    if (firstClip) {
+      playedCueKeysRef.current.add(firstClip.key);
+      await playGeneratedCue(firstClip.key, firstClip.uri);
+    }
+
+    // Finish loading the rest in background if still incomplete
+    if (
+      Object.keys(generatedCueSoundsRef.current).length < session.clips.length
+    ) {
+      const task = preloadGeneratedCueSounds(session);
+      generatedCuesPreloadRef.current = task;
+      void task;
+    }
+  }, [
+    firstTrackedPose,
+    generatedSlug,
+    playGeneratedCue,
+    preloadGeneratedCueSounds,
+  ]);
+
+  // Preload TTS while onboarding so Ready can play immediately
+  useEffect(() => {
+    if (isRecordedVoice || !generatedSlug) {
+      return;
+    }
+
+    const session =
+      peekVoiceSession(generatedSlug) ?? voiceSessionRef.current;
+    if (!session?.clips.length) {
+      return;
+    }
+    voiceSessionRef.current = session;
+
+    const task = preloadGeneratedCueSounds(session);
+    generatedCuesPreloadRef.current = task;
+    void task;
+
+    return () => {
+      // Sounds unloaded on full screen teardown only
+    };
+  }, [generatedSlug, isRecordedVoice, preloadGeneratedCueSounds]);
 
   const handleReady = useCallback(() => {
     prevProcessedSecondRef.current = -1;
@@ -596,7 +753,7 @@ function LiveWorkout({ route, navigation }: Props) {
       void loadAndPlayBaseTrack();
     } else {
       // generated: timed timeline + scheduled cue clips
-      startGeneratedTimeline();
+      void startGeneratedTimeline();
     }
   }, [isRecordedVoice, loadAndPlayBaseTrack, startGeneratedTimeline]);
 
@@ -620,7 +777,7 @@ function LiveWorkout({ route, navigation }: Props) {
       const skipSeconds = Math.max(0, Math.floor(total - SKIP_TAIL_SECONDS));
 
       if (generatedStartedAtMsRef.current == null) {
-        startGeneratedTimeline();
+        await startGeneratedTimeline();
       }
       generatedStartedAtMsRef.current = Date.now() - skipSeconds * 1000;
       timerSecondsRef.current = skipSeconds;
@@ -647,7 +804,7 @@ function LiveWorkout({ route, navigation }: Props) {
       if (activeCueSoundRef.current) {
         try {
           await activeCueSoundRef.current.stopAsync();
-          await activeCueSoundRef.current.unloadAsync();
+          await activeCueSoundRef.current.setPositionAsync(0);
         } catch {
           // ignore
         }
@@ -703,13 +860,10 @@ function LiveWorkout({ route, navigation }: Props) {
       void baseTrackRef.current?.unloadAsync();
       void unloadClipSounds(clipSoundsRef.current);
       clipSoundsRef.current = {};
-      if (activeCueSoundRef.current) {
-        void activeCueSoundRef.current.unloadAsync();
-        activeCueSoundRef.current = null;
-      }
-      // Keep generated clips cached when backing out so ClassDetail can show BEGIN.
+      void unloadGeneratedCueSounds();
+      // Keep generated clip URIs cached when backing out so ClassDetail shows BEGIN.
     };
-  }, []);
+  }, [unloadGeneratedCueSounds]);
 
   useEffect(() => {
     if (!workoutStarted || Platform.OS === 'web') {
@@ -786,16 +940,19 @@ function LiveWorkout({ route, navigation }: Props) {
       return;
     }
 
-    if (generatedStartedAtMsRef.current == null) {
-      generatedStartedAtMsRef.current = Date.now();
+    const session =
+      voiceSessionRef.current ??
+      (generatedSlug ? peekVoiceSession(generatedSlug) : null);
+    if (session) {
+      voiceSessionRef.current = session;
     }
 
-    const session = voiceSessionRef.current;
     const totalDuration =
       session?.totalDurationSeconds ?? getTrackDurationSeconds(workout);
 
     const interval = setInterval(() => {
       const startedAt = generatedStartedAtMsRef.current;
+      // Wait until Ready finished starting the timeline (avoids double-start race)
       if (startedAt == null) {
         return;
       }
@@ -818,18 +975,20 @@ function LiveWorkout({ route, navigation }: Props) {
       // Schedule cue clips at their cueStart (silent work between them)
       if (session) {
         for (const clip of session.clips) {
-          if (
-            t >= Math.floor(clip.start) &&
-            !playedCueKeysRef.current.has(clip.key)
-          ) {
-            // Only start if we're still near the planned start (skip past)
-            if (t <= Math.floor(clip.start) + 1) {
-              playedCueKeysRef.current.add(clip.key);
-              void playTimelineCue(clip.uri);
-            } else {
-              // Past due after skip — don't flood
-              playedCueKeysRef.current.add(clip.key);
-            }
+          if (playedCueKeysRef.current.has(clip.key)) {
+            continue;
+          }
+          const startSec = Math.floor(clip.start);
+          if (t < startSec) {
+            continue;
+          }
+          // Grace: play if within a few seconds of cueStart (skip large jumps)
+          if (t - startSec <= 3) {
+            playedCueKeysRef.current.add(clip.key);
+            void playGeneratedCue(clip.key, clip.uri);
+          } else {
+            // Past due after skip — don't flood
+            playedCueKeysRef.current.add(clip.key);
           }
         }
 
@@ -863,15 +1022,16 @@ function LiveWorkout({ route, navigation }: Props) {
           }
         }
       }
-    }, 250);
+    }, 200);
 
     return () => clearInterval(interval);
   }, [
     workoutStarted,
     isRecordedVoice,
     workout,
+    generatedSlug,
     navigateToPostWorkout,
-    playTimelineCue,
+    playGeneratedCue,
     fireGeneratedWindowCorrection,
   ]);
 

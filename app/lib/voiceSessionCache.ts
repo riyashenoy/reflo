@@ -3,8 +3,11 @@ import { Platform } from 'react-native';
 import type { TimelineSegment, WorkoutTimeline } from './workoutTimeline';
 
 /**
- * In-memory handoff: PrepareSession → LiveWorkout.
- * Holds timed TTS clips + the session timeline (not a glued single track).
+ * In-memory audio for generated workouts (this app session only).
+ * Keyed by workout slug so multiple workouts can stay warm without Storage.
+ *
+ * FUTURE (Firebase Storage / Blaze): durable clips behind `voiceAudioUrl` on the
+ * workout doc — hydrate into this cache via getWorkoutAudio, leave callers alone.
  */
 
 export type VoiceClip = {
@@ -23,7 +26,8 @@ export type VoiceSessionPayload = {
   totalDurationSeconds: number;
 };
 
-let cached: VoiceSessionPayload | null = null;
+/** slug → prepared voice session (survives leave/replay until app restarts). */
+const sessionsBySlug = new Map<string, VoiceSessionPayload>();
 
 /** Decode base64 mp3 to a playable URI (blob on web, data URI on native). */
 export function base64AudioToUri(base64: string, format = 'mp3'): string {
@@ -50,31 +54,46 @@ function revokeUri(uri: string) {
   }
 }
 
+function disposePayload(payload: VoiceSessionPayload) {
+  payload.clips.forEach((c) => revokeUri(c.uri));
+}
+
 export function setVoiceSession(payload: VoiceSessionPayload): void {
-  if (cached) {
-    cached.clips.forEach((c) => revokeUri(c.uri));
+  const previous = sessionsBySlug.get(payload.generatedSlug);
+  if (previous && previous !== payload) {
+    disposePayload(previous);
   }
-  cached = payload;
+  sessionsBySlug.set(payload.generatedSlug, payload);
 }
 
 export function peekVoiceSession(
   generatedSlug: string
 ): VoiceSessionPayload | null {
-  if (!cached || cached.generatedSlug !== generatedSlug) {
-    return null;
-  }
-  return cached;
+  return sessionsBySlug.get(generatedSlug) ?? null;
 }
 
+/** True when this slug has playable clips in the in-memory session cache. */
+export function hasVoiceSessionAudio(generatedSlug: string): boolean {
+  const session = sessionsBySlug.get(generatedSlug);
+  return Boolean(session && session.clips.length > 0);
+}
+
+/**
+ * Drop one slug (or all). Rarely needed — prefer keeping sessions for in-session
+ * replays without re-charging quota. Call only when intentionally invalidating.
+ */
 export function clearVoiceSession(generatedSlug?: string): void {
-  if (!cached) {
+  if (generatedSlug) {
+    const existing = sessionsBySlug.get(generatedSlug);
+    if (existing) {
+      disposePayload(existing);
+      sessionsBySlug.delete(generatedSlug);
+    }
     return;
   }
-  if (generatedSlug && cached.generatedSlug !== generatedSlug) {
-    return;
-  }
-  cached.clips.forEach((c) => revokeUri(c.uri));
-  cached = null;
+
+  sessionsBySlug.forEach((payload) => disposePayload(payload));
+  sessionsBySlug.clear();
 }
 
 export type { TimelineSegment, WorkoutTimeline };

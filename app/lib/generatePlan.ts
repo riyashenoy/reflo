@@ -1,4 +1,11 @@
-import { doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  writeBatch,
+} from 'firebase/firestore';
 
 import {
   getExerciseById,
@@ -69,6 +76,12 @@ export type GeneratedWorkoutDoc = {
   estimatedDuration: number;
   exercises: ResolvedGeneratedExercise[];
   createdAt: string;
+  /**
+   * FUTURE (Blaze + Firebase Storage): durable voice URL after TTS.
+   * When set, getWorkoutAudio can hydrate without re-calling /api/generate-voice.
+   * Not written today — free Spark plan has no Storage.
+   */
+  voiceAudioUrl?: string;
 };
 
 export type FirestoreWeeklyPlan = {
@@ -451,6 +464,26 @@ export async function fetchGeneratedWorkout(
     return null;
   }
   return snap.data() as GeneratedWorkoutDoc;
+}
+
+/**
+ * All AI/generated workouts for a user (reusable beyond the current calendar week).
+ * Newest first by createdAt when present.
+ */
+export async function fetchAllGeneratedWorkouts(
+  uid: string
+): Promise<GeneratedWorkoutDoc[]> {
+  const snap = await getDocs(
+    collection(db, 'users', uid, 'generatedWorkouts')
+  );
+
+  const workouts = snap.docs.map((d) => d.data() as GeneratedWorkoutDoc);
+
+  return workouts.sort((a, b) => {
+    const ta = Date.parse(a.createdAt || '') || 0;
+    const tb = Date.parse(b.createdAt || '') || 0;
+    return tb - ta;
+  });
 }
 
 /** Map firestore schedule → local calendar schedule rows. */

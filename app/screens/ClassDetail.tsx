@@ -417,7 +417,12 @@ export default function ClassDetail({ route, navigation }: Props) {
         ]}
       >
         <PressableScale
-          style={styles.beginButton}
+          style={[
+            styles.beginButton,
+            display.isGenerated && !voiceReady
+              ? styles.generateButton
+              : null,
+          ]}
           onPress={() => {
             const dateKey = toDateKey(new Date());
             if (display.isGenerated) {
@@ -694,6 +699,9 @@ const styles = StyleSheet.create({
     borderRadius: scale(4),
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  generateButton: {
+    backgroundColor: theme.colors.teal,
   },
   beginButtonText: {
     fontFamily: theme.fonts.label,

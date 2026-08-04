@@ -29,6 +29,10 @@ import {
   useSessions,
 } from '../hooks/useSessions';
 import { auth } from '../lib/firebase';
+import {
+  fetchAllGeneratedWorkouts,
+  type GeneratedWorkoutDoc,
+} from '../lib/generatePlan';
 import { fetchUserProfile } from '../lib/userProfile';
 import type { HomeStreakDay } from '../lib/workoutHistory';
 import { useLayoutWidth } from '../hooks/useLayoutWidth';
@@ -327,6 +331,88 @@ function WorkoutCard({
   );
 }
 
+function GeneratedWorkoutCard({
+  workout,
+  width,
+  onPress,
+}: {
+  workout: GeneratedWorkoutDoc;
+  width: number;
+  onPress: () => void;
+}) {
+  const focusLabel = workout.focus
+    ? workout.focus.replace(/-/g, ' ').toUpperCase()
+    : 'AI CLASS';
+
+  return (
+    <PressableScale
+      style={[styles.generatedCard, { width }]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${workout.title} generated workout`}
+    >
+      <View style={styles.generatedCardTop}>
+        <Text style={styles.generatedDuration}>
+          {workout.estimatedDuration} MIN
+        </Text>
+        <View style={styles.generatedAiPill}>
+          <Text style={styles.generatedAiPillText}>AI</Text>
+        </View>
+      </View>
+      <Text style={styles.generatedTitle} numberOfLines={2}>
+        {workout.title.toUpperCase()}
+      </Text>
+      <Text style={styles.generatedMeta} numberOfLines={1}>
+        {focusLabel}
+      </Text>
+    </PressableScale>
+  );
+}
+
+function GeneratedWorkoutsSection({
+  workouts,
+  cardWidth,
+  onPress,
+}: {
+  workouts: GeneratedWorkoutDoc[];
+  cardWidth: number;
+  onPress: (slug: string) => void;
+}) {
+  if (workouts.length === 0) {
+    return null;
+  }
+
+  const rows: GeneratedWorkoutDoc[][] = [];
+  for (let i = 0; i < workouts.length; i += 2) {
+    rows.push(workouts.slice(i, i + 2));
+  }
+
+  return (
+    <View style={styles.generatedSection}>
+      <View style={styles.libraryHeaderRow}>
+        <Text style={styles.sectionHeading}>Your generated workouts</Text>
+      </View>
+      <View style={styles.sectionRule} />
+      <Text style={styles.generatedSectionSub}>
+        Repeat any class anytime — not just this week&apos;s plan
+      </Text>
+      {rows.map((row, rowIndex) => (
+        <View key={`gen-row-${rowIndex}`} style={styles.cardRow}>
+          {row.map((item) => (
+            <GeneratedWorkoutCard
+              key={item.slug}
+              workout={item}
+              width={cardWidth}
+              onPress={() => onPress(item.slug)}
+            />
+          ))}
+          {row.length === 1 ? <View style={{ width: cardWidth }} /> : null}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function WorkoutGrid({
   filter,
   cardWidth,
@@ -407,6 +493,9 @@ export default function Home() {
   const [incomingFilter, setIncomingFilter] = useState<string | null>(null);
   const [transitionDirection, setTransitionDirection] = useState<1 | -1>(1);
   const [, setFirstName] = useState<string | null>(null);
+  const [generatedWorkouts, setGeneratedWorkouts] = useState<
+    GeneratedWorkoutDoc[]
+  >([]);
   const transitionProgress = useRef(new Animated.Value(1)).current;
   const isAnimatingFilter = useRef(false);
 
@@ -446,7 +535,29 @@ export default function Home() {
         }
       };
 
+      const loadGenerated = async () => {
+        const uid = auth.currentUser?.uid;
+        if (!uid) {
+          if (!cancelled) {
+            setGeneratedWorkouts([]);
+          }
+          return;
+        }
+        try {
+          const list = await fetchAllGeneratedWorkouts(uid);
+          if (!cancelled) {
+            setGeneratedWorkouts(list);
+          }
+        } catch (error) {
+          console.warn('[Home] generated workouts load failed:', error);
+          if (!cancelled) {
+            setGeneratedWorkouts([]);
+          }
+        }
+      };
+
       void loadProfile();
+      void loadGenerated();
 
       return () => {
         cancelled = true;
@@ -457,6 +568,13 @@ export default function Home() {
   const handleWorkoutPress = useCallback(
     (libraryId: string) => {
       navigation.navigate('ClassDetail', { libraryId });
+    },
+    [navigation]
+  );
+
+  const handleGeneratedPress = useCallback(
+    (slug: string) => {
+      navigation.navigate('ClassDetail', { generatedSlug: slug });
     },
     [navigation]
   );
@@ -553,6 +671,12 @@ export default function Home() {
           />
         ) : null}
 
+        <GeneratedWorkoutsSection
+          workouts={generatedWorkouts}
+          cardWidth={cardWidth}
+          onPress={handleGeneratedPress}
+        />
+
         <View style={styles.librarySection}>
           <View style={styles.libraryHeaderRow}>
             <Text style={styles.sectionHeading}>Workout library</Text>
@@ -577,7 +701,10 @@ export default function Home() {
       </View>
     ),
     [
+      cardWidth,
+      generatedWorkouts,
       handleFilterPress,
+      handleGeneratedPress,
       handleWorkoutPress,
       heroWorkoutMeta,
       selectedFilter,
@@ -817,6 +944,66 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
   },
   librarySection: {},
+  generatedSection: {
+    gap: scale(12),
+  },
+  generatedSectionSub: {
+    fontFamily: theme.fonts.body,
+    fontSize: scale(12),
+    lineHeight: scale(17),
+    color: theme.colors.textMuted,
+    marginTop: scale(-4),
+    marginBottom: scale(4),
+  },
+  generatedCard: {
+    backgroundColor: theme.colors.white,
+    borderRadius: scale(4),
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    padding: scale(12),
+    minHeight: scale(120),
+    justifyContent: 'space-between',
+    gap: scale(8),
+  },
+  generatedCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  generatedDuration: {
+    fontFamily: theme.fonts.label,
+    fontSize: scale(9),
+    letterSpacing: scale(1),
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+  },
+  generatedAiPill: {
+    backgroundColor: theme.colors.teal,
+    borderRadius: scale(2),
+    paddingHorizontal: scale(6),
+    paddingVertical: scale(2),
+  },
+  generatedAiPillText: {
+    fontFamily: theme.fonts.label,
+    fontSize: scale(8),
+    letterSpacing: scale(0.8),
+    color: theme.colors.dark,
+    textTransform: 'uppercase',
+  },
+  generatedTitle: {
+    fontFamily: theme.fonts.header,
+    fontSize: scale(15),
+    lineHeight: scale(18),
+    letterSpacing: scale(-0.3),
+    color: theme.colors.textPrimary,
+  },
+  generatedMeta: {
+    fontFamily: theme.fonts.label,
+    fontSize: scale(9),
+    letterSpacing: scale(0.8),
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+  },
   libraryHeaderRow: {
     flexDirection: 'row',
     alignItems: 'baseline',

@@ -1,8 +1,11 @@
 import type { GeneratedWorkoutDoc } from './generatePlan';
 import {
   base64AudioToUri,
+  hasVoiceSessionAudio,
+  peekVoiceSession,
   setVoiceSession,
   type VoiceClip,
+  type VoiceSessionPayload,
 } from './voiceSessionCache';
 import type { WorkoutTimeline } from './workoutTimeline';
 
@@ -17,10 +20,26 @@ export type GenerateVoiceResult =
   | { ok: false; error: string };
 
 /**
- * POST workout to /api/generate-voice.
- * Decodes timed clips + timeline into the voice session cache for LiveWorkout.
+ * Where the audio came from. Callers use this for quota:
+ * charge only when `source === 'network'`.
  */
-export async function requestGeneratedVoice(
+export type WorkoutAudioSource = 'memory' | 'network' | 'storage';
+
+export type WorkoutAudioResult =
+  | {
+      ok: true;
+      source: WorkoutAudioSource;
+      session: VoiceSessionPayload;
+      timeline: WorkoutTimeline;
+      totalDurationSeconds: number;
+    }
+  | { ok: false; error: string; source?: WorkoutAudioSource };
+
+/**
+ * Low-level TTS network call. Prefer {@link getWorkoutAudio} from UI code.
+ * Writes the resulting clips into the in-memory session cache.
+ */
+export async function generateVoice(
   workout: GeneratedWorkoutDoc
 ): Promise<GenerateVoiceResult> {
   const controller =
@@ -125,4 +144,68 @@ export async function requestGeneratedVoice(
       clearTimeout(timeoutId);
     }
   }
+}
+
+/** @deprecated Use {@link generateVoice} or {@link getWorkoutAudio}. */
+export const requestGeneratedVoice = generateVoice;
+
+/**
+ * Single entry point for preparing playable voice for a generated workout.
+ *
+ * Callers (PrepareSession, etc.) should use this only — never call TTS APIs
+ * directly — so durable caching can drop in without a rewrite.
+ *
+ * TODO — durable audio cache (not implemented):
+ * - Requires Firebase Storage (Blaze plan) + a `voiceAudioUrl` (and related
+ *   metadata) on `users/{uid}/generatedWorkouts/{slug}`.
+ * - Flow: if doc.voiceAudioUrl is set, download/hydrate clips into the session
+ *   cache and return `{ source: 'storage' }` without calling /api/generate-voice
+ *   and without incrementing voice quota.
+ * - Do not add Storage or change billing until product explicitly enables it.
+ *
+ * Today:
+ * 1) In-memory session cache by slug (replays in same app session, free of quota)
+ * 2) Else always generate fresh via network
+ */
+export async function getWorkoutAudio(
+  workout: GeneratedWorkoutDoc
+): Promise<WorkoutAudioResult> {
+  // FUTURE: if (workout.voiceAudioUrl) { hydrate → return source: 'storage' }
+
+  // In-memory only (this browser/app process) — no Blaze plan needed
+  if (hasVoiceSessionAudio(workout.slug)) {
+    const session = peekVoiceSession(workout.slug);
+    if (session?.clips.length) {
+      return {
+        ok: true,
+        source: 'memory',
+        session,
+        timeline: session.timeline,
+        totalDurationSeconds: session.totalDurationSeconds,
+      };
+    }
+  }
+
+  // Always generate fresh when nothing is warm yet
+  const generated = await generateVoice(workout);
+  if (!generated.ok) {
+    return { ok: false, error: generated.error, source: 'network' };
+  }
+
+  const session = peekVoiceSession(workout.slug);
+  if (!session) {
+    return {
+      ok: false,
+      error: 'Voice generated but session cache missing',
+      source: 'network',
+    };
+  }
+
+  return {
+    ok: true,
+    source: 'network',
+    session,
+    timeline: generated.timeline,
+    totalDurationSeconds: generated.totalDurationSeconds,
+  };
 }
