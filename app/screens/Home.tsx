@@ -41,8 +41,16 @@ import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
 import type { AppStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
 
-const FILTERS = ['Saved', 'Full Body', 'Upper Body', 'Lower Body', 'Core'] as const;
+const FILTERS = [
+  'Saved',
+  'Yours',
+  'Full Body',
+  'Upper Body',
+  'Lower Body',
+  'Core',
+] as const;
 const SAVED_FILTER = 'Saved';
+const YOURS_FILTER = 'Yours';
 const HORIZONTAL_PADDING = scale(20);
 const SECTION_GAP = scale(32);
 const CARD_GAP = scale(12);
@@ -52,6 +60,43 @@ const HERO_WORKOUT = libraryWorkouts[0];
 /** Hero uses cover1; Full Body Burn card uses cover6 so they don’t match. */
 const HERO_COVER = require('../../assets/images/cover/cover1.jpg');
 const SCROLL_BOTTOM_PADDING = scale(140);
+
+/** Same cover set as the library so AI classes match the grid look. */
+const LIBRARY_COVERS = [
+  require('../../assets/images/cover/cover2.jpg'),
+  require('../../assets/images/cover/cover3.jpg'),
+  require('../../assets/images/cover/cover4.jpg'),
+  require('../../assets/images/cover/cover5.jpg'),
+  require('../../assets/images/cover/cover6.jpg'),
+] as const;
+
+function coverForSlug(slug: string) {
+  let hash = 0;
+  for (let i = 0; i < slug.length; i += 1) {
+    hash = (hash + slug.charCodeAt(i) * (i + 1)) % LIBRARY_COVERS.length;
+  }
+  return LIBRARY_COVERS[hash];
+}
+
+function intensityToDifficulty(
+  intensity: GeneratedWorkoutDoc['intensity']
+): 1 | 2 | 3 {
+  if (intensity === 'high') {
+    return 3;
+  }
+  if (intensity === 'low') {
+    return 1;
+  }
+  return 2;
+}
+
+function focusDescription(workout: GeneratedWorkoutDoc): string {
+  if (!workout.focus) {
+    return 'Your AI-generated class — ready whenever you are.';
+  }
+  const focus = workout.focus.replace(/-/g, ' ');
+  return `Focus: ${focus}. Generated plan class you can repeat anytime.`;
+}
 
 function getFilterIndex(filter: string): number {
   return FILTERS.indexOf(filter as (typeof FILTERS)[number]);
@@ -86,7 +131,7 @@ function buildGridWorkouts(
   filter: string,
   minItems = GRID_MIN_ITEMS
 ): GridLibraryWorkout[] {
-  if (filter === SAVED_FILTER) {
+  if (filter === SAVED_FILTER || filter === YOURS_FILTER) {
     return items.map((workout, index) => ({
       ...workout,
       gridKey: `${filter}-${workout.id}-${index}`,
@@ -181,7 +226,7 @@ function FilterPill({
   isActive: boolean;
   onPress: () => void;
 }) {
-  const isSaved = label === SAVED_FILTER;
+  const isAccent = label === SAVED_FILTER || label === YOURS_FILTER;
 
   return (
     <Pressable
@@ -195,7 +240,7 @@ function FilterPill({
           isActive
             ? [
                 styles.filterTabActive,
-                isSaved && styles.filterTabActiveSaved,
+                isAccent && styles.filterTabActiveSaved,
               ]
             : undefined
         }
@@ -267,27 +312,33 @@ function UpNextHeroCard({
 }
 
 function WorkoutCard({
-  workout,
+  title,
+  description,
+  durationMin,
+  difficulty,
+  coverImage,
   width,
   onPress,
   showSavedStar = false,
   onToggleSaved,
 }: {
-  workout: LibraryWorkout;
+  title: string;
+  description: string;
+  durationMin: number;
+  difficulty: 1 | 2 | 3;
+  coverImage: LibraryWorkout['coverImage'];
   width: number;
   onPress: () => void;
   showSavedStar?: boolean;
   onToggleSaved?: () => void;
 }) {
-  const workoutMeta = getWorkoutById(workout.workoutId);
-
   return (
     <View style={[styles.workoutCard, { width }]}>
       <View style={styles.cardImageWrap} pointerEvents="box-none">
         <PressableScale style={styles.cardImagePressable} onPress={onPress}>
           <View style={styles.cardImageFrame}>
             <Image
-              source={workout.coverImage}
+              source={coverImage}
               style={styles.cardImage}
               resizeMode="cover"
             />
@@ -308,22 +359,16 @@ function WorkoutCard({
       <PressableScale onPress={onPress}>
         <View style={styles.cardTextStack}>
           <View style={styles.cardRow1}>
-            {workoutMeta ? (
-              <Text style={styles.cardDuration}>
-                {workoutMeta.duration} MIN
-              </Text>
-            ) : (
-              <View />
-            )}
+            <Text style={styles.cardDuration}>{durationMin} MIN</Text>
             <View style={styles.difficultyRow}>
-              {Array.from({ length: workout.difficulty }, (_, index) => (
+              {Array.from({ length: difficulty }, (_, index) => (
                 <View key={`difficulty-${index}`} style={styles.cardAiSquare} />
               ))}
             </View>
           </View>
-          <Text style={styles.cardTitle}>{workout.title.toUpperCase()}</Text>
+          <Text style={styles.cardTitle}>{title.toUpperCase()}</Text>
           <Text style={styles.cardMeta} numberOfLines={1} ellipsizeMode="tail">
-            {workout.description}
+            {description}
           </Text>
         </View>
       </PressableScale>
@@ -331,85 +376,33 @@ function WorkoutCard({
   );
 }
 
-function GeneratedWorkoutCard({
+function LibraryWorkoutCard({
   workout,
   width,
   onPress,
+  showSavedStar = false,
+  onToggleSaved,
 }: {
-  workout: GeneratedWorkoutDoc;
+  workout: LibraryWorkout;
   width: number;
   onPress: () => void;
+  showSavedStar?: boolean;
+  onToggleSaved?: () => void;
 }) {
-  const focusLabel = workout.focus
-    ? workout.focus.replace(/-/g, ' ').toUpperCase()
-    : 'AI CLASS';
+  const workoutMeta = getWorkoutById(workout.workoutId);
 
   return (
-    <PressableScale
-      style={[styles.generatedCard, { width }]}
+    <WorkoutCard
+      title={workout.title}
+      description={workout.description}
+      durationMin={workoutMeta?.duration ?? 5}
+      difficulty={workout.difficulty}
+      coverImage={workout.coverImage}
+      width={width}
       onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${workout.title} generated workout`}
-    >
-      <View style={styles.generatedCardTop}>
-        <Text style={styles.generatedDuration}>
-          {workout.estimatedDuration} MIN
-        </Text>
-        <View style={styles.generatedAiPill}>
-          <Text style={styles.generatedAiPillText}>AI</Text>
-        </View>
-      </View>
-      <Text style={styles.generatedTitle} numberOfLines={2}>
-        {workout.title.toUpperCase()}
-      </Text>
-      <Text style={styles.generatedMeta} numberOfLines={1}>
-        {focusLabel}
-      </Text>
-    </PressableScale>
-  );
-}
-
-function GeneratedWorkoutsSection({
-  workouts,
-  cardWidth,
-  onPress,
-}: {
-  workouts: GeneratedWorkoutDoc[];
-  cardWidth: number;
-  onPress: (slug: string) => void;
-}) {
-  if (workouts.length === 0) {
-    return null;
-  }
-
-  const rows: GeneratedWorkoutDoc[][] = [];
-  for (let i = 0; i < workouts.length; i += 2) {
-    rows.push(workouts.slice(i, i + 2));
-  }
-
-  return (
-    <View style={styles.generatedSection}>
-      <View style={styles.libraryHeaderRow}>
-        <Text style={styles.sectionHeading}>Your generated workouts</Text>
-      </View>
-      <View style={styles.sectionRule} />
-      <Text style={styles.generatedSectionSub}>
-        Repeat any class anytime — not just this week&apos;s plan
-      </Text>
-      {rows.map((row, rowIndex) => (
-        <View key={`gen-row-${rowIndex}`} style={styles.cardRow}>
-          {row.map((item) => (
-            <GeneratedWorkoutCard
-              key={item.slug}
-              workout={item}
-              width={cardWidth}
-              onPress={() => onPress(item.slug)}
-            />
-          ))}
-          {row.length === 1 ? <View style={{ width: cardWidth }} /> : null}
-        </View>
-      ))}
-    </View>
+      showSavedStar={showSavedStar}
+      onToggleSaved={onToggleSaved}
+    />
   );
 }
 
@@ -417,17 +410,22 @@ function WorkoutGrid({
   filter,
   cardWidth,
   savedIds,
+  generatedWorkouts,
   onWorkoutPress,
+  onGeneratedPress,
   onUnsave,
 }: {
   filter: string;
   cardWidth: number;
   savedIds: string[];
+  generatedWorkouts: GeneratedWorkoutDoc[];
   onWorkoutPress: (libraryId: string) => void;
+  onGeneratedPress: (slug: string) => void;
   onUnsave: (libraryId: string) => void;
 }) {
   const flatWorkouts = useMemo(
-    () => buildGridWorkouts(getLibraryWorkoutsForFilter(filter, savedIds), filter),
+    () =>
+      buildGridWorkouts(getLibraryWorkoutsForFilter(filter, savedIds), filter),
     [filter, savedIds]
   );
 
@@ -438,6 +436,50 @@ function WorkoutGrid({
     }
     return result;
   }, [flatWorkouts]);
+
+  const generatedRows = useMemo(() => {
+    const result: GeneratedWorkoutDoc[][] = [];
+    for (let index = 0; index < generatedWorkouts.length; index += 2) {
+      result.push(generatedWorkouts.slice(index, index + 2));
+    }
+    return result;
+  }, [generatedWorkouts]);
+
+  if (filter === YOURS_FILTER) {
+    if (generatedRows.length === 0) {
+      return (
+        <FadeInView style={styles.emptySavedState}>
+          <Text style={styles.emptySavedTitle}>No generated classes yet</Text>
+          <Text style={styles.emptySavedText}>
+            Build a weekly plan from the calendar to create AI classes. They’ll
+            show up here so you can repeat them anytime.
+          </Text>
+        </FadeInView>
+      );
+    }
+
+    return (
+      <>
+        {generatedRows.map((row, rowIndex) => (
+          <View key={`yours-row-${rowIndex}`} style={styles.cardRow}>
+            {row.map((item) => (
+              <WorkoutCard
+                key={item.slug}
+                title={item.title}
+                description={focusDescription(item)}
+                durationMin={item.estimatedDuration}
+                difficulty={intensityToDifficulty(item.intensity)}
+                coverImage={coverForSlug(item.slug)}
+                width={cardWidth}
+                onPress={() => onGeneratedPress(item.slug)}
+              />
+            ))}
+            {row.length === 1 ? <View style={{ width: cardWidth }} /> : null}
+          </View>
+        ))}
+      </>
+    );
+  }
 
   if (filter === SAVED_FILTER && rows.length === 0) {
     return (
@@ -459,7 +501,7 @@ function WorkoutGrid({
       {rows.map((row, rowIndex) => (
         <View key={`${filter}-row-${rowIndex}`} style={styles.cardRow}>
           {row.map((item) => (
-            <WorkoutCard
+            <LibraryWorkoutCard
               key={item.gridKey}
               workout={item}
               width={cardWidth}
@@ -671,12 +713,6 @@ export default function Home() {
           />
         ) : null}
 
-        <GeneratedWorkoutsSection
-          workouts={generatedWorkouts}
-          cardWidth={cardWidth}
-          onPress={handleGeneratedPress}
-        />
-
         <View style={styles.librarySection}>
           <View style={styles.libraryHeaderRow}>
             <Text style={styles.sectionHeading}>Workout library</Text>
@@ -701,10 +737,7 @@ export default function Home() {
       </View>
     ),
     [
-      cardWidth,
-      generatedWorkouts,
       handleFilterPress,
-      handleGeneratedPress,
       handleWorkoutPress,
       heroWorkoutMeta,
       selectedFilter,
@@ -741,7 +774,9 @@ export default function Home() {
                   filter={filter}
                   cardWidth={cardWidth}
                   savedIds={savedIds}
+                  generatedWorkouts={generatedWorkouts}
                   onWorkoutPress={handleWorkoutPress}
+                  onGeneratedPress={handleGeneratedPress}
                   onUnsave={toggleSaved}
                 />
               </View>
@@ -944,66 +979,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
   },
   librarySection: {},
-  generatedSection: {
-    gap: scale(12),
-  },
-  generatedSectionSub: {
-    fontFamily: theme.fonts.body,
-    fontSize: scale(12),
-    lineHeight: scale(17),
-    color: theme.colors.textMuted,
-    marginTop: scale(-4),
-    marginBottom: scale(4),
-  },
-  generatedCard: {
-    backgroundColor: theme.colors.white,
-    borderRadius: scale(4),
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-    padding: scale(12),
-    minHeight: scale(120),
-    justifyContent: 'space-between',
-    gap: scale(8),
-  },
-  generatedCardTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  generatedDuration: {
-    fontFamily: theme.fonts.label,
-    fontSize: scale(9),
-    letterSpacing: scale(1),
-    color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-  },
-  generatedAiPill: {
-    backgroundColor: theme.colors.teal,
-    borderRadius: scale(2),
-    paddingHorizontal: scale(6),
-    paddingVertical: scale(2),
-  },
-  generatedAiPillText: {
-    fontFamily: theme.fonts.label,
-    fontSize: scale(8),
-    letterSpacing: scale(0.8),
-    color: theme.colors.dark,
-    textTransform: 'uppercase',
-  },
-  generatedTitle: {
-    fontFamily: theme.fonts.header,
-    fontSize: scale(15),
-    lineHeight: scale(18),
-    letterSpacing: scale(-0.3),
-    color: theme.colors.textPrimary,
-  },
-  generatedMeta: {
-    fontFamily: theme.fonts.label,
-    fontSize: scale(9),
-    letterSpacing: scale(0.8),
-    color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-  },
   libraryHeaderRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
