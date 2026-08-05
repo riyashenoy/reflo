@@ -164,7 +164,7 @@ export default function Calendar() {
         return;
       }
 
-      setRateLimited(true);
+      setRateLimited(isPlanGenerationRateLimited(new Date().toISOString()));
       await refresh();
       await refetchSessions();
     } catch (error) {

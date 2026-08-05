@@ -1,6 +1,7 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 import { db } from './firebase';
+import { isCurrentUserTestAccount } from './testAccounts';
 import { getStartOfWeek, toDateKey } from './workoutHistory';
 
 /** Max AI voice generations per calendar week (Sunday–Saturday). */
@@ -21,10 +22,22 @@ function currentWeekStartKey(reference = new Date()): string {
 /**
  * Read weekly voice generation quota. Resets automatically each week.
  * Flagship recorded classes never touch this counter.
+ * Test accounts (see TEST_ACCOUNTS) are never limited.
  */
 export async function getVoiceQuota(uid: string): Promise<VoiceQuotaState> {
   const weekStartKey = currentWeekStartKey();
   const limit = VOICE_GENERATIONS_PER_WEEK;
+
+  // Test accounts: unlimited voice generations — skip the weekly counter entirely.
+  if (isCurrentUserTestAccount()) {
+    return {
+      used: 0,
+      limit,
+      remaining: limit,
+      allowed: true,
+      weekStartKey,
+    };
+  }
 
   try {
     const snap = await getDoc(doc(db, 'users', uid));
@@ -76,6 +89,11 @@ export async function getVoiceQuota(uid: string): Promise<VoiceQuotaState> {
 export async function incrementVoiceQuotaOnSuccess(
   uid: string
 ): Promise<void> {
+  // Test accounts: do not increment counters.
+  if (isCurrentUserTestAccount()) {
+    return;
+  }
+
   const weekStartKey = currentWeekStartKey();
   const snap = await getDoc(doc(db, 'users', uid));
   const data = (snap.exists() ? snap.data() : {}) as {

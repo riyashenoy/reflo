@@ -13,6 +13,7 @@ import {
   type Exercise,
 } from '../data/exercises';
 import { db } from './firebase';
+import { isCurrentUserTestAccount } from './testAccounts';
 import type { UserProfile } from './userProfile';
 import { getWeekDateKeys } from './workoutHistory';
 import {
@@ -433,6 +434,11 @@ export function validateAndRepairPlan(raw: unknown): ValidatedPlan | null {
 }
 
 export function isPlanGenerationRateLimited(lastGeneratedAt?: string): boolean {
+  // Test accounts: unlimited plan generations — never weekly-blocked.
+  if (isCurrentUserTestAccount()) {
+    return false;
+  }
+
   if (!lastGeneratedAt) {
     return false;
   }
@@ -571,7 +577,10 @@ export async function generateAndSaveWeeklyPlan(
   profile: UserProfile,
   options?: { skipRateLimit?: boolean }
 ): Promise<GeneratePlanResult> {
-  if (!options?.skipRateLimit) {
+  const skipRateLimit =
+    Boolean(options?.skipRateLimit) || isCurrentUserTestAccount();
+
+  if (!skipRateLimit) {
     const existing = await fetchFirestoreWeeklyPlan(uid);
     if (isPlanGenerationRateLimited(existing?.lastGeneratedAt)) {
       return { ok: false, reason: 'rate_limited' };
