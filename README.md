@@ -1,4 +1,10 @@
-![Reflo motion capture demo](./assets/reflo-demo.gif)
+<p align="left">
+  <img
+    src="./assets/reflo-demo.gif"
+    alt="reflo motion capture demo"
+    width=50%
+  />
+</p>
 
 # reflo
 
