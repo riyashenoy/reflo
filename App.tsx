@@ -8,6 +8,7 @@ import {
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Analytics } from '@vercel/analytics/react';
 
 import { useIsMobileWeb } from './app/hooks/useIsMobileWeb';
 import { SavedWorkoutsProvider } from './app/context/SavedWorkoutsContext';
@@ -79,6 +80,7 @@ export default function App() {
         <RootNavigation />
       </SavedWorkoutsProvider>
       <StatusBar style="auto" />
+      {Platform.OS === 'web' ? <Analytics /> : null}
     </SafeAreaProvider>
   );
 

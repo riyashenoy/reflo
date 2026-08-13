@@ -17,6 +17,7 @@
     "@tensorflow/tfjs-backend-webgpu": "^4.22.0",
     "@tensorflow/tfjs-converter": "^4.22.0",
     "@tensorflow/tfjs-core": "^4.22.0",
+    "@vercel/analytics": "^2.0.1",
     "babel-preset-expo": "^56.0.14",
     "dotenv": "^17.4.2",
     "expo": "~56.0.6",
