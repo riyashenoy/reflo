@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
 
 import { auth, db } from '../lib/firebase';
+import {
+  fetchSessionsFromApi,
+  isApiConfigured,
+} from '../lib/apiClient';
 import { toDateKey } from '../lib/workoutHistory';
 import { readWeeklySchedule } from '../lib/weeklySchedule';
 
@@ -173,17 +177,45 @@ export function useSessions() {
     }
 
     try {
-      const sessionsSnap = await getDocs(
-        collection(db, 'users', uid, 'sessions')
-      );
-      const nextSessions = sessionsSnap.docs
-        .map((sessionDoc) =>
-          parseSessionDoc(
-            sessionDoc.id,
-            sessionDoc.data() as Record<string, unknown>
+      let nextSessions: Session[] = [];
+
+      // Prefer Postgres-backed API when configured; fall back to Firestore.
+      if (isApiConfigured()) {
+        const apiSessions = await fetchSessionsFromApi();
+        if (apiSessions) {
+          nextSessions = apiSessions.map((row) => ({
+            id: row.id,
+            workoutId: row.workoutId ?? '',
+            completedAt:
+              typeof row.completedAt === 'string'
+                ? row.completedAt
+                : new Date(row.completedAt).toISOString(),
+            durationSeconds: row.durationSeconds ?? 0,
+            correctionCount: row.correctionCount ?? 0,
+            sessionLog: [],
+            ratings: row.ratings ?? {},
+            overallStars: row.overallStars ?? 0,
+          }));
+        }
+      }
+
+      if (!nextSessions.length) {
+        const sessionsSnap = await getDocs(
+          collection(db, 'users', uid, 'sessions')
+        );
+        nextSessions = sessionsSnap.docs
+          .map((sessionDoc) =>
+            parseSessionDoc(
+              sessionDoc.id,
+              sessionDoc.data() as Record<string, unknown>
+            )
           )
-        )
-        .sort((a, b) => b.id.localeCompare(a.id));
+          .sort((a, b) => b.id.localeCompare(a.id));
+      } else {
+        nextSessions = [...nextSessions].sort((a, b) =>
+          b.id.localeCompare(a.id)
+        );
+      }
 
       let nextPlan: WeeklyPlanByDay | null = null;
       try {

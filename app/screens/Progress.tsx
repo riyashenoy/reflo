@@ -11,8 +11,13 @@ import { useFocusEffect } from '@react-navigation/native';
 import { FormScoreChart, ProgressEmptyState } from '../components/FormScoreChart';
 import { FadeInView } from '../components/motion';
 import { useLayoutWidth } from '../hooks/useLayoutWidth';
-import { useSessions, type Session } from '../hooks/useSessions';
+import { useSessions } from '../hooks/useSessions';
 import { useTabScreenTopPadding } from '../hooks/useTabScreenTopPadding';
+import {
+  fetchProgressSummaryFromApi,
+  isApiConfigured,
+  type ApiProgressSummary,
+} from '../lib/apiClient';
 import { toDateKey } from '../lib/workoutHistory';
 import theme, { scale } from '../theme';
 
@@ -173,6 +178,7 @@ export default function Progress() {
   const layoutWidth = useLayoutWidth();
   const { sessions, loading, refetch } = useSessions();
   const [activePeriod, setActivePeriod] = useState<ProgressPeriod>('Week');
+  const [apiSummary, setApiSummary] = useState<ApiProgressSummary | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -180,9 +186,34 @@ export default function Progress() {
     }, [refetch])
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!isApiConfigured()) {
+        setApiSummary(null);
+        return;
+      }
+      const period =
+        activePeriod === 'Week'
+          ? 'week'
+          : activePeriod === 'Month'
+            ? 'month'
+            : 'all';
+      let cancelled = false;
+      setApiSummary(null);
+      void fetchProgressSummaryFromApi(period).then((summary) => {
+        if (!cancelled) {
+          setApiSummary(summary);
+        }
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, [activePeriod])
+  );
+
   const chartWidth = layoutWidth - scale(40);
 
-  const summary = useMemo(() => {
+  const localSummary = useMemo(() => {
     const filtered = filterSessionsByPeriod(sessions, activePeriod);
     if (!filtered.length) {
       return {
@@ -218,6 +249,19 @@ export default function Progress() {
       })),
     };
   }, [activePeriod, sessions]);
+
+  // Prefer live Postgres aggregates when the API responds; else Firestore-derived.
+  const summary =
+    apiSummary != null
+      ? {
+          hasData: Boolean(apiSummary.hasData),
+          sessions: apiSummary.sessions,
+          totalTime: apiSummary.totalTime,
+          averageStars: apiSummary.averageStars,
+          mostCommon: apiSummary.mostCommon,
+          chartPoints: apiSummary.chartPoints,
+        }
+      : localSummary;
 
   const chartMax = Math.max(
     5,

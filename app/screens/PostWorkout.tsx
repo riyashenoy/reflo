@@ -20,6 +20,7 @@ import CorrectionToast from '../components/CorrectionToast';
 import { getWorkoutById } from '../data/workouts';
 import { getLibraryWorkout } from '../data/workoutLibrary';
 import { auth, db } from '../lib/firebase';
+import { postSessionToApi } from '../lib/apiClient';
 import {
   estimateFormScore,
   recordWorkoutCompletion,
@@ -242,6 +243,35 @@ export default function PostWorkout({ route, navigation }: Props) {
         correctionCount,
         ratings,
         overallStars: starRating,
+      });
+
+      // Dual-write to Postgres analytics API when EXPO_PUBLIC_API_URL is set.
+      // Soft-fails — Firestore remains the app-critical save.
+      const allowedTypes = new Set(['correction', 'positive', 'motivation']);
+      void postSessionToApi({
+        dateKey: dateId,
+        workoutId: workoutId ?? null,
+        workoutSource:
+          workout?.voiceMode === 'generated'
+            ? 'generated'
+            : workout?.voiceMode === 'recorded'
+              ? 'recorded'
+              : 'unknown',
+        completedAt: today.toISOString(),
+        durationSeconds: durationSeconds ?? 307,
+        correctionCount,
+        overallStars: starRating,
+        ratings: Object.fromEntries(
+          Object.entries(ratings).map(([key, value]) => [String(key), value])
+        ),
+        sessionLog: log
+          .filter((entry) => allowedTypes.has(entry.type))
+          .map((entry) => ({
+            exercise: entry.exercise,
+            clipPlayed: entry.clipPlayed,
+            timestamp: entry.timestamp,
+            type: entry.type as 'correction' | 'positive' | 'motivation',
+          })),
       });
     } catch (error) {
       console.warn('[PostWorkout] session save failed:', error);

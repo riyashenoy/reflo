@@ -173,21 +173,25 @@ function buildRoundedRectTicks(
 export function WorkoutTickFrameBorder({
   width,
   height,
+  inset = WORKOUT_FRAME_BORDER_INSET,
+  borderRadius = WORKOUT_FRAME_BORDER_RADIUS,
 }: {
   width: number;
   height: number;
+  inset?: number;
+  borderRadius?: number;
 }) {
   const ticks = useMemo(
     () =>
       buildRoundedRectTicks(
         width,
         height,
-        WORKOUT_FRAME_BORDER_INSET,
-        WORKOUT_FRAME_BORDER_RADIUS,
+        inset,
+        borderRadius,
         WORKOUT_TICK_LENGTH,
         WORKOUT_TICK_SPACING
       ),
-    [width, height]
+    [width, height, inset, borderRadius]
   );
 
   if (width <= 0 || height <= 0) {
@@ -419,13 +423,24 @@ export function WorkoutVideoFrame({
   frameAreaStyle?: StyleProp<ViewStyle>;
   borderOptions?: {
     inset?: number;
+    /** Red tick-border corner radius. Defaults to WORKOUT_FRAME_BORDER_RADIUS. */
     borderRadius?: number;
+    /** Video/media clip corner radius. Defaults to WORKOUT_FRAME_RADIUS. */
+    clipBorderRadius?: number;
     strokeWidth?: number;
     strokeDasharray?: string;
   };
   borderRenderer?: (size: { width: number; height: number }) => ReactNode;
 }) {
   const [borderSize, setBorderSize] = useState({ width: 0, height: 0 });
+  const clipRadius =
+    borderOptions?.clipBorderRadius !== undefined
+      ? borderOptions.clipBorderRadius
+      : WORKOUT_FRAME_RADIUS;
+  const tickRadius =
+    borderOptions?.borderRadius !== undefined
+      ? borderOptions.borderRadius
+      : WORKOUT_FRAME_BORDER_RADIUS;
 
   const handleBorderLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -434,7 +449,9 @@ export function WorkoutVideoFrame({
 
   return (
     <View style={[styles.frameArea, frameAreaStyle, style]}>
-      <View style={styles.frameClip}>{children}</View>
+      <View style={[styles.frameClip, { borderRadius: clipRadius }]}>
+        {children}
+      </View>
       <View
         style={styles.frameBorderOverlay}
         onLayout={handleBorderLayout}
@@ -446,10 +463,18 @@ export function WorkoutVideoFrame({
           <WorkoutTickFrameBorder
             width={borderSize.width}
             height={borderSize.height}
+            inset={borderOptions?.inset}
+            borderRadius={tickRadius}
           />
         )}
       </View>
-      {overlay ? <View style={styles.frameOverlay}>{overlay}</View> : null}
+      {overlay ? (
+        <View
+          style={[styles.frameOverlay, { borderRadius: clipRadius }]}
+        >
+          {overlay}
+        </View>
+      ) : null}
     </View>
   );
 }

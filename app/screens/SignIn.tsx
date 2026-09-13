@@ -17,6 +17,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { PressableScale } from '../components/motion';
 import { useAuthFlow } from '../context/AuthFlowContext';
 import { auth, googleProvider } from '../lib/firebase';
+import { syncUserMirror } from '../lib/apiClient';
 import { getAuthErrorMessage } from '../lib/authErrors';
 import type { AuthStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
@@ -50,6 +51,8 @@ export default function SignIn({ navigation }: Props) {
       const result = await signInWithPopup(auth, googleProvider);
       const additionalUserInfo = getAdditionalUserInfo(result);
       const isNewUser = additionalUserInfo?.isNewUser ?? false;
+      // Best-effort: create/update Postgres users mirror (no-op if API unset).
+      void syncUserMirror();
       setAppEntryRoute(isNewUser ? 'ProfileSetup' : 'Main');
     } catch (err) {
       setError(getAuthErrorMessage(err));

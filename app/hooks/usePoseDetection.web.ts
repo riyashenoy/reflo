@@ -19,10 +19,15 @@ type Landmark = { x: number; y: number; score: number };
 const LANDMARK_INDICES = {
   nose: 0,
   left_shoulder: 5,
+  right_shoulder: 6,
   left_wrist: 9,
+  right_wrist: 10,
   left_hip: 11,
+  right_hip: 12,
   left_knee: 13,
+  right_knee: 14,
   left_ankle: 15,
+  right_ankle: 16,
 } as const;
 
 const LANDMARK_ORDER = [
@@ -35,6 +40,8 @@ const LANDMARK_ORDER = [
 ] as const;
 
 const MIN_SCORE = 0.6;
+/** Sample videos often have a side profile — accept slightly weaker joints. */
+const HIPS_SAMPLE_MIN_SCORE = 0.35;
 const ERROR_COOLDOWN_MS = 4000;
 const SUSTAINED_CLEAN_MS = 2000;
 /** MoveNet: left shoulder / hip / knee — minimum joints for angle checks. */
@@ -43,6 +50,8 @@ const CONFIDENCE_KEYPOINT_INDICES = [
   LANDMARK_INDICES.left_hip,
   LANDMARK_INDICES.left_knee,
 ] as const;
+/** Hips rising: clear fold vs plank (acos is 0–180). */
+const HIPS_SAMPLE_PIKE_ANGLE = 155;
 const CONFIDENCE_HISTORY = 10;
 const IN_FRAME_ENTER_MS = 1000;
 const IN_FRAME_EXIT_MS = 2000;
@@ -71,13 +80,14 @@ function getAngle(
 }
 
 function extractLandmarks(
-  keypoints: Array<{ x: number; y: number; score?: number }>
+  keypoints: Array<{ x: number; y: number; score?: number }>,
+  minScore = MIN_SCORE
 ): Landmark[] | null {
   const landmarks: Landmark[] = [];
 
   for (const name of LANDMARK_ORDER) {
     const kp = keypoints[LANDMARK_INDICES[name]];
-    if (!kp || (kp.score ?? 0) < MIN_SCORE) {
+    if (!kp || (kp.score ?? 0) < minScore) {
       return null;
     }
     landmarks.push({
@@ -90,10 +100,80 @@ function extractLandmarks(
   return landmarks;
 }
 
+/** Prefer the body side with stronger shoulder/hip/knee scores (side-view videos). */
+function extractLandmarksBestSide(
+  keypoints: Array<{ x: number; y: number; score?: number }>,
+  minScore = HIPS_SAMPLE_MIN_SCORE
+): Landmark[] | null {
+  const sideScore = (shoulder: number, hip: number, knee: number) => {
+    const s = keypoints[shoulder]?.score ?? 0;
+    const h = keypoints[hip]?.score ?? 0;
+    const k = keypoints[knee]?.score ?? 0;
+    if (s < minScore || h < minScore || k < minScore) {
+      return -1;
+    }
+    return s + h + k;
+  };
+
+  const leftScore = sideScore(
+    LANDMARK_INDICES.left_shoulder,
+    LANDMARK_INDICES.left_hip,
+    LANDMARK_INDICES.left_knee
+  );
+  const rightScore = sideScore(
+    LANDMARK_INDICES.right_shoulder,
+    LANDMARK_INDICES.right_hip,
+    LANDMARK_INDICES.right_knee
+  );
+
+  if (leftScore < 0 && rightScore < 0) {
+    return null;
+  }
+
+  const useRight = rightScore > leftScore;
+  const nose = keypoints[LANDMARK_INDICES.nose];
+  const shoulder =
+    keypoints[
+      useRight
+        ? LANDMARK_INDICES.right_shoulder
+        : LANDMARK_INDICES.left_shoulder
+    ];
+  const wrist =
+    keypoints[
+      useRight ? LANDMARK_INDICES.right_wrist : LANDMARK_INDICES.left_wrist
+    ];
+  const hip =
+    keypoints[
+      useRight ? LANDMARK_INDICES.right_hip : LANDMARK_INDICES.left_hip
+    ];
+  const knee =
+    keypoints[
+      useRight ? LANDMARK_INDICES.right_knee : LANDMARK_INDICES.left_knee
+    ];
+  const ankle =
+    keypoints[
+      useRight ? LANDMARK_INDICES.right_ankle : LANDMARK_INDICES.left_ankle
+    ];
+
+  if (!nose || !shoulder || !wrist || !hip || !knee || !ankle) {
+    return null;
+  }
+
+  return [
+    { x: nose.x, y: nose.y, score: nose.score ?? 1 },
+    { x: shoulder.x, y: shoulder.y, score: shoulder.score ?? 1 },
+    { x: wrist.x, y: wrist.y, score: wrist.score ?? 1 },
+    { x: hip.x, y: hip.y, score: hip.score ?? 1 },
+    { x: knee.x, y: knee.y, score: knee.score ?? 1 },
+    { x: ankle.x, y: ankle.y, score: ankle.score ?? 1 },
+  ];
+}
+
 function detectError(
   landmarks: Landmark[],
   exercise: PoseExercise,
-  ankleBaselineY: number | null
+  ankleBaselineY: number | null,
+  hipsSampleMode = false
 ): { errorKey: string | null; ankleBaselineY: number | null } {
   if (exercise === 'none') {
     return { errorKey: null, ankleBaselineY };
@@ -113,6 +193,14 @@ function detectError(
 
   if (exercise === 'long_stretch') {
     const hipAngle = getAngle(shoulder, hip, knee);
+
+    // acos() is 0–180°. Piked hips fold the chain (angle drops from ~180).
+    if (hipsSampleMode) {
+      if (hipAngle > 0 && hipAngle < HIPS_SAMPLE_PIKE_ANGLE) {
+        return { errorKey: 'hip_pike', ankleBaselineY };
+      }
+      return { errorKey: null, ankleBaselineY };
+    }
 
     if (hipAngle > 195) {
       return { errorKey: 'hip_pike', ankleBaselineY };
@@ -176,7 +264,8 @@ export function usePoseDetection(
   sustainedCleanRef?: RefObject<boolean>,
   mirrorOverlay = true,
   demoVisualMode = false,
-  trackingEnabled = workoutStarted
+  trackingEnabled = workoutStarted,
+  boldSkeleton = false
 ) {
   const [isDetecting, setIsDetecting] = useState(false);
   const [confidence, setConfidence] = useState(0);
@@ -194,6 +283,7 @@ export function usePoseDetection(
   const sustainedCleanRefStable = useRef(sustainedCleanRef);
   const mirrorOverlayRef = useRef(mirrorOverlay);
   const demoVisualModeRef = useRef(demoVisualMode);
+  const boldSkeletonRef = useRef(boldSkeleton);
   const workoutStartedRef = useRef(workoutStarted);
   const isInFrameRef = useRef(false);
   const confidenceHistory = useRef<number[]>([]);
@@ -212,6 +302,7 @@ export function usePoseDetection(
   sustainedCleanRefStable.current = sustainedCleanRef;
   mirrorOverlayRef.current = mirrorOverlay;
   demoVisualModeRef.current = demoVisualMode;
+  boldSkeletonRef.current = boldSkeleton;
   workoutStartedRef.current = workoutStarted;
 
   const clearErrorCooldowns = () => {
@@ -245,7 +336,7 @@ export function usePoseDetection(
 
     onErrorStateChangeRef.current?.(errorKey, true);
 
-    triggerDemoErrorFlash(errorKey);
+    triggerDemoErrorFlash(errorKey, undefined, boldSkeletonRef.current);
 
     const timeoutId = setTimeout(() => {
       errorCooldownTimers.current.delete(errorKey);
@@ -370,9 +461,41 @@ export function usePoseDetection(
     const { errorKey, ankleBaselineY: nextBaseline } = detectError(
       landmarks,
       exercise,
-      ankleBaselineY.current
+      ankleBaselineY.current,
+      boldSkeletonRef.current
     );
     ankleBaselineY.current = nextBaseline;
+
+    // Demo visuals: keep error set in sync with live form (hips up = teal now)
+    if (demoVisualModeRef.current) {
+      const errors = currentErrorsRefStable.current?.current;
+      if (errors) {
+        const trackedKeys =
+          exercise === 'long_stretch'
+            ? ['hip_pike', 'hip_sag', 'head_drop']
+            : exercise === 'hundred'
+              ? ['head_drop', 'arms_sinking']
+              : ['heels_drop', 'knee_cave'];
+
+        trackedKeys.forEach((key) => {
+          const active = errorKey === key;
+          const wasActive = errors.has(key);
+          if (active && !wasActive) {
+            errors.add(key);
+            onErrorStateChangeRef.current?.(key, true);
+            // Hips sample drives teal from the live error set only (no flash linger).
+            if (!boldSkeletonRef.current) {
+              triggerDemoErrorFlash(key);
+            }
+          } else if (!active && wasActive) {
+            errors.delete(key);
+            onErrorStateChangeRef.current?.(key, false);
+          } else if (active && !boldSkeletonRef.current) {
+            triggerDemoErrorFlash(key);
+          }
+        });
+      }
+    }
 
     formData.frameCount += 1;
     if (errorKey) {
@@ -382,7 +505,9 @@ export function usePoseDetection(
       }
       formData.errorCount[errorKey] =
         (formData.errorCount[errorKey] ?? 0) + 1;
-      activateError(errorKey);
+      if (!demoVisualModeRef.current) {
+        activateError(errorKey);
+      }
     } else {
       formData.goodFrames += 1;
       if (cleanStreakStart.current === null) {
@@ -544,12 +669,14 @@ export function usePoseDetection(
                   lastDetectedPoses = detectedPoses;
                 }
 
-                // Only accumulate form while in-frame during an active workout.
+                // Live workouts require in-frame lock; demo videos assess whenever posed.
                 if (
                   workoutStartedRef.current &&
-                  isInFrameRef.current
+                  (demoVisualModeRef.current || isInFrameRef.current)
                 ) {
-                  const raw = extractLandmarks(detectedPoses[0].keypoints);
+                  const raw = boldSkeletonRef.current
+                    ? extractLandmarksBestSide(detectedPoses[0].keypoints)
+                    : extractLandmarks(detectedPoses[0].keypoints);
                   if (raw) {
                     const smoothed = getSmoothed(raw);
                     recordFrameAssessment(smoothed);
@@ -586,7 +713,11 @@ export function usePoseDetection(
               sustainedCleanRefStable.current?.current ?? false,
               mirrorOverlayRef.current,
               demoVisualModeRef.current,
-              workoutStartedRef.current && !isInFrameRef.current
+              // Demo sample videos skip the live in-frame gate for color.
+              demoVisualModeRef.current
+                ? false
+                : workoutStartedRef.current && !isInFrameRef.current,
+              boldSkeletonRef.current
             );
           }
 

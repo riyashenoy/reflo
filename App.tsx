@@ -17,6 +17,14 @@ import theme from './app/theme';
 
 SplashScreen.preventAutoHideAsync();
 
+/** Landscape sample demos skip the phone chrome so the border can match the video. */
+function isFullBleedDemoPath(): boolean {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') {
+    return false;
+  }
+  return window.location.pathname.replace(/\/$/, '') === '/demo-hips-k4m9';
+}
+
 function useMobileWebViewport() {
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') {
@@ -35,6 +43,7 @@ function useMobileWebViewport() {
 
 export default function App() {
   const isMobileWeb = useIsMobileWeb();
+  const fullBleedDemo = isFullBleedDemoPath();
   useMobileWebViewport();
   const [fontsLoaded, fontError] = useFonts({
     'SHAdGrotesk-Regular': require('./assets/fonts/adgroteskregular.ttf'),
@@ -85,6 +94,10 @@ export default function App() {
   );
 
   if (Platform.OS === 'web') {
+    if (fullBleedDemo) {
+      return <View style={styles.fullBleedRoot}>{appContent}</View>;
+    }
+
     if (isMobileWeb) {
       return (
         <View style={styles.mobileWebRoot}>
@@ -104,6 +117,14 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  fullBleedRoot: {
+    flex: 1,
+    width: '100%',
+    height: '100dvh' as any,
+    minHeight: '100dvh' as any,
+    backgroundColor: theme.colors.workoutBg,
+    overflow: 'hidden',
+  },
   mobileWebRoot: {
     flex: 1,
     width: '100%',

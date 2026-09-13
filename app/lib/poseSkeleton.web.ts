@@ -1,9 +1,12 @@
 import type { DetectedPose } from '../hooks/usePoseDetection';
+import { theme } from '../theme';
 
 const SKELETON_DRAW_THRESHOLD = 0.3;
 const DOT_RADIUS = 6;
 const DEMO_DOT_RADIUS = 4;
+const BOLD_DOT_RADIUS = 5;
 const LINE_WIDTH = 2;
+const BOLD_LINE_WIDTH = 3;
 const DEMO_COLOR_LERP_FACTOR = 0.16;
 
 const SKELETON_CONNECTIONS: [number, number][] = [
@@ -23,8 +26,19 @@ const SKELETON_CONNECTIONS: [number, number][] = [
 
 type Rgba = { r: number; g: number; b: number; a: number };
 
-const COLOR_RED_DOT_DEMO: Rgba = { r: 204, g: 29, b: 29, a: 0.5 };
-const COLOR_TEAL_DOT_DEMO: Rgba = { r: 121, g: 203, b: 208, a: 0.5 };
+function hexToRgba(hex: string, a: number): Rgba {
+  const normalized = hex.replace('#', '');
+  return {
+    r: parseInt(normalized.slice(0, 2), 16),
+    g: parseInt(normalized.slice(2, 4), 16),
+    b: parseInt(normalized.slice(4, 6), 16),
+    a,
+  };
+}
+
+const COLOR_RED_DOT_DEMO = hexToRgba(theme.colors.red, 0.5);
+/** Reflo teal #79CBD0 */
+const COLOR_TEAL_DOT_DEMO = hexToRgba('#79CBD0', 0.5);
 const COLOR_UNTRACKED: Rgba = { r: 255, g: 255, b: 255, a: 0.25 };
 
 const COLOR_NEUTRAL_LINE: Rgba = { r: 255, g: 255, b: 255, a: 0.25 };
@@ -47,11 +61,24 @@ const ERROR_KEYPOINT_INDICES: Record<string, number[]> = {
   momentum: [11, 13],
 };
 
+/** Hips sample screen: highlight both hip joints only. */
+const HIPS_SAMPLE_ERROR_KEYPOINT_INDICES: Record<string, number[]> = {
+  hip_pike: [11, 12],
+};
+
+function keypointIndicesForError(errorKey: string, hipsSampleMode: boolean) {
+  if (hipsSampleMode && HIPS_SAMPLE_ERROR_KEYPOINT_INDICES[errorKey]) {
+    return HIPS_SAMPLE_ERROR_KEYPOINT_INDICES[errorKey];
+  }
+  return ERROR_KEYPOINT_INDICES[errorKey];
+}
+
 export function triggerDemoErrorFlash(
   errorKey: string,
-  durationMs = JOINT_TEAL_FLASH_MS
+  durationMs = JOINT_TEAL_FLASH_MS,
+  hipsSampleMode = false
 ) {
-  const keypointIndices = ERROR_KEYPOINT_INDICES[errorKey];
+  const keypointIndices = keypointIndicesForError(errorKey, hipsSampleMode);
   if (!keypointIndices?.length) {
     return;
   }
@@ -76,14 +103,34 @@ function isJointKeypointFlashing(index: number) {
   return true;
 }
 
-function getJointDotTargetColor(index: number): Rgba {
+function getJointDotTargetColor(
+  index: number,
+  activeErrors: Set<string>,
+  hipsSampleMode = false
+): Rgba {
+  for (const errorKey of activeErrors) {
+    const indices = keypointIndicesForError(errorKey, hipsSampleMode);
+    if (indices?.includes(index)) {
+      return COLOR_TEAL_DOT_DEMO;
+    }
+  }
+
+  // Hips sample: teal only while hip_pike is active — no lingering flash.
+  if (hipsSampleMode) {
+    return COLOR_RED_DOT_DEMO;
+  }
+
   return isJointKeypointFlashing(index)
     ? COLOR_TEAL_DOT_DEMO
     : COLOR_RED_DOT_DEMO;
 }
 
-function getJointDotColor(index: number): Rgba {
-  const target = getJointDotTargetColor(index);
+function getJointDotColor(
+  index: number,
+  activeErrors: Set<string>,
+  hipsSampleMode = false
+): Rgba {
+  const target = getJointDotTargetColor(index, activeErrors, hipsSampleMode);
   const current =
     jointDotColorsByKeypoint.get(index) ?? { ...COLOR_RED_DOT_DEMO };
   const next = lerpRgba(current, target, DEMO_COLOR_LERP_FACTOR);
@@ -203,11 +250,12 @@ export function drawSkeleton(
   poses: DetectedPose[],
   canvas: HTMLCanvasElement,
   video: HTMLVideoElement,
-  _errors: Set<string> = new Set(),
+  errors: Set<string> = new Set(),
   _sustainedClean = false,
   mirrorX = true,
   demoMode = false,
-  untracked = false
+  untracked = false,
+  boldSkeleton = false
 ) {
   try {
     const prepared = prepareCanvas(canvas, video);
@@ -230,7 +278,7 @@ export function drawSkeleton(
     const lineColor = rgbaToCss(untracked ? COLOR_UNTRACKED : COLOR_NEUTRAL_LINE);
 
     ctx.strokeStyle = lineColor;
-    ctx.lineWidth = LINE_WIDTH;
+    ctx.lineWidth = boldSkeleton ? BOLD_LINE_WIDTH : LINE_WIDTH;
     SKELETON_CONNECTIONS.forEach(([i, j]) => {
       const a = keypoints[i];
       const b = keypoints[j];
@@ -252,9 +300,19 @@ export function drawSkeleton(
     keypoints.forEach((kp, index) => {
       if ((kp.score ?? 0) > SKELETON_DRAW_THRESHOLD) {
         const point = mapPoint(kp.x, kp.y, transform, displayWidth, mirrorX);
-        const radius = demoMode ? DEMO_DOT_RADIUS : DOT_RADIUS;
+        const radius = boldSkeleton
+          ? BOLD_DOT_RADIUS
+          : demoMode
+            ? DEMO_DOT_RADIUS
+            : DOT_RADIUS;
         const fillColor = rgbaToCss(
-          untracked ? COLOR_UNTRACKED : getJointDotColor(index)
+          untracked
+            ? COLOR_UNTRACKED
+            : getJointDotColor(
+                index,
+                demoMode ? errors : new Set(),
+                boldSkeleton
+              )
         );
 
         ctx.beginPath();

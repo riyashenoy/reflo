@@ -33,6 +33,11 @@ yarn-error.*
 # local env files
 .env*.local
 .env
+.env*
+
+# Firebase Admin JSON (never commit)
+service-account.json
+**/service-account.json
 
 # typescript
 *.tsbuildinfo
@@ -47,3 +52,6 @@ CLAUDE.md
 AGENTS.md
 .vercel
 .env*
+
+# Private local-only tooling (never push)
+local-studio/

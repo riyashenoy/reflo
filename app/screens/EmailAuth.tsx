@@ -15,6 +15,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useAuthFlow } from '../context/AuthFlowContext';
 import { auth } from '../lib/firebase';
+import { syncUserMirror } from '../lib/apiClient';
 import { getAuthErrorMessage } from '../lib/authErrors';
 import type { AuthStackParamList } from '../navigation';
 import theme, { scale } from '../theme';
@@ -33,6 +34,7 @@ export default function EmailAuth({ navigation }: Props) {
     setError(null);
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
+      void syncUserMirror();
       setAppEntryRoute('Main');
     } catch (err) {
       setError(getAuthErrorMessage(err));
@@ -46,6 +48,7 @@ export default function EmailAuth({ navigation }: Props) {
     setError(null);
     try {
       await createUserWithEmailAndPassword(auth, email.trim(), password);
+      void syncUserMirror();
       setAppEntryRoute('ProfileSetup');
     } catch (err) {
       setError(getAuthErrorMessage(err));

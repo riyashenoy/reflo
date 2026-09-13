@@ -47,7 +47,8 @@ export function usePoseDetection(
   _sustainedCleanRef?: RefObject<boolean>,
   _mirrorOverlay = true,
   _demoVisualMode = false,
-  _trackingEnabled?: boolean
+  _trackingEnabled?: boolean,
+  _boldSkeleton = false
 ) {
   return {
     isDetecting: false,

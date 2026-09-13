@@ -12,6 +12,7 @@ import { AuthFlowContext, type AppEntryRoute } from '../context/AuthFlowContext'
 import Calendar from '../screens/Calendar';
 import ClassDetail from '../screens/ClassDetail';
 import DemoWorkout from '../screens/DemoWorkout';
+import DemoHipsSample from '../screens/DemoHipsSample';
 import ExercisePreview from '../screens/ExercisePreview';
 import EmailAuth from '../screens/EmailAuth';
 import Home from '../screens/Home';
@@ -66,6 +67,7 @@ export type AppStackParamList = {
   };
   ProfileEdit: { section?: 'about' | 'body' | 'mindful' | 'focus' };
   DemoWorkout: undefined;
+  DemoHipsSample: undefined;
 };
 
 export type MainTabParamList = {
@@ -80,13 +82,27 @@ const AppStack = createNativeStackNavigator<AppStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 const DEMO_WORKOUT_PATH = '/demo-reflo-x7k2';
+const DEMO_HIPS_PATH = '/demo-hips-k4m9';
 
-function isDemoWorkoutPath(): boolean {
+type HiddenDemoRoute = 'DemoWorkout' | 'DemoHipsSample';
+
+function getHiddenDemoRoute(): HiddenDemoRoute | null {
   if (Platform.OS !== 'web' || typeof window === 'undefined') {
-    return false;
+    return null;
   }
 
-  return window.location.pathname.replace(/\/$/, '') === DEMO_WORKOUT_PATH;
+  const path = window.location.pathname.replace(/\/$/, '');
+  if (path === DEMO_WORKOUT_PATH) {
+    return 'DemoWorkout';
+  }
+  if (path === DEMO_HIPS_PATH) {
+    return 'DemoHipsSample';
+  }
+  return null;
+}
+
+function isHiddenDemoPath(): boolean {
+  return getHiddenDemoRoute() != null;
 }
 
 function getLinkingPrefixes(): string[] {
@@ -103,6 +119,7 @@ const linking: LinkingOptions<AppStackParamList> = {
     screens: {
       Main: '',
       DemoWorkout: 'demo-reflo-x7k2',
+      DemoHipsSample: 'demo-hips-k4m9',
     },
   },
 };
@@ -151,7 +168,7 @@ function AuthNavigator() {
 function AppNavigator({
   initialRouteName,
 }: {
-  initialRouteName: AppEntryRoute | 'DemoWorkout';
+  initialRouteName: AppEntryRoute | HiddenDemoRoute;
 }) {
   return (
     <AppStack.Navigator
@@ -207,6 +224,11 @@ function AppNavigator({
         component={DemoWorkout}
         options={{ headerShown: false }}
       />
+      <AppStack.Screen
+        name="DemoHipsSample"
+        component={DemoHipsSample}
+        options={{ headerShown: false }}
+      />
     </AppStack.Navigator>
   );
 }
@@ -222,7 +244,8 @@ export default function RootNavigation() {
   const splashStartedAt = useRef(
     typeof performance !== 'undefined' ? performance.now() : Date.now()
   );
-  const demoPath = isDemoWorkoutPath();
+  const demoPath = isHiddenDemoPath();
+  const hiddenDemoRoute = getHiddenDemoRoute();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -302,9 +325,9 @@ export default function RootNavigation() {
   ]);
 
   const showAppNavigator = Boolean(user) || demoPath;
-  const navigatorInitialRoute = demoPath ? 'DemoWorkout' : appEntryRoute;
-  const navigatorKey = demoPath
-    ? 'demo-workout'
+  const navigatorInitialRoute = hiddenDemoRoute ?? appEntryRoute;
+  const navigatorKey = hiddenDemoRoute
+    ? `demo-${hiddenDemoRoute}`
     : user
       ? `${user.uid}-${appEntryRoute}`
       : 'guest';

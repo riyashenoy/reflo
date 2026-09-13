@@ -47,7 +47,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build:web": "expo export:web && node scripts/fix-web-public-paths.js"
+    "build:web": "expo export:web && node scripts/fix-web-public-paths.js",
+    "server:dev": "npm --prefix server run dev",
+    "server:migrate": "npm --prefix server run migrate"
   },
   "private": true
 }
